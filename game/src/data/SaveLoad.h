@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <utility>
 #include "../world/HexMap.h"
 #include "../hero/Hero.h"
 #include "../town/Town.h"
@@ -74,6 +75,16 @@ struct TownSave
     std::array<int, RESOURCE_COUNT> weeklyIncomeAmounts;
 };
 
+// ── Campaign save state ────────────────────────────────────────────────────────
+struct CampaignSaveState
+{
+    bool     active      = false;
+    int      missionIdx  = 0;
+    int      orderScore  = 0;
+    int      lightScore  = 0;
+    std::vector<std::pair<uint32_t, int>> decisions; // {decisionId, choiceIdx}
+};
+
 // ── Full game save ─────────────────────────────────────────────────────────────
 struct GameSaveData
 {
@@ -96,6 +107,9 @@ struct GameSaveData
 
     // Tile fog/entity state
     std::vector<TileSave>  tiles;
+
+    // Campaign state (optional — only populated when a campaign is active)
+    CampaignSaveState campaign;
 };
 
 // ── Save / Load API ────────────────────────────────────────────────────────────

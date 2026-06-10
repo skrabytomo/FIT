@@ -70,6 +70,18 @@ void CombatEngine::startBattle(
     }
 
     buildTurnOrder();
+
+    // Apply hero attack/defense bonuses to their unit stacks
+    for (auto& u : m_grid.units()) {
+        if (u.isPlayer) {
+            u.attack  += m_playerHero.attack;
+            u.defense += m_playerHero.defense;
+        } else {
+            u.attack  += m_enemyHero.attack;
+            u.defense += m_enemyHero.defense;
+        }
+    }
+
     m_phase = CombatPhase::PlayerTurn;
     addLog("Battle started! Round 1");
 }

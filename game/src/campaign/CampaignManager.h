@@ -5,6 +5,7 @@
 #include "AlignmentSystem.h"
 #include "../scripting/LuaEngine.h"
 #include "../meta/HideoutDB.h"
+#include "../data/SaveLoad.h"
 
 enum class CampaignEvent : uint8_t
 {
@@ -50,6 +51,10 @@ public:
     int requiredObjectives()  const;
 
     void setEventCallback(EventCallback cb) { m_onEvent = cb; }
+
+    // Persistence
+    CampaignSaveState toSaveState() const;
+    void fromSaveState(const CampaignSaveState& s);
 
 private:
     void startMission(int id);

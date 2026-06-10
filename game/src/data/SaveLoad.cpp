@@ -183,6 +183,20 @@ bool SaveLoad::saveGame(const std::string& path, const GameSaveData& data)
         for (auto& t : data.tiles) tileArr.push_back(tileToJson(t));
         j["tiles"] = tileArr;
 
+        // Campaign
+        if (data.campaign.active) {
+            json camp;
+            camp["active"]  = data.campaign.active;
+            camp["mission"] = data.campaign.missionIdx;
+            camp["order"]   = data.campaign.orderScore;
+            camp["light"]   = data.campaign.lightScore;
+            json decArr = json::array();
+            for (auto& [id, choice] : data.campaign.decisions)
+                decArr.push_back({{"id", id}, {"choice", choice}});
+            camp["decisions"] = decArr;
+            j["campaign"] = camp;
+        }
+
         std::ofstream f(path);
         if (!f.is_open()) return false;
         f << j.dump(2);
@@ -226,6 +240,21 @@ bool SaveLoad::loadGame(const std::string& path, GameSaveData& out)
         out.tiles.clear();
         if (j.contains("tiles"))
             for (auto& jt : j.at("tiles")) out.tiles.push_back(tileFromJson(jt));
+
+        // Campaign
+        if (j.contains("campaign")) {
+            const auto& camp = j.at("campaign");
+            out.campaign.active      = camp.value("active",  false);
+            out.campaign.missionIdx  = camp.value("mission", 0);
+            out.campaign.orderScore  = camp.value("order",   0);
+            out.campaign.lightScore  = camp.value("light",   0);
+            if (camp.contains("decisions")) {
+                for (auto& d : camp.at("decisions")) {
+                    out.campaign.decisions.push_back(
+                        {d.at("id").get<uint32_t>(), d.at("choice").get<int>()});
+                }
+            }
+        }
 
         return true;
     }

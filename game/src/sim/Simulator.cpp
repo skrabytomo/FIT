@@ -1,6 +1,6 @@
 #include "Simulator.h"
 #include "ArmyBuilder.h"
-#include <cstdlib>
+#include "../combat/DamageCalc.h"
 #include <cmath>
 #include <sstream>
 #include <iomanip>
@@ -50,8 +50,7 @@ FactionMatchup Simulator::runMatchup(FactionId f1, FactionId f2,
     engine.setEnemyAI(ai2);
 
     for (int b = 0; b < numBattles; ++b) {
-        // Seed rand for this battle to get variance but reproducibility
-        srand(baseSeed + static_cast<uint32_t>(b));
+        DamageCalc::seedRng(baseSeed + static_cast<uint32_t>(b));
 
         engine.startBattle(hero1, army1Base, hero2, army2Base);
         CombatPhase result = engine.runHeadless(MAX_ROUNDS);

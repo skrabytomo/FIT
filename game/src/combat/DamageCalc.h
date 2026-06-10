@@ -30,6 +30,8 @@ public:
     // Morale bonus action threshold
     static constexpr int MORALE_THRESHOLD = 100;
 
+    static void seedRng(uint32_t seed);
+
 private:
     static int rollDamage(int dmin, int dmax, int count);
 };

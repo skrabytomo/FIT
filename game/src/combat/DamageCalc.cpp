@@ -1,14 +1,21 @@
 #include "DamageCalc.h"
-#include <cstdlib>
 #include <cmath>
 #include <algorithm>
+#include <random>
+
+static thread_local std::mt19937 s_rng{std::random_device{}()};
+
+void DamageCalc::seedRng(uint32_t seed)
+{
+    s_rng.seed(seed);
+}
 
 // ── Damage roll ────────────────────────────────────────────────────────────────
 int DamageCalc::rollDamage(int dmin, int dmax, int count)
 {
     if (dmin >= dmax) return dmin * count;
-    int perUnit = dmin + rand() % (dmax - dmin + 1);
-    return perUnit * count;
+    std::uniform_int_distribution<int> dist(dmin, dmax);
+    return dist(s_rng) * count;
 }
 
 // ── Tile modifiers ─────────────────────────────────────────────────────────────

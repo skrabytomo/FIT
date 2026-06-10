@@ -402,3 +402,39 @@ void CampaignManager::fireEvent(CampaignEvent e)
 {
     if (m_onEvent) m_onEvent(e);
 }
+
+// ── Persistence ────────────────────────────────────────────────────────────────
+CampaignSaveState CampaignManager::toSaveState() const
+{
+    CampaignSaveState s;
+    s.active     = !m_missions.empty();
+    s.missionIdx = m_currentIdx;
+    s.orderScore = m_alignment.orderScore();
+    s.lightScore = m_alignment.lightScore();
+    if (m_currentIdx < static_cast<int>(m_missions.size())) {
+        for (auto& dec : m_missions[m_currentIdx].decisions) {
+            if (dec.resolved)
+                s.decisions.push_back({dec.id, dec.chosenIdx});
+        }
+    }
+    return s;
+}
+
+void CampaignManager::fromSaveState(const CampaignSaveState& s)
+{
+    if (!s.active || m_missions.empty()) return;
+    m_currentIdx = std::clamp(s.missionIdx, 0, static_cast<int>(m_missions.size()) - 1);
+    m_alignment.reset();
+    m_alignment.apply(s.orderScore, s.lightScore);
+    if (m_currentIdx < static_cast<int>(m_missions.size())) {
+        for (auto& [id, choice] : s.decisions) {
+            for (auto& dec : m_missions[m_currentIdx].decisions) {
+                if (dec.id == id) {
+                    dec.resolved  = true;
+                    dec.chosenIdx = choice;
+                    break;
+                }
+            }
+        }
+    }
+}
