@@ -1,0 +1,62 @@
+#pragma once
+#include "Widgets.h"
+#include "../town/Town.h"
+#include "../town/BuildingRegistry.h"
+#include "../data/Resources.h"
+#include <functional>
+
+class TownScreen
+{
+public:
+    bool init(int screenW, int screenH);
+    void open(Town* town, Resources* playerRes, const BuildingRegistry* registry);
+    void close() { m_open = false; m_town = nullptr; }
+    bool isOpen() const { return m_open; }
+
+    void draw(UIRenderer& rdr);
+    bool onMouseMove(float x, float y);
+    bool onMouseDown(float x, float y);
+    bool onMouseUp(float x, float y);
+
+    UICallback onClose;
+
+private:
+    void buildLayout(int sw, int sh);
+    void rebuildBuildingButtons();
+    void rebuildRecruitButtons();
+    void drawBuildingTree(UIRenderer& rdr);
+    void drawRecruitPanel(UIRenderer& rdr);
+    void drawIncomePanel(UIRenderer& rdr);
+
+    Town*                   m_town     = nullptr;
+    Resources*              m_playerRes = nullptr;
+    const BuildingRegistry* m_registry  = nullptr;
+    bool                    m_open      = false;
+
+    int m_screenW = 1280, m_screenH = 720;
+
+    Panel  m_mainPanel;
+    Panel  m_buildPanel;
+    Panel  m_recruitPanel;
+    Panel  m_incomePanel;
+    Button m_closeBtn;
+
+    // Dynamic building buttons (rebuilt on open)
+    struct BuildBtn {
+        Button btn;
+        int    buildingId = 0;
+        bool   built      = false;
+        bool   affordable = false;
+        bool   prereqMet  = false;
+    };
+    std::vector<BuildBtn> m_buildBtns;
+
+    struct RecruitBtn {
+        Button btn;
+        int    tier       = 0;
+        int    available  = 0;
+    };
+    std::vector<RecruitBtn> m_recruitBtns;
+
+    TooltipWidget m_tooltip;
+};

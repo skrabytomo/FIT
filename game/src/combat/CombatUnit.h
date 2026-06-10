@@ -1,0 +1,92 @@
+#pragma once
+#include <string>
+#include <vector>
+#include "../town/UnitDef.h"
+#include "../world/HexMap.h"  // HexCoord
+
+// ── Special tile types on combat grid ─────────────────────────────────────────
+enum class CombatTileType : uint8_t
+{
+    Normal = 0,
+    Attack,         // bonus damage while standing here
+    Defense,        // damage reduction while standing here
+    Speed,          // movement bonus
+    SpeedPenalty,   // movement penalty
+    Obstacle,       // impassable
+    Wall,           // siege wall — has HP
+};
+
+struct CombatTile
+{
+    HexCoord      coord;
+    CombatTileType type    = CombatTileType::Normal;
+    bool          occupied = false;
+    uint32_t      unitId   = 0;   // which unit is standing here
+    int           wallHP   = 0;   // only for Wall tiles
+};
+
+// ── Combat unit stack ──────────────────────────────────────────────────────────
+struct CombatUnit
+{
+    uint32_t    id          = 0;
+    std::string name;
+    int         defId       = 0;    // UnitDef id
+
+    // Stack state
+    int         count       = 1;    // units in stack
+    int         hp          = 10;   // current HP of top unit in stack
+    int         maxHp       = 10;
+
+    // Combat stats (copied from UnitDef, modified by hero aura etc.)
+    int         attack      = 2;
+    int         defense     = 2;
+    int         damageMin   = 1;
+    int         damageMax   = 3;
+    int         speed       = 4;
+    int         range       = 0;
+    int         shots       = 0;
+    int         shotsLeft   = 0;
+    bool        flying      = false;
+    UnitTag     tags        = UnitTag::Humanoid;
+
+    // Position on combat grid
+    HexCoord    pos         = {0, 0};
+
+    // Ownership
+    bool        isPlayer    = true;   // player or enemy side
+    int         stackSlot   = 0;      // 0-6
+
+    // Turn state
+    bool        hasMoved    = false;
+    bool        hasActed    = false;
+    bool        waitUsed    = false;  // used Wait this round
+    bool        alive       = true;
+
+    // Retaliation state
+    bool        canRetaliate = true;  // resets each round
+
+    // Morale meter (0-100)
+    int         morale      = 50;
+    bool        moraleImmune = false; // Undead, Forge, Fleshcraft
+
+    // Second life (Eternal Empire)
+    bool        hasSecondLife  = false;
+    bool        secondLifeUsed = false;
+
+    // Faction-specific state
+    int         desperationMeter  = 0;   // Holy Order
+    bool        isLastOfType      = false;
+
+    // ── Methods ───────────────────────────────────────────────────────────────
+    bool canAct()   const { return alive && !hasActed; }
+    bool canMove()  const { return alive && !hasMoved; }
+
+    // Total HP across whole stack
+    int totalHp() const { return (count - 1) * maxHp + hp; }
+
+    // Apply damage — returns units killed
+    int applyDamage(int dmg);
+
+    // Reset for new round
+    void newRound();
+};
