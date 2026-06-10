@@ -1,0 +1,70 @@
+#pragma once
+#include <vector>
+#include <functional>
+#include "CampaignDef.h"
+#include "AlignmentSystem.h"
+#include "../scripting/LuaEngine.h"
+#include "../meta/HideoutDB.h"
+
+enum class CampaignEvent : uint8_t
+{
+    MissionStarted,
+    ObjectiveCompleted,
+    DecisionPresented,
+    DecisionResolved,
+    MissionCompleted,
+    MissionFailed,
+    CampaignEnded,
+};
+
+class CampaignManager
+{
+public:
+    using EventCallback = std::function<void(CampaignEvent)>;
+
+    // Populate the hardcoded 3-mission campaign arc
+    void init();
+
+    // Called once per week from Game (campaign mode)
+    void onWeekStart(int week, LuaEngine& lua);
+
+    // Called by game systems when world events happen
+    void onTownCaptured(uint32_t townId);
+    void onHeroDefeated(uint32_t heroId);
+    void onResourcesChecked(ResourceType type, int amount);
+
+    // Decision flow
+    bool                    hasPendingDecision() const;
+    const CampaignDecision* pendingDecision() const;
+    void                    resolveDecision(int choiceIdx, LuaEngine& lua);
+
+    // State queries
+    const CampaignMission*  currentMission()  const;
+    const AlignmentSystem&  alignment()       const { return m_alignment; }
+    bool isCampaignOver()  const { return m_over; }
+    bool playerWon()       const { return m_won; }
+    FactionId unlockedFaction(bool convergenceEligible) const;
+
+    // Objectives progress for HUD
+    int completedObjectives() const;
+    int requiredObjectives()  const;
+
+    void setEventCallback(EventCallback cb) { m_onEvent = cb; }
+
+private:
+    void startMission(int id);
+    void tryCompleteObjective(CampaignObjective& obj, bool success);
+    void checkAllObjectives();
+    void completeMission(bool won);
+    void fireEvent(CampaignEvent e);
+
+    static std::vector<CampaignMission> buildCampaign();
+
+    std::vector<CampaignMission> m_missions;
+    int              m_currentIdx   = 0;
+    bool             m_over         = false;
+    bool             m_won          = false;
+    int              m_pendingDecIdx = -1;  // index into current mission decisions
+    AlignmentSystem  m_alignment;
+    EventCallback    m_onEvent;
+};

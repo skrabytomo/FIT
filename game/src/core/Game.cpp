@@ -214,12 +214,17 @@ void Game::update(float dt)
         if (m_state == GameState::Editor) exitEditor();
         else enterEditor();
     }
+    if (m_input.keyDown(SDLK_F4)) {
+        if (m_state == GameState::Campaign) exitCampaign();
+        else enterCampaign();
+    }
 
     switch (m_state) {
-        case GameState::WorldMap: updateWorldMap(dt); break;
-        case GameState::Combat:   updateCombat(dt);   break;
-        case GameState::Town:     updateTown(dt);     break;
-        case GameState::Editor:   updateEditor(dt);   break;
+        case GameState::WorldMap: updateWorldMap(dt);  break;
+        case GameState::Combat:   updateCombat(dt);    break;
+        case GameState::Town:     updateTown(dt);      break;
+        case GameState::Editor:   updateEditor(dt);    break;
+        case GameState::Campaign: updateCampaign(dt);  break;
         default: break;
     }
 }
@@ -232,10 +237,11 @@ void Game::render()
     glClear(GL_COLOR_BUFFER_BIT);
 
     switch (m_state) {
-        case GameState::WorldMap: renderWorldMap(); break;
-        case GameState::Combat:   renderCombat();   break;
-        case GameState::Town:     renderTown();     break;
-        case GameState::Editor:   renderEditor();   break;
+        case GameState::WorldMap: renderWorldMap();  break;
+        case GameState::Combat:   renderCombat();    break;
+        case GameState::Town:     renderTown();      break;
+        case GameState::Editor:   renderEditor();    break;
+        case GameState::Campaign: renderCampaign();  break;
         default: break;
     }
 
@@ -288,6 +294,15 @@ void Game::updateWorldMap(float dt)
             printf("New week %d — income applied\n", m_turns.week());
             ScriptContext ctx; ctx.heroId = 0;
             m_triggers.fire(TriggerType::WeekStart, ctx);
+            if (m_state == GameState::Campaign)
+                m_campaign.onWeekStart(m_turns.week(), m_lua);
+            // Check resource objectives each week
+            if (m_state == GameState::Campaign) {
+                for (int rt = 0; rt < RESOURCE_COUNT; ++rt) {
+                    auto type = static_cast<ResourceType>(rt);
+                    m_campaign.onResourcesChecked(type, m_playerResources.get(type));
+                }
+            }
         }
     }
 }
@@ -670,6 +685,52 @@ void Game::renderEditor()
     beginImGuiFrame();
     m_editor.renderImGui(m_map, m_towns, m_resources, m_heroStarts);
     m_simWindow.render();
+    endImGuiFrame();
+}
+
+// ── Campaign state ────────────────────────────────────────────────────────────
+void Game::enterCampaign()
+{
+    m_state = GameState::Campaign;
+    m_campaign.init();
+    m_campaign.setEventCallback([this](CampaignEvent e) {
+        if (e == CampaignEvent::MissionCompleted)
+            printf("[Campaign] Mission complete!\n");
+        else if (e == CampaignEvent::MissionFailed)
+            printf("[Campaign] Mission failed.\n");
+        else if (e == CampaignEvent::CampaignEnded) {
+            bool convergenceOk = m_hideout.isConvergenceUnlocked();
+            FactionId unlocked = m_campaign.unlockedFaction(convergenceOk);
+            printf("[Campaign] Ended — faction unlocked: %d\n",
+                   static_cast<int>(unlocked));
+            if (convergenceOk)
+                m_hideout.completeMilestone("convergence_unlock");
+        }
+    });
+    printf("Entered Campaign (F4 to exit)\n");
+}
+
+void Game::exitCampaign()
+{
+    m_state = GameState::WorldMap;
+    printf("Exited Campaign\n");
+}
+
+void Game::updateCampaign(float dt)
+{
+    (void)dt;
+    // Turn-based: no per-frame logic needed.
+    // Week events are driven by onEndTurn in WorldMap mode and
+    // forwarded here when campaign is active.
+}
+
+void Game::renderCampaign()
+{
+    // Render world map as backdrop, then campaign overlay
+    m_hexRenderer.render(m_map, m_camera, m_hovered, {-999,-999});
+
+    beginImGuiFrame();
+    m_campaignHUD.render(m_campaign, m_lua);
     endImGuiFrame();
 }
 

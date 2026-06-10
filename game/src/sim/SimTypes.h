@@ -2,15 +2,18 @@
 #include <string>
 #include <array>
 #include "../hero/Hero.h"
+#include "../combat/CombatEngine.h"   // AIDifficulty
 
 struct SimConfig
 {
-    FactionId faction1      = FactionId::HolyOrder;
-    FactionId faction2      = FactionId::CrimsonWardens;
-    bool      allVsAll      = false;   // run all 9x9 matchups
-    int       weeks         = 4;       // campaign weeks simulated
-    int       numBattles    = 1000;    // battles per matchup
-    uint32_t  seed          = 42;
+    FactionId    faction1      = FactionId::HolyOrder;
+    FactionId    faction2      = FactionId::CrimsonWardens;
+    bool         allVsAll      = false;
+    int          weeks         = 4;
+    int          numBattles    = 1000;
+    uint32_t     seed          = 42;
+    AIDifficulty side1AI       = AIDifficulty::Standard;
+    AIDifficulty side2AI       = AIDifficulty::Standard;
 };
 
 struct FactionMatchup

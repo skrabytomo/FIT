@@ -19,7 +19,8 @@ private:
     // Run a single faction matchup — returns the filled FactionMatchup.
     static FactionMatchup runMatchup(FactionId f1, FactionId f2,
                                      int weeks, int numBattles,
-                                     uint32_t baseSeed);
+                                     uint32_t baseSeed,
+                                     AIDifficulty ai1, AIDifficulty ai2);
 
     // Build human-readable balance report from all matchups.
     static std::string buildReport(const SimResult& result);

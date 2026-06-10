@@ -2,6 +2,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <cmath>
+#include "../sim/SimTypes.h"
 
 static const char* kFactionLabels[] = {
     "Holy Order", "Crimson Wardens", "Thornkin",
@@ -43,6 +44,8 @@ void SimulatorWindow::launchSimulation()
     cfg.weeks      = m_weeks;
     cfg.numBattles = m_numBattles;
     cfg.seed       = static_cast<uint32_t>(m_seed);
+    cfg.side1AI    = static_cast<AIDifficulty>(m_ai1);
+    cfg.side2AI    = static_cast<AIDifficulty>(m_ai2);
 
     m_thread = std::thread([this, cfg]() {
         SimResult r = Simulator::run(cfg, [this](int done, int total) {
@@ -97,7 +100,15 @@ void SimulatorWindow::drawConfigPanel()
 
     ImGui::SliderInt("Weeks",    &m_weeks,      1, 20);
     ImGui::SliderInt("Battles",  &m_numBattles, 100, 5000);
-    ImGui::InputInt("Seed",     &m_seed);
+    ImGui::InputInt("Seed",      &m_seed);
+
+    static const char* kAILabels[] = {"Passive","Standard","Tactical"};
+    ImGui::Combo("A.I. Side A", &m_ai1, kAILabels, 3);
+    ImGui::Combo("A.I. Side B", &m_ai2, kAILabels, 3);
+    if (m_ai1 != m_ai2) {
+        ImGui::TextColored(ImVec4(1,0.85f,0.3f,1),
+            "Asymmetric AI — tests difficulty gap");
+    }
 
     // Hero level preview
     int level = 1 + static_cast<int>(std::sqrt(static_cast<float>(m_weeks) * 2.0f));

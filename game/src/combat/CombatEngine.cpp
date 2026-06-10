@@ -242,7 +242,45 @@ void CombatEngine::processAITurn()
 
 void CombatEngine::aiActUnit(CombatUnit& unit)
 {
-    // Find nearest player unit
+    AIDifficulty diff = unit.isPlayer ? m_playerAI : m_enemyAI;
+    switch (diff) {
+    case AIDifficulty::Passive:  aiActPassive(unit);  break;
+    case AIDifficulty::Standard: aiActStandard(unit); break;
+    case AIDifficulty::Tactical: aiActTactical(unit); break;
+    }
+}
+
+// ── Passive: attack a random visible enemy ─────────────────────────────────────
+void CombatEngine::aiActPassive(CombatUnit& unit)
+{
+    std::vector<CombatUnit*> enemies;
+    for (auto& u : m_grid.units())
+        if (u.alive && u.isPlayer != unit.isPlayer) enemies.push_back(&u);
+    if (enemies.empty()) { skipUnit(); return; }
+
+    CombatUnit* target = enemies[static_cast<size_t>(rand()) % enemies.size()];
+    int dist = HexGrid::distance(unit.pos, target->pos);
+
+    if (dist == 1) {
+        auto result = DamageCalc::attack(unit, *target, m_grid);
+        std::ostringstream ss;
+        ss << unit.name << " attacks " << target->name << " for " << result.damage;
+        addLog(ss.str());
+        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        unit.hasActed = true; advanceTurn(); return;
+    }
+
+    auto melee = m_grid.meleePositions(target->pos);
+    if (!melee.empty()) {
+        auto path = m_grid.findPath(unit.pos, melee[0], unit.flying);
+        if (!path.empty()) { m_grid.moveUnit(unit.id, path[0]); unit.hasMoved = true; }
+    }
+    unit.hasActed = true; advanceTurn();
+}
+
+// ── Standard: nearest enemy, move/attack ──────────────────────────────────────
+void CombatEngine::aiActStandard(CombatUnit& unit)
+{
     CombatUnit* target = nullptr;
     int bestDist = 9999;
     for (auto& u : m_grid.units()) {
@@ -250,46 +288,109 @@ void CombatEngine::aiActUnit(CombatUnit& unit)
         int d = HexGrid::distance(unit.pos, u.pos);
         if (d < bestDist) { bestDist = d; target = &u; }
     }
-
     if (!target) { skipUnit(); return; }
 
-    // Try to attack if adjacent
     if (bestDist == 1) {
         auto result = DamageCalc::attack(unit, *target, m_grid);
         std::ostringstream ss;
-        ss << unit.name << " attacks " << target->name
-           << " for " << result.damage << " dmg";
+        ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
-        if (!target->alive) {
-            addLog(target->name + " destroyed!");
-            m_grid.removeDeadUnits();
-        }
-        unit.hasActed = true;
-        advanceTurn();
-        return;
+        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        unit.hasActed = true; advanceTurn(); return;
     }
 
-    // Move toward target
     auto melee = m_grid.meleePositions(target->pos);
     if (!melee.empty()) {
-        // Pick closest melee position
-        HexCoord best = melee[0];
-        int d = HexGrid::distance(unit.pos, best);
-        for (auto& h : melee) {
-            int nd = HexGrid::distance(unit.pos, h);
-            if (nd < d) { d = nd; best = h; }
-        }
+        HexCoord best = melee[0]; int d = HexGrid::distance(unit.pos, best);
+        for (auto& h : melee) { int nd = HexGrid::distance(unit.pos, h); if (nd < d) { d = nd; best = h; } }
         auto path = m_grid.findPath(unit.pos, best, unit.flying);
-        if (!path.empty()) {
-            m_grid.moveUnit(unit.id, path[0]); // move one step
-            unit.hasMoved = true;
-            addLog(unit.name + " moves toward " + target->name);
+        if (!path.empty()) { m_grid.moveUnit(unit.id, path[0]); unit.hasMoved = true; addLog(unit.name + " moves toward " + target->name); }
+    }
+    unit.hasActed = true; advanceTurn();
+}
+
+// ── Tactical: focus weakest stack, ranged units kite back ─────────────────────
+void CombatEngine::aiActTactical(CombatUnit& unit)
+{
+    // Ranged units: move away from melee threats, shoot lowest-HP enemy in range
+    if (unit.range > 0 && unit.shotsLeft > 0) {
+        // Find closest enemy threatening melee
+        CombatUnit* threat = nullptr;
+        int threatDist = 9999;
+        for (auto& u : m_grid.units()) {
+            if (!u.alive || u.isPlayer == unit.isPlayer || u.range > 0) continue;
+            int d = HexGrid::distance(unit.pos, u.pos);
+            if (d < threatDist) { threatDist = d; threat = &u; }
+        }
+
+        // If melee threat is very close (≤2), try to back away
+        if (threat && threatDist <= 2 && !unit.hasMoved) {
+            // Pick the hex adjacent to us that maximises distance from threat
+            auto neighbours = HexGrid::neighbors(unit.pos);
+            HexCoord best = unit.pos; int bestD = threatDist;
+            for (auto& h : neighbours) {
+                if (!m_grid.inBounds(h)) continue;
+                auto* tile = m_grid.getTile(h);
+                if (!tile || tile->occupied || tile->type == CombatTileType::Obstacle) continue;
+                int nd = HexGrid::distance(h, threat->pos);
+                if (nd > bestD) { bestD = nd; best = h; }
+            }
+            if (!(best == unit.pos)) {
+                m_grid.moveUnit(unit.id, best); unit.hasMoved = true;
+                addLog(unit.name + " falls back");
+            }
+        }
+
+        // Shoot enemy with lowest total HP
+        CombatUnit* shtTarget = nullptr;
+        int lowestHp = INT32_MAX;
+        for (auto& u : m_grid.units()) {
+            if (!u.alive || u.isPlayer == unit.isPlayer) continue;
+            if (u.totalHp() < lowestHp) { lowestHp = u.totalHp(); shtTarget = &u; }
+        }
+        if (shtTarget) {
+            auto result = DamageCalc::attack(unit, *shtTarget, m_grid);
+            std::ostringstream ss;
+            ss << unit.name << " shoots " << shtTarget->name << " for " << result.damage;
+            addLog(ss.str());
+            if (!shtTarget->alive) { addLog(shtTarget->name + " destroyed!"); m_grid.removeDeadUnits(); }
+            unit.hasActed = true; advanceTurn(); return;
         }
     }
 
-    unit.hasActed = true;
-    advanceTurn();
+    // Melee: focus weakest enemy stack by total HP
+    CombatUnit* target = nullptr;
+    int lowestHp = INT32_MAX;
+    int bestDist = 9999;
+    for (auto& u : m_grid.units()) {
+        if (!u.alive || u.isPlayer == unit.isPlayer) continue;
+        int hp = u.totalHp();
+        int d  = HexGrid::distance(unit.pos, u.pos);
+        // Prefer adjacent weak targets; if none adjacent, pick weakest reachable
+        if (d == 1 && hp < lowestHp) { lowestHp = hp; bestDist = d; target = &u; }
+        else if (bestDist > 1 && hp < lowestHp) { lowestHp = hp; bestDist = d; target = &u; }
+    }
+    if (!target) { skipUnit(); return; }
+
+    if (bestDist == 1) {
+        auto result = DamageCalc::attack(unit, *target, m_grid);
+        std::ostringstream ss;
+        ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
+        if (result.killed) ss << " (" << result.killed << " killed)";
+        addLog(ss.str());
+        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        unit.hasActed = true; advanceTurn(); return;
+    }
+
+    auto melee = m_grid.meleePositions(target->pos);
+    if (!melee.empty()) {
+        HexCoord best = melee[0]; int d = HexGrid::distance(unit.pos, best);
+        for (auto& h : melee) { int nd = HexGrid::distance(unit.pos, h); if (nd < d) { d = nd; best = h; } }
+        auto path = m_grid.findPath(unit.pos, best, unit.flying);
+        if (!path.empty()) { m_grid.moveUnit(unit.id, path[0]); unit.hasMoved = true; }
+    }
+    unit.hasActed = true; advanceTurn();
 }
 
 // ── Headless simulation ────────────────────────────────────────────────────────

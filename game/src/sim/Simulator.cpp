@@ -24,7 +24,8 @@ static const char* factionName(FactionId f)
 
 FactionMatchup Simulator::runMatchup(FactionId f1, FactionId f2,
                                      int weeks, int numBattles,
-                                     uint32_t baseSeed)
+                                     uint32_t baseSeed,
+                                     AIDifficulty ai1, AIDifficulty ai2)
 {
     FactionMatchup m;
     m.f1      = f1;
@@ -45,6 +46,8 @@ FactionMatchup Simulator::runMatchup(FactionId f1, FactionId f2,
 
     CombatEngine engine;
     engine.setSilent(true);
+    engine.setPlayerAI(ai1);
+    engine.setEnemyAI(ai2);
 
     for (int b = 0; b < numBattles; ++b) {
         // Seed rand for this battle to get variance but reproducibility
@@ -168,7 +171,8 @@ SimResult Simulator::run(const SimConfig& cfg, ProgressCallback onProgress)
                 FactionId f1 = static_cast<FactionId>(i);
                 FactionId f2 = static_cast<FactionId>(j);
                 uint32_t seed = cfg.seed ^ (static_cast<uint32_t>(i) * 31 + static_cast<uint32_t>(j));
-                auto m = runMatchup(f1, f2, cfg.weeks, cfg.numBattles, seed);
+                auto m = runMatchup(f1, f2, cfg.weeks, cfg.numBattles, seed,
+                                    cfg.side1AI, cfg.side2AI);
                 result.matchups[i][j] = m;
                 // Mirror: flip win rate for [j][i]
                 FactionMatchup mirror = m;
@@ -185,7 +189,8 @@ SimResult Simulator::run(const SimConfig& cfg, ProgressCallback onProgress)
         int i = static_cast<int>(cfg.faction1);
         int j = static_cast<int>(cfg.faction2);
         auto m = runMatchup(cfg.faction1, cfg.faction2,
-                            cfg.weeks, cfg.numBattles, cfg.seed);
+                            cfg.weeks, cfg.numBattles, cfg.seed,
+                            cfg.side1AI, cfg.side2AI);
         result.matchups[i][j] = m;
         FactionMatchup mirror  = m;
         mirror.f1      = cfg.faction2;

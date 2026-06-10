@@ -6,6 +6,14 @@
 #include "DamageCalc.h"
 #include "../hero/Hero.h"
 
+// ── AI difficulty / personality ────────────────────────────────────────────────
+enum class AIDifficulty : uint8_t
+{
+    Passive,    // random movement, no targeting priority — baseline / easy
+    Standard,   // nearest enemy, attack if adjacent — current default
+    Tactical,   // focus weakest stack, protect own ranged, kite
+};
+
 // ── Action types ───────────────────────────────────────────────────────────────
 enum class ActionType { Move, Attack, Wait, Defend, Shoot, UseAbility };
 
@@ -68,6 +76,12 @@ public:
     void setSilent(bool s) { m_silent = s; }
     CombatPhase runHeadless(int maxRounds = 60);
 
+    // AI difficulty — affects both processAITurn() and the player side in runHeadless()
+    void setPlayerAI(AIDifficulty d) { m_playerAI = d; }
+    void setEnemyAI(AIDifficulty d)  { m_enemyAI  = d; }
+    AIDifficulty playerAI() const { return m_playerAI; }
+    AIDifficulty enemyAI()  const { return m_enemyAI; }
+
 private:
     void buildTurnOrder();
     void advanceTurn();
@@ -75,8 +89,11 @@ private:
     void applyTileEffect(CombatUnit& unit);
     void addLog(const std::string& msg);
 
-    // Simple AI — move toward nearest enemy and attack
+    // AI dispatch — delegates to difficulty-specific implementation
     void aiActUnit(CombatUnit& unit);
+    void aiActPassive(CombatUnit& unit);   // random target, no priority
+    void aiActStandard(CombatUnit& unit);  // nearest enemy (current behaviour)
+    void aiActTactical(CombatUnit& unit);  // weakest stack first, protect ranged
 
     CombatGrid  m_grid;
     CombatPhase m_phase     = CombatPhase::Setup;
@@ -88,7 +105,9 @@ private:
 
     std::vector<CombatLog> m_log;
     LogCallback            m_logCb;
-    bool                   m_silent = false;
+    bool                   m_silent  = false;
+    AIDifficulty           m_playerAI = AIDifficulty::Standard;
+    AIDifficulty           m_enemyAI  = AIDifficulty::Standard;
 
     Hero m_playerHero;
     Hero m_enemyHero;

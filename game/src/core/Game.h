@@ -29,6 +29,8 @@
 #include "../scripting/TriggerSystem.h"
 #include "../editor/MapEditor.h"
 #include "../editor/SimulatorWindow.h"
+#include "../campaign/CampaignManager.h"
+#include "../ui/CampaignHUD.h"
 
 class Game
 {
@@ -55,6 +57,10 @@ private:
     void renderTown();
     void updateEditor(float dt);
     void renderEditor();
+    void updateCampaign(float dt);
+    void renderCampaign();
+    void enterCampaign();
+    void exitCampaign();
 
     // ── State transitions ─────────────────────────────────────────────────────
     void enterWorldMap();
@@ -144,6 +150,10 @@ private:
     // ── Scripting ─────────────────────────────────────────────────────────────
     LuaEngine     m_lua;
     TriggerSystem m_triggers;
+
+    // ── Campaign ───────────────────────────────────────────────────────────────
+    CampaignManager m_campaign;
+    CampaignHUD     m_campaignHUD;
 
     // ── Persistent meta layer ──────────────────────────────────────────────────
     HideoutDB    m_hideout;

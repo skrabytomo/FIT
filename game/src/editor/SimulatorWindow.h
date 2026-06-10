@@ -40,6 +40,8 @@ private:
     int  m_weeks       = 4;
     int  m_numBattles  = 1000;
     int  m_seed        = 42;
+    int  m_ai1         = 1;   // AIDifficulty index: 0=Passive,1=Standard,2=Tactical
+    int  m_ai2         = 1;
 
     // Simulation thread
     std::thread       m_thread;
