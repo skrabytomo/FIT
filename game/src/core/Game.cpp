@@ -1,11 +1,16 @@
 #include "Game.h"
+#define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
+#include <GL/glext.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
 #include <stdio.h>
 #include <cmath>
 #include <algorithm>
+extern "C" {
+#include <lua.h>
+}
 
 static constexpr float MOVE_SPEED  = 4.0f;
 static constexpr const char* SAVE_PATH    = "saves/save0.json";
@@ -643,6 +648,10 @@ void Game::updateEditor(float dt)
             m_editor.onHexClicked(m_hovered, m_map, m_towns,
                                   m_resources, m_heroStarts);
     }
+
+    // F3 toggles Combat Simulator window
+    if (m_input.keyDown(SDLK_F3))
+        m_simWindow.setOpen(!m_simWindow.isOpen());
 }
 
 void Game::renderEditor()
@@ -660,6 +669,7 @@ void Game::renderEditor()
     // ImGui editor overlay
     beginImGuiFrame();
     m_editor.renderImGui(m_map, m_towns, m_resources, m_heroStarts);
+    m_simWindow.render();
     endImGuiFrame();
 }
 

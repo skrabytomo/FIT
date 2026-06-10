@@ -2,6 +2,9 @@
 #include <nlohmann/json.hpp>
 #include <algorithm>
 #include <cstdio>
+extern "C" {
+#include <lua.h>
+}
 
 using json = nlohmann::json;
 

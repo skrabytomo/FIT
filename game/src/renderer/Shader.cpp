@@ -1,5 +1,5 @@
 #include "Shader.h"
-#include <GL/gl.h>
+#include "gl_includes.h"
 #include <stdio.h>
 #include <fstream>
 #include <sstream>

@@ -25,6 +25,7 @@ public:
 
     // Unit access
     CombatUnit*       getUnit(uint32_t id);
+    const CombatUnit* getUnit(uint32_t id) const;
     CombatUnit*       getUnitAt(HexCoord h);
     const CombatUnit* getUnitAt(HexCoord h) const;
 

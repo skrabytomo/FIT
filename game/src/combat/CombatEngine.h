@@ -64,6 +64,10 @@ public:
     const std::vector<CombatLog>& log() const { return m_log; }
     void setLogCallback(LogCallback cb) { m_logCb = cb; }
 
+    // Headless batch simulation — both sides use AI, returns final phase
+    void setSilent(bool s) { m_silent = s; }
+    CombatPhase runHeadless(int maxRounds = 60);
+
 private:
     void buildTurnOrder();
     void advanceTurn();
@@ -84,6 +88,7 @@ private:
 
     std::vector<CombatLog> m_log;
     LogCallback            m_logCb;
+    bool                   m_silent = false;
 
     Hero m_playerHero;
     Hero m_enemyHero;

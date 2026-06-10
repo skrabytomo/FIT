@@ -3,6 +3,7 @@
 #include <vector>
 #include "../data/Resources.h"
 #include "../hero/Hero.h"
+#include "BuildingDef.h"  // UpgradePath
 
 // ── Unit type tags (weakness matrix) ──────────────────────────────────────────
 enum class UnitTag : uint32_t
@@ -20,10 +21,10 @@ enum class UnitTag : uint32_t
     Void        = 1 << 9,
 };
 
-inline UnitTag operator|(UnitTag a, UnitTag b) {
+constexpr UnitTag operator|(UnitTag a, UnitTag b) {
     return static_cast<UnitTag>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
-inline bool hasTag(UnitTag tags, UnitTag check) {
+constexpr bool hasTag(UnitTag tags, UnitTag check) {
     return (static_cast<uint32_t>(tags) & static_cast<uint32_t>(check)) != 0;
 }
 
@@ -58,5 +59,3 @@ struct UnitDef
     Resources  craftCost;
 };
 
-// Include UpgradePath from BuildingDef
-#include "BuildingDef.h"

@@ -1,6 +1,8 @@
 #pragma once
 #include <vector>
 #include <unordered_map>
+#include <cstdint>
+#include <functional>
 #include "HexGrid.h"
 
 // ── Terrain types ──────────────────────────────────────────────────────────────

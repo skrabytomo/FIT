@@ -1,5 +1,5 @@
 #include "Texture.h"
-#include <GL/gl.h>
+#include "gl_includes.h"
 #include <stdio.h>
 
 // stb_image — single header, define implementation once here

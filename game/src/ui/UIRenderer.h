@@ -1,5 +1,7 @@
 #pragma once
+#define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
+#include <GL/glext.h>
 #include <string>
 #include "UITypes.h"
 #include "../renderer/Shader.h"
@@ -36,10 +38,10 @@ public:
     int screenW() const { return m_screenW; }
     int screenH() const { return m_screenH; }
 
+    struct QuadVert { float x, y, r, g, b, a; };
+
 private:
     void flushQuads();
-
-    struct QuadVert { float x, y, r, g, b, a; };
 
     Shader  m_shader;
     GLuint  m_vao = 0, m_vbo = 0, m_ibo = 0;

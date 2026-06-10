@@ -1,6 +1,7 @@
 #pragma once
 #include <array>
 #include <string>
+#include <cstdint>
 
 // ── Resource types ─────────────────────────────────────────────────────────────
 enum class ResourceType : uint8_t

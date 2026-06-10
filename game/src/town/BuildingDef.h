@@ -30,6 +30,7 @@ struct BuildingDef
     Resources         weeklyIncome;   // passive income if economy building
 
     int               tier        = 0;  // unit tier this dwelling produces (0 = not a dwelling)
+    UpgradePath       path        = UpgradePath::None; // which upgrade path this dwelling provides
     int               weeklyGrowth = 0; // base units added per week
     int               growthA     = 0;  // growth for path A upgrade
     int               growthB     = 0;  // growth for path B upgrade

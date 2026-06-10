@@ -110,6 +110,10 @@ struct HeroSkills
         for (auto& s : slots) if (s.defId == defId) return &s;
         return nullptr;
     }
+    const SkillInstance* getSkill(int defId) const {
+        for (const auto& s : slots) if (s.defId == defId) return &s;
+        return nullptr;
+    }
 
     bool canLearn(int defId) const {
         return !hasSkill(defId) && static_cast<int>(slots.size()) < MAX_SLOTS;

@@ -6,6 +6,7 @@
 #include "../hero/Hero.h"
 #include "../data/Resources.h"
 #include "BuildingDef.h"
+#include "UnitDef.h"
 
 // ── Per-dwelling state ─────────────────────────────────────────────────────────
 struct DwellingState

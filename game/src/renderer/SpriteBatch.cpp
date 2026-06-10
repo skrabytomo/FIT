@@ -1,5 +1,5 @@
 #include "SpriteBatch.h"
-#include <GL/gl.h>
+#include "gl_includes.h"
 #include <stdio.h>
 #include <string.h>
 #include <algorithm>

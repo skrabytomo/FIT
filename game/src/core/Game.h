@@ -28,6 +28,7 @@
 #include "../scripting/LuaEngine.h"
 #include "../scripting/TriggerSystem.h"
 #include "../editor/MapEditor.h"
+#include "../editor/SimulatorWindow.h"
 
 class Game
 {
@@ -136,8 +137,9 @@ private:
     TownScreen   m_townScreen;
 
     // ── Editor ────────────────────────────────────────────────────────────────
-    MapEditor    m_editor;
-    bool         m_imguiReady = false;
+    MapEditor         m_editor;
+    SimulatorWindow   m_simWindow;
+    bool              m_imguiReady = false;
 
     // ── Scripting ─────────────────────────────────────────────────────────────
     LuaEngine     m_lua;

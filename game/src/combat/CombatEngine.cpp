@@ -5,6 +5,7 @@
 
 void CombatEngine::addLog(const std::string& msg)
 {
+    if (m_silent) return;
     m_log.push_back({msg});
     if (m_logCb) m_logCb(msg);
     printf("[Combat] %s\n", msg.c_str());
@@ -289,6 +290,36 @@ void CombatEngine::aiActUnit(CombatUnit& unit)
 
     unit.hasActed = true;
     advanceTurn();
+}
+
+// ── Headless simulation ────────────────────────────────────────────────────────
+CombatPhase CombatEngine::runHeadless(int maxRounds)
+{
+    // Process all player-side units using the same AI as the enemy
+    auto processPlayerAI = [this]() {
+        while (m_phase == CombatPhase::PlayerTurn) {
+            CombatUnit* unit = activeUnit();
+            if (!unit || !unit->isPlayer) break;
+            aiActUnit(*unit);
+        }
+    };
+
+    // Initial turn may already be PlayerTurn after startBattle
+    if (m_phase == CombatPhase::PlayerTurn)
+        processPlayerAI();
+
+    int safety = maxRounds * 300;
+    while (--safety > 0 && m_round <= maxRounds) {
+        if (m_phase == CombatPhase::Victory || m_phase == CombatPhase::Defeat)
+            break;
+        if (m_phase == CombatPhase::EnemyTurn)
+            processAITurn();
+        if (m_phase == CombatPhase::Victory || m_phase == CombatPhase::Defeat)
+            break;
+        if (m_phase == CombatPhase::PlayerTurn)
+            processPlayerAI();
+    }
+    return m_phase;
 }
 
 // ── Tile effects on entry ──────────────────────────────────────────────────────

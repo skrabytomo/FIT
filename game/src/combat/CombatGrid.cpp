@@ -47,6 +47,11 @@ CombatUnit* CombatGrid::getUnit(uint32_t id)
     for (auto& u : m_units) if (u.id == id) return &u;
     return nullptr;
 }
+const CombatUnit* CombatGrid::getUnit(uint32_t id) const
+{
+    for (const auto& u : m_units) if (u.id == id) return &u;
+    return nullptr;
+}
 CombatUnit* CombatGrid::getUnitAt(HexCoord h)
 {
     auto* tile = getTile(h);
