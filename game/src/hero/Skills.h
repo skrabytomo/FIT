@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 #include <functional>
-#include "../hero/Hero.h"  // FactionId
+#include "FactionId.h"
 
 // ── Skill tiers ────────────────────────────────────────────────────────────────
 enum class SkillTier : uint8_t { Basic = 0, Advanced, Master };

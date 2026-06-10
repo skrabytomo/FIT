@@ -1,4 +1,5 @@
 #include "CombatEngine.h"
+#include "../hero/SkillRegistry.h"
 #include <algorithm>
 #include <stdio.h>
 #include <sstream>
@@ -81,6 +82,30 @@ void CombatEngine::startBattle(
             u.defense += m_enemyHero.defense;
         }
     }
+
+    // Apply passive skill bonuses
+    auto applySkills = [this](const Hero& hero, bool isPlayer) {
+        const HeroSkills& skills = hero.skills;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive) continue;
+            auto applyIf = [&](int sid, auto fn) {
+                if (const SkillInstance* s = skills.getSkill(sid)) {
+                    if (const SkillDef* def = findSkillDef(sid))
+                        fn(u, def->values[static_cast<int>(s->tier)]);
+                }
+            };
+            applyIf(SID::OFFENSE,       [](CombatUnit& u, int v){ u.attack  += v; });
+            applyIf(SID::DEFENSE_SKILL, [](CombatUnit& u, int v){ u.defense += v; });
+            applyIf(SID::LEADERSHIP,    [](CombatUnit& u, int v){
+                u.morale = std::min(100, u.morale + v);
+            });
+            // ARCHERY — only for ranged units
+            if (u.range > 0 && u.shotsLeft > 0)
+                applyIf(SID::ARCHERY, [](CombatUnit& u, int v){ u.attack += v; });
+        }
+    };
+    applySkills(m_playerHero, true);
+    applySkills(m_enemyHero,  false);
 
     m_phase = CombatPhase::PlayerTurn;
     addLog("Battle started! Round 1");

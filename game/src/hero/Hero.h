@@ -2,6 +2,8 @@
 #include <vector>
 #include <string>
 #include "../world/HexMap.h"
+#include "FactionId.h"
+#include "Skills.h"
 
 // Movement cost per terrain (indexed by Terrain enum)
 static constexpr int BASE_MOVE_COST[] = {
@@ -22,20 +24,6 @@ static constexpr int BASE_MOVE_COST[] = {
     3,  // FleshZone
 };
 
-enum class FactionId : uint8_t
-{
-    HolyOrder = 0,
-    CrimsonWardens,
-    Thornkin,
-    EternalEmpire,
-    Bloodsworn,
-    Voidkin,
-    IronAssembly,
-    Amalgamate,
-    Convergence,
-    None
-};
-
 struct Hero
 {
     uint32_t    id       = 0;
@@ -54,6 +42,8 @@ struct Hero
     int attack      = 2;
     int defense     = 2;
     int visionRange = 5;
+
+    HeroSkills skills;
 
     int moveCost(Terrain t) const;
     bool canEnter(Terrain t) const;
