@@ -1,5 +1,8 @@
 #include "Game.h"
 #include <GL/gl.h>
+#include <imgui.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_opengl3.h>
 #include <stdio.h>
 #include <cmath>
 #include <algorithm>
@@ -99,8 +102,11 @@ bool Game::init(const std::string& title, int width, int height)
     m_worldHUD.onEndTurn = [this]() {
         bool newWeek = m_turns.endTurn(m_towns, m_heroes,
                                        m_playerResources, m_registry);
-        if (newWeek)
+        if (newWeek) {
             printf("New week %d — income applied\n", m_turns.week());
+            ScriptContext ctx; ctx.heroId = 0;
+            m_triggers.fire(TriggerType::WeekStart, ctx);
+        }
     };
     m_worldHUD.onHeroClicked = [this](int idx) {
         if (idx >= 0 && idx < static_cast<int>(m_heroes.size())) {
@@ -123,6 +129,23 @@ bool Game::init(const std::string& title, int width, int height)
 
     // Open hideout DB (non-fatal if it fails)
     m_hideout.open(HIDEOUT_PATH);
+
+    // Scripting
+    if (m_lua.init()) {
+        m_triggers.setEngine(&m_lua);
+
+        // Expose turn state to Lua
+        m_lua.registerGameFunc("getDay", [](lua_State* L) -> int {
+            lua_pushinteger(L, 1); return 1;  // placeholder until binding ptr available
+        });
+
+        // Load startup scripts if they exist
+        m_lua.execFile("scripts/autoload.lua");
+    }
+
+    // ImGui (non-fatal if fails)
+    if (initImGui())
+        m_editor.init(width, height);
 
     m_running = true;
     printf("Game initialized: %dx%d\n", width, height);
@@ -151,6 +174,7 @@ void Game::processEvents()
 {
     SDL_Event e;
     while (SDL_PollEvent(&e)) {
+        if (m_imguiReady) ImGui_ImplSDL2_ProcessEvent(&e);
         m_input.handleEvent(e);
 
         if (e.type == SDL_QUIT) m_running = false;
@@ -181,11 +205,16 @@ void Game::update(float dt)
 {
     if (m_input.keyDown(SDLK_F5)) saveGame(SAVE_PATH);
     if (m_input.keyDown(SDLK_F9)) loadGame(SAVE_PATH);
+    if (m_input.keyDown(SDLK_F2)) {
+        if (m_state == GameState::Editor) exitEditor();
+        else enterEditor();
+    }
 
     switch (m_state) {
         case GameState::WorldMap: updateWorldMap(dt); break;
         case GameState::Combat:   updateCombat(dt);   break;
         case GameState::Town:     updateTown(dt);     break;
+        case GameState::Editor:   updateEditor(dt);   break;
         default: break;
     }
 }
@@ -201,6 +230,7 @@ void Game::render()
         case GameState::WorldMap: renderWorldMap(); break;
         case GameState::Combat:   renderCombat();   break;
         case GameState::Town:     renderTown();     break;
+        case GameState::Editor:   renderEditor();   break;
         default: break;
     }
 
@@ -249,8 +279,11 @@ void Game::updateWorldMap(float dt)
     if (m_input.keyDown(SDLK_SPACE)) {
         bool newWeek = m_turns.endTurn(m_towns, m_heroes,
                                        m_playerResources, m_registry);
-        if (newWeek)
+        if (newWeek) {
             printf("New week %d — income applied\n", m_turns.week());
+            ScriptContext ctx; ctx.heroId = 0;
+            m_triggers.fire(TriggerType::WeekStart, ctx);
+        }
     }
 }
 
@@ -285,12 +318,12 @@ void Game::updateCombat(float dt)
     m_combatHUD.onMouseMove(static_cast<float>(mouse.x),
                             static_cast<float>(mouse.y));
 
-    if (m_combat.phase() == CombatPhase::AITurn)
+    if (m_combat.phase() == CombatPhase::EnemyTurn)
         m_combat.processAITurn();
 
-    if (m_combat.phase() == CombatPhase::PlayerVictory)
+    if (m_combat.phase() == CombatPhase::Victory)
         exitCombat(true);
-    else if (m_combat.phase() == CombatPhase::EnemyVictory)
+    else if (m_combat.phase() == CombatPhase::Defeat)
         exitCombat(false);
 }
 
@@ -354,8 +387,13 @@ void Game::enterTown(Town* town)
 void Game::exitCombat(bool playerWon)
 {
     printf("Combat ended — %s\n", playerWon ? "Victory" : "Defeat/Retreat");
-    if (playerWon)
+    ScriptContext ctx; ctx.heroId = m_heroes.empty() ? 0 : (int)m_heroes[m_activeHeroIdx].id;
+    if (playerWon) {
         m_hideout.addXP(50);
+        m_triggers.fire(TriggerType::BattleWon, ctx);
+    } else {
+        m_triggers.fire(TriggerType::BattleLost, ctx);
+    }
     enterWorldMap();
 }
 
@@ -442,6 +480,28 @@ void Game::checkTileEvents()
     Hero& hero = m_heroes[m_activeHeroIdx];
     const HexTile* tile = m_map.getTile(hero.pos);
     if (!tile) return;
+
+    // Fire Lua tile-enter trigger
+    ScriptContext ctx;
+    ctx.heroId     = static_cast<int>(hero.id);
+    ctx.tileQ      = hero.pos.q;
+    ctx.tileR      = hero.pos.r;
+    ctx.playerSide = true;
+    m_triggers.fireTileEnter(hero.pos, ctx);
+    m_triggers.fire(TriggerType::EnterTile, ctx);
+
+    // Resource node pickup
+    if (tile->resourceId != 0) {
+        for (auto& r : m_resources) {
+            if (r.id == tile->resourceId && !r.depleted) {
+                m_playerResources.add(r.type, r.amount);
+                printf("Picked up %d %s\n", r.amount, resourceName(r.type));
+                r.depleted = true;
+                if (HexTile* t2 = m_map.getTile(r.pos)) t2->resourceId = 0;
+                break;
+            }
+        }
+    }
 
     // Town entry
     if (tile->townId != 0) {
@@ -541,9 +601,119 @@ bool Game::loadGame(const std::string& path)
     return true;
 }
 
+// ── Editor state ──────────────────────────────────────────────────────────────
+void Game::enterEditor()
+{
+    m_state = GameState::Editor;
+    printf("Entered map editor (F2 to exit)\n");
+}
+
+void Game::exitEditor()
+{
+    m_state = GameState::WorldMap;
+    printf("Exited map editor\n");
+}
+
+void Game::updateEditor(float dt)
+{
+    (void)dt;
+    // Camera pan/zoom still works in editor
+    const auto& mouse = m_input.mouse();
+    if (mouse.wheelY != 0.0f)
+        m_camera.zoomBy(mouse.wheelY > 0 ? 1.12f : 0.88f);
+    if (mouse.middle)
+        m_camera.pan(-static_cast<float>(mouse.dx), -static_cast<float>(mouse.dy));
+
+    const float PAN = 200.0f * (1.0f / 60.0f);
+    if (m_input.keyHeld(SDLK_LEFT))  m_camera.pan(-PAN, 0);
+    if (m_input.keyHeld(SDLK_RIGHT)) m_camera.pan( PAN, 0);
+    if (m_input.keyHeld(SDLK_UP))    m_camera.pan(0, -PAN);
+    if (m_input.keyHeld(SDLK_DOWN))  m_camera.pan(0,  PAN);
+
+    // Update hovered hex
+    float wx, wy;
+    m_camera.screenToWorld(static_cast<float>(mouse.x),
+                           static_cast<float>(mouse.y), wx, wy);
+    HexCoord h = m_hexRenderer.grid().worldToHex(wx, wy);
+    m_hovered = m_map.inBounds(h) ? h : HexCoord{-999,-999};
+
+    // Left click — only if ImGui didn't capture it
+    if (mouse.leftDown && !ImGui::GetIO().WantCaptureMouse) {
+        if (m_map.inBounds(m_hovered))
+            m_editor.onHexClicked(m_hovered, m_map, m_towns,
+                                  m_resources, m_heroStarts);
+    }
+}
+
+void Game::renderEditor()
+{
+    // Draw world map as backdrop
+    m_hexRenderer.render(m_map, m_camera, m_hovered, {-999,-999});
+
+    // Draw hero starts
+    for (auto& s : m_heroStarts) {
+        float wx, wy;
+        m_hexRenderer.grid().hexToWorld(s, wx, wy);
+        (void)wx; (void)wy;  // visual placeholder
+    }
+
+    // ImGui editor overlay
+    beginImGuiFrame();
+    m_editor.renderImGui(m_map, m_towns, m_resources, m_heroStarts);
+    endImGuiFrame();
+}
+
+// ── ImGui integration ─────────────────────────────────────────────────────────
+bool Game::initImGui()
+{
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGui::StyleColorsDark();
+    ImGui::GetStyle().WindowRounding = 4.0f;
+
+    if (!ImGui_ImplSDL2_InitForOpenGL(m_window, m_glCtx)) {
+        fprintf(stderr, "ImGui SDL2 backend init failed\n");
+        return false;
+    }
+    if (!ImGui_ImplOpenGL3_Init("#version 330 core")) {
+        fprintf(stderr, "ImGui OpenGL3 backend init failed\n");
+        return false;
+    }
+    m_imguiReady = true;
+    printf("ImGui %s ready\n", ImGui::GetVersion());
+    return true;
+}
+
+void Game::shutdownImGui()
+{
+    if (!m_imguiReady) return;
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplSDL2_Shutdown();
+    ImGui::DestroyContext();
+    m_imguiReady = false;
+}
+
+void Game::beginImGuiFrame()
+{
+    if (!m_imguiReady) return;
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+}
+
+void Game::endImGuiFrame()
+{
+    if (!m_imguiReady) return;
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
 // ── Shutdown ──────────────────────────────────────────────────────────────────
 void Game::shutdown()
 {
+    m_lua.shutdown();
+    shutdownImGui();
+    m_editor.shutdown();
     m_hideout.close();
     if (m_glCtx) SDL_GL_DeleteContext(m_glCtx);
     if (m_window) SDL_DestroyWindow(m_window);

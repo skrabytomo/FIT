@@ -6,5 +6,6 @@ enum class GameState
     Combat,
     Town,
     Campaign,
+    Editor,
     MainMenu,
 };

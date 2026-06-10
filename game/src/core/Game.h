@@ -17,12 +17,17 @@
 #include "../town/BuildingRegistry.h"
 #include "../combat/CombatEngine.h"
 #include "../data/Resources.h"
+#include "../data/ResourceNode.h"
 #include "../data/SaveLoad.h"
+#include "../data/MapFormat.h"
 #include "../ui/UIRenderer.h"
 #include "../ui/WorldMapHUD.h"
 #include "../ui/CombatHUD.h"
 #include "../ui/TownScreen.h"
 #include "../meta/HideoutDB.h"
+#include "../scripting/LuaEngine.h"
+#include "../scripting/TriggerSystem.h"
+#include "../editor/MapEditor.h"
 
 class Game
 {
@@ -47,6 +52,8 @@ private:
     void renderCombat();
     void updateTown(float dt);
     void renderTown();
+    void updateEditor(float dt);
+    void renderEditor();
 
     // ── State transitions ─────────────────────────────────────────────────────
     void enterWorldMap();
@@ -55,14 +62,22 @@ private:
                      const Hero& enemyHero,
                      const std::vector<CombatUnit>& enemyUnits);
     void enterTown(Town* town);
+    void enterEditor();
     void exitCombat(bool playerWon);
     void exitTown();
+    void exitEditor();
 
     // ── World map helpers ──────────────────────────────────────────────────────
     void updateHeroMovement(float dt);
     void drawHero(const Hero& hero);
     void onTileClicked(HexCoord h);
-    void checkTileEvents();   // town entry, combat trigger on arrival
+    void checkTileEvents();
+
+    // ── ImGui integration ──────────────────────────────────────────────────────
+    bool initImGui();
+    void shutdownImGui();
+    void beginImGuiFrame();
+    void endImGuiFrame();
 
     // ── Save / Load ────────────────────────────────────────────────────────────
     void saveGame(const std::string& path);
@@ -96,17 +111,17 @@ private:
     HexCoord       m_hovered  {-999, -999};
     HexCoord       m_selected {-999, -999};
 
-    // Smooth movement interpolation
     float m_moveT    = 1.0f;
     float m_moveSrcX = 0.0f, m_moveSrcY = 0.0f;
     float m_moveDstX = 0.0f, m_moveDstY = 0.0f;
 
-    // Reachable tiles highlight
     std::vector<HexCoord> m_reachable;
 
-    // ── Towns ─────────────────────────────────────────────────────────────────
-    std::vector<Town>  m_towns;
-    BuildingRegistry   m_registry;
+    // ── Towns & resources ─────────────────────────────────────────────────────
+    std::vector<Town>         m_towns;
+    std::vector<ResourceNode> m_resources;
+    std::vector<HexCoord>     m_heroStarts;
+    BuildingRegistry          m_registry;
 
     // ── Economy / turn ────────────────────────────────────────────────────────
     Resources    m_playerResources;
@@ -119,6 +134,14 @@ private:
     WorldMapHUD  m_worldHUD;
     CombatHUD    m_combatHUD;
     TownScreen   m_townScreen;
+
+    // ── Editor ────────────────────────────────────────────────────────────────
+    MapEditor    m_editor;
+    bool         m_imguiReady = false;
+
+    // ── Scripting ─────────────────────────────────────────────────────────────
+    LuaEngine     m_lua;
+    TriggerSystem m_triggers;
 
     // ── Persistent meta layer ──────────────────────────────────────────────────
     HideoutDB    m_hideout;

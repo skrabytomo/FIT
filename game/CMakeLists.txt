@@ -7,9 +7,10 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-# ── Dependencies: FetchContent ─────────────────────────────────────────────────
+# ── FetchContent dependencies ─────────────────────────────────────────────────
 include(FetchContent)
 
+# nlohmann/json (header-only)
 FetchContent_Declare(
     nlohmann_json
     GIT_REPOSITORY https://github.com/nlohmann/json.git
@@ -18,12 +19,47 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(nlohmann_json)
 
-# ── Find packages ──────────────────────────────────────────────────────────────
-find_package(SDL2 REQUIRED)
+# Dear ImGui
+FetchContent_Declare(
+    imgui
+    GIT_REPOSITORY https://github.com/ocornut/imgui.git
+    GIT_TAG        v1.90.8
+    GIT_SHALLOW    TRUE
+)
+FetchContent_GetProperties(imgui)
+if(NOT imgui_POPULATED)
+    FetchContent_Populate(imgui)
+endif()
+
+# ── Find system packages ───────────────────────────────────────────────────────
+find_package(SDL2   REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(SQLite3 REQUIRED)
+find_package(Lua 5.4 REQUIRED)
 
-# ── Collect sources ────────────────────────────────────────────────────────────
+# ── ImGui static library ──────────────────────────────────────────────────────
+add_library(imgui_lib STATIC
+    ${imgui_SOURCE_DIR}/imgui.cpp
+    ${imgui_SOURCE_DIR}/imgui_draw.cpp
+    ${imgui_SOURCE_DIR}/imgui_tables.cpp
+    ${imgui_SOURCE_DIR}/imgui_widgets.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+    ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
+)
+target_include_directories(imgui_lib PUBLIC
+    ${imgui_SOURCE_DIR}
+    ${imgui_SOURCE_DIR}/backends
+    ${SDL2_INCLUDE_DIRS}
+    ${OPENGL_INCLUDE_DIR}
+)
+target_link_libraries(imgui_lib PUBLIC ${SDL2_LIBRARIES} ${OPENGL_LIBRARIES})
+if(UNIX AND NOT APPLE)
+    target_link_libraries(imgui_lib PUBLIC GL)
+elseif(APPLE)
+    target_link_libraries(imgui_lib PUBLIC "-framework OpenGL")
+endif()
+
+# ── Game sources ──────────────────────────────────────────────────────────────
 file(GLOB_RECURSE SOURCES
     src/*.cpp
     src/*.h
@@ -37,6 +73,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
     ${SDL2_INCLUDE_DIRS}
     ${OPENGL_INCLUDE_DIR}
     ${SQLite3_INCLUDE_DIRS}
+    ${LUA_INCLUDE_DIR}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
@@ -44,6 +81,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     ${OPENGL_LIBRARIES}
     SQLite::SQLite3
     nlohmann_json::nlohmann_json
+    imgui_lib
+    ${LUA_LIBRARIES}
 )
 
 if(WIN32)
@@ -54,14 +93,14 @@ elseif(UNIX)
     target_link_libraries(${PROJECT_NAME} PRIVATE GL)
 endif()
 
-# Copy assets to build dir
+# ── Post-build: copy assets and create runtime dirs ───────────────────────────
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
     ${CMAKE_SOURCE_DIR}/assets $<TARGET_FILE_DIR:${PROJECT_NAME}>/assets
 )
-
-# Ensure saves/ directory exists next to the binary
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory
     $<TARGET_FILE_DIR:${PROJECT_NAME}>/saves
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>/maps
+    $<TARGET_FILE_DIR:${PROJECT_NAME}>/scripts
 )
