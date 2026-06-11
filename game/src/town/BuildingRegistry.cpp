@@ -51,6 +51,15 @@ void BuildingRegistry::init()
         b.cost = gold(2000);
         m_buildings.push_back(b);
     }
+    {
+        BuildingDef b;
+        b.id = BID::MAGE_GUILD_T2; b.name = "Mage Guild (Tier 2)";
+        b.description = "Unlocks 2 additional faction spells for purchase (spells 3 & 4).";
+        b.category = BuildingCategory::MageGuild;
+        b.cost = gold(3000);
+        b.prerequisites = {BID::MAGE_GUILD};
+        m_buildings.push_back(b);
+    }
 
     // ── HOLY ORDER BUILDINGS ──────────────────────────────────────────────────
     {

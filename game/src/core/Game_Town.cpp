@@ -61,9 +61,8 @@ void Game::renderMageGuild()
     auto entries = getEntries(town->faction);
     if (entries.empty()) return;
 
-    // Determine how many spells are available based on guild tier (just T1 for now)
     const auto& entries_ref = entries;
-    int available = 2; // Tier 1 = 2 spells (TODO: tier 2 = 4)
+    int available = town->hasBuilding(BID::MAGE_GUILD_T2) ? 4 : 2;
 
     ImGui::SetNextWindowPos(ImVec2(20, 80), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(280, 0), ImGuiCond_Always);
