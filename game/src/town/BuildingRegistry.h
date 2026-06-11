@@ -15,6 +15,7 @@ namespace BID {
     constexpr int MARKET       = 2;
     constexpr int WAREHOUSE    = 3;
     constexpr int ROAD         = 4;
+    constexpr int MAGE_GUILD   = 5;   // teaches faction spells; tier 1 → 2 spells, tier 2 → 4
 
     // Holy Order
     constexpr int HO_HALL         = 100; // Town Hall (base income)

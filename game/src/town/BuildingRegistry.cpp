@@ -43,6 +43,14 @@ void BuildingRegistry::init()
         b.weeklyIncome = res(ResourceType::Iron, 1);
         m_buildings.push_back(b);
     }
+    {
+        BuildingDef b;
+        b.id = BID::MAGE_GUILD; b.name = "Mage Guild";
+        b.description = "Teaches 2 faction spells (Tier 1). Upgrade for 4 spells (Tier 2).";
+        b.category = BuildingCategory::MageGuild;
+        b.cost = gold(2000);
+        m_buildings.push_back(b);
+    }
 
     // ── HOLY ORDER BUILDINGS ──────────────────────────────────────────────────
     {

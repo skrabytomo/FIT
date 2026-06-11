@@ -68,6 +68,9 @@ struct Hero
     // Known spell IDs (learned via spellbooks on map or town buildings)
     std::vector<int> knownSpells;
 
+    // Collected artifact IDs not yet equipped
+    std::vector<int> artifactInventory;
+
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
     // Returns true if the hero leveled up

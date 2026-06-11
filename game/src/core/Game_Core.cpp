@@ -57,6 +57,9 @@ bool Game::init(const std::string& title, int width, int height)
     // Hero class registry
     m_classRegistry.init();
 
+    // Artifact registry
+    m_artifactRegistry.init();
+
     // Build map
     m_mapSize = MapSize::Small;
     m_map.create(m_mapSize);
@@ -85,6 +88,22 @@ bool Game::init(const std::string& title, int width, int height)
     m_heroes.push_back(hero);
     m_activeHeroIdx = 0;
 
+    // Scatter world objects
+    m_worldObjects.clear();
+    auto addObj = [&](WorldObjectType t, HexCoord p, int v,
+                      ResourceType rt = ResourceType::Gold) {
+        m_worldObjects.push_back({m_nextObjId++, t, p, v, rt, false});
+    };
+    addObj(WorldObjectType::SpellScroll,   {4,  1},  SPL::SMITE);
+    addObj(WorldObjectType::SpellScroll,   {-3, 3},  SPL::REGROWTH);
+    addObj(WorldObjectType::SpellScroll,   {6, -2},  SPL::CURSE);
+    addObj(WorldObjectType::ArtifactChest, {2,  3},  5);   // Iron Helm (id=5)
+    addObj(WorldObjectType::ArtifactChest, {-4, 2},  1);   // Iron Sword (id=1)
+    addObj(WorldObjectType::XPShrine,      {5,  2},  80);
+    addObj(WorldObjectType::XPShrine,      {-2,-3},  60);
+    addObj(WorldObjectType::ResourceCache, {1, -3}, 500, ResourceType::Gold);
+    addObj(WorldObjectType::ResourceCache, {3, -4},   8, ResourceType::Iron);
+
     // Place an enemy hero
     {
         Hero eHero;
@@ -104,6 +123,7 @@ bool Game::init(const std::string& title, int width, int height)
     town.faction = FactionId::HolyOrder;
     town.pos     = {3, -2};
     town.ownerId = 1;
+    town.builtBuildings.push_back(BID::MAGE_GUILD);  // Sanctuary starts with a guild
     m_towns.push_back(town);
     if (HexTile* t = m_map.getTile(town.pos)) t->townId = town.id;
 

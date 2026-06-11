@@ -34,6 +34,8 @@
 #include "../ui/HideoutScreen.h"
 #include "../hero/LevelUpSystem.h"
 #include "../hero/HeroClass.h"
+#include "../hero/Artifacts.h"
+#include "../world/WorldObject.h"
 
 class Game
 {
@@ -98,6 +100,15 @@ private:
 
     // ── Combat spell panel ─────────────────────────────────────────────────────
     void renderSpellPanel();
+
+    // ── Artifact equip panel (F7) ──────────────────────────────────────────────
+    void renderArtifactPanel();
+
+    // ── Hero inspect panel (F8) ───────────────────────────────────────────────
+    void renderHeroInspect();
+
+    // ── Mage guild overlay in town (ImGui) ────────────────────────────────────
+    void renderMageGuild();
 
     // ── Hideout screen ─────────────────────────────────────────────────────────
     void renderHideoutScreen();
@@ -169,6 +180,17 @@ private:
     // ── Campaign ───────────────────────────────────────────────────────────────
     CampaignManager m_campaign;
     CampaignHUD     m_campaignHUD;
+
+    // ── World objects (scrolls, chests, shrines) ──────────────────────────────
+    std::vector<WorldObject> m_worldObjects;
+    uint32_t                 m_nextObjId = 1;
+
+    // ── Artifact registry ──────────────────────────────────────────────────────
+    ArtifactRegistry m_artifactRegistry;
+
+    // ── Artifact / Hero inspect overlay flags ─────────────────────────────────
+    bool m_showArtifactPanel = false;
+    bool m_showHeroInspect   = false;
 
     // ── Persistent meta layer ──────────────────────────────────────────────────
     HideoutDB    m_hideout;

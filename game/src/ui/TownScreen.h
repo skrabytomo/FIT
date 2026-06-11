@@ -12,6 +12,7 @@ public:
     void open(Town* town, Resources* playerRes, const BuildingRegistry* registry);
     void close() { m_open = false; m_town = nullptr; }
     bool isOpen() const { return m_open; }
+    const Town* currentTown() const { return m_town; }
 
     void draw(UIRenderer& rdr);
     bool onMouseMove(float x, float y);

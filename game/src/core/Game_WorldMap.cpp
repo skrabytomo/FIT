@@ -1,5 +1,7 @@
 #include "Game.h"
 #include "../hero/LevelUpSystem.h"
+#include "../hero/SkillRegistry.h"
+#include "../magic/SpellRegistry.h"
 #include <imgui.h>
 #include <cmath>
 #include <algorithm>
@@ -46,8 +48,9 @@ void Game::updateWorldMap(float dt)
 
     updateHeroMovement(dt);
 
-    if (m_input.keyDown(SDLK_F6))
-        m_showHideoutScreen = !m_showHideoutScreen;
+    if (m_input.keyDown(SDLK_F6)) m_showHideoutScreen   = !m_showHideoutScreen;
+    if (m_input.keyDown(SDLK_F7)) m_showArtifactPanel   = !m_showArtifactPanel;
+    if (m_input.keyDown(SDLK_F8)) m_showHeroInspect     = !m_showHeroInspect;
 
     if (m_input.keyDown(SDLK_SPACE)) {
         // Restore hero movement pools
@@ -136,6 +139,8 @@ void Game::renderWorldMap()
     beginImGuiFrame();
     if (m_showLevelUpModal)   renderLevelUpModal();
     if (m_showHideoutScreen)  renderHideoutScreen();
+    if (m_showArtifactPanel)  renderArtifactPanel();
+    if (m_showHeroInspect)    renderHeroInspect();
     endImGuiFrame();
 }
 
@@ -233,6 +238,45 @@ void Game::checkTileEvents()
     ctx.playerSide = true;
     m_triggers.fireTileEnter(hero.pos, ctx);
     m_triggers.fire(TriggerType::EnterTile, ctx);
+
+    // World objects (scrolls, chests, shrines)
+    for (auto& obj : m_worldObjects) {
+        if (obj.collected || !(obj.pos == hero.pos)) continue;
+        obj.collected = true;
+        switch (obj.type) {
+        case WorldObjectType::SpellScroll: {
+            bool already = false;
+            for (int sid : hero.knownSpells) if (sid == obj.value) { already = true; break; }
+            if (!already) {
+                hero.knownSpells.push_back(obj.value);
+                printf("Hero learned spell %d from scroll\n", obj.value);
+            }
+            break;
+        }
+        case WorldObjectType::ArtifactChest:
+            hero.artifactInventory.push_back(obj.value);
+            printf("Hero picked up artifact %d\n", obj.value);
+            break;
+        case WorldObjectType::XPShrine:
+            if (hero.addXp(obj.value)) {
+                const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                if (cls) {
+                    std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                    m_levelUpOffers = LevelUpSystem::generateOffers(
+                        *cls, hero.skills, hero.level, allSkills, hero.faction);
+                }
+                if (m_levelUpOffers.empty())
+                    m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                m_showLevelUpModal = true;
+            }
+            printf("Hero gained %d XP from shrine\n", obj.value);
+            break;
+        case WorldObjectType::ResourceCache:
+            m_playerResources.add(obj.resourceType, obj.value);
+            printf("Hero found resource cache: %d %s\n", obj.value, resourceName(obj.resourceType));
+            break;
+        }
+    }
 
     // Resource node pickup
     if (tile->resourceId != 0) {
@@ -347,4 +391,110 @@ void Game::renderLevelUpModal()
 void Game::renderHideoutScreen()
 {
     m_hideoutScreen.draw(m_hideout, m_showHideoutScreen);
+}
+
+// ── Artifact equip panel [F7] ─────────────────────────────────────────────────
+void Game::renderArtifactPanel()
+{
+    if (m_heroes.empty()) return;
+    Hero& hero = m_heroes[m_activeHeroIdx];
+
+    ImGui::SetNextWindowSize(ImVec2(460, 500), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Artifacts  [F7]", &m_showArtifactPanel)) { ImGui::End(); return; }
+
+    static const char* slotNames[] = {
+        "Helm","Armor","Weapon","Shield","Ring","Boots","Cloak","Misc"
+    };
+
+    ImGui::Text("Equipped:");
+    ImGui::Separator();
+    for (int i = 0; i < HeroArtifacts::SLOT_COUNT; ++i) {
+        int aid = hero.artifacts.equippedIds[i];
+        const ArtifactDef* def = aid ? m_artifactRegistry.getDef(aid) : nullptr;
+        ImGui::PushID(i);
+        ImGui::Text("%-8s : %s", slotNames[i], def ? def->name.c_str() : "—");
+        if (def) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Unequip")) {
+                hero.artifactInventory.push_back(aid);
+                hero.artifacts.unequip(static_cast<ArtifactSlot>(i));
+            }
+        }
+        ImGui::PopID();
+    }
+
+    if (!hero.artifactInventory.empty()) {
+        ImGui::Spacing();
+        ImGui::Text("Inventory:");
+        ImGui::Separator();
+        for (int j = 0; j < static_cast<int>(hero.artifactInventory.size()); ++j) {
+            int aid = hero.artifactInventory[j];
+            const ArtifactDef* def = m_artifactRegistry.getDef(aid);
+            if (!def) continue;
+            ImGui::PushID(j + 1000);
+            ImGui::Text("%s", def->name.c_str());
+            ImGui::SameLine();
+            ImGui::TextDisabled("(%s)", def->description.c_str());
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Equip")) {
+                auto slot = def->slot;
+                int  slotIdx = static_cast<int>(slot);
+                int  old = hero.artifacts.equippedIds[slotIdx];
+                if (old) hero.artifactInventory.push_back(old);
+                hero.artifacts.equip(aid, slot);
+                hero.artifactInventory.erase(hero.artifactInventory.begin() + j);
+            }
+            ImGui::PopID();
+        }
+    }
+    ImGui::End();
+}
+
+// ── Hero inspect panel [F8] ───────────────────────────────────────────────────
+void Game::renderHeroInspect()
+{
+    if (m_heroes.empty()) return;
+    const Hero& hero = m_heroes[m_activeHeroIdx];
+
+    ImGui::SetNextWindowSize(ImVec2(340, 460), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Hero  [F8]", &m_showHeroInspect)) { ImGui::End(); return; }
+
+    ImGui::Text("%s", hero.name.c_str());
+    ImGui::TextDisabled("Level %d  —  XP %d / %d", hero.level, hero.xp, hero.xpToNext);
+    ImGui::Separator();
+
+    ImGui::Text("ATK %d   DEF %d   Vision %d", hero.attack, hero.defense, hero.visionRange);
+    ImGui::Text("Mana %d / %d   Move %d / %d",
+                hero.mana, hero.maxMana, hero.movePool, hero.maxMove);
+    ImGui::Spacing();
+
+    ImGui::Text("Casting Power:");
+    if (hero.lightPower)  ImGui::Text("  Light  +%d", hero.lightPower);
+    if (hero.bloodPower)  ImGui::Text("  Blood  +%d", hero.bloodPower);
+    if (hero.deathPower)  ImGui::Text("  Death  +%d", hero.deathPower);
+    if (hero.naturePower) ImGui::Text("  Nature +%d", hero.naturePower);
+    if (hero.forgePower)  ImGui::Text("  Forge  +%d", hero.forgePower);
+    if (hero.fleshPower)  ImGui::Text("  Flesh  +%d", hero.fleshPower);
+
+    if (!hero.skills.slots.empty()) {
+        ImGui::Spacing();
+        ImGui::Text("Skills:");
+        for (auto& s : hero.skills.slots) {
+            if (s.defId == 0) continue;
+            const SkillDef* sd = findSkillDef(s.defId);
+            const char* tierStr[] = {"Basic","Advanced","Master"};
+            int t = static_cast<int>(s.tier);
+            ImGui::Text("  %s (%s)", sd ? sd->name.c_str() : "?", (t >= 0 && t <= 2) ? tierStr[t] : "?");
+        }
+    }
+
+    if (!hero.knownSpells.empty()) {
+        ImGui::Spacing();
+        ImGui::Text("Spells:");
+        for (int sid : hero.knownSpells) {
+            const SpellDef* sp = findSpell(sid);
+            if (sp) ImGui::Text("  %s  (%d mana)", sp->name, sp->manaCost);
+        }
+    }
+    ImGui::End();
 }

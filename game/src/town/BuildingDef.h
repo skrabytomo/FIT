@@ -12,6 +12,7 @@ enum class BuildingCategory : uint8_t
     Economy,        // generates resources passively
     Special,        // unique per faction
     Fort,           // walls, gate, towers (siege defense)
+    MageGuild,      // teaches spells to visiting hero
 };
 
 // ── Unit upgrade path selection ────────────────────────────────────────────────

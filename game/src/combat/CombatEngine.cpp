@@ -109,6 +109,12 @@ void CombatEngine::startBattle(
             if (u.range > 0 && u.shotsLeft > 0)
                 applyIf(SID::ARCHERY, [](CombatUnit& u, int v){ u.attack += v; });
         }
+
+        // ETERNAL_CMD: grant second-life to all this hero's units
+        if (hero.skills.getSkill(SID::ETERNAL_CMD)) {
+            for (auto& u : m_grid.units())
+                if (u.isPlayer == isPlayer && u.alive) u.hasSecondLife = true;
+        }
     };
     applySkills(m_playerHero, true);
     applySkills(m_enemyHero,  false);
