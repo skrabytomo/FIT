@@ -2,6 +2,7 @@
 #include "../hero/LevelUpSystem.h"
 #include "../hero/SkillRegistry.h"
 #include "../magic/SpellRegistry.h"
+#include "../world/HexGrid.h"
 #include <imgui.h>
 #include <cmath>
 #include <algorithm>
@@ -127,41 +128,94 @@ void Game::updateWorldMap(float dt)
         for (auto& h : m_heroes)      h.movePool = h.maxMove;
         for (auto& h : m_enemyHeroes) h.movePool = h.maxMove;
 
-        // Enemy hero AI — each moves one step toward active player hero
+        // Enemy hero AI — drain full move pool each turn
         if (!m_heroes.empty()) {
             Hero& playerHero = m_heroes[m_activeHeroIdx];
+            bool combatTriggered = false;
             for (auto& eHero : m_enemyHeroes) {
-                if (eHero.movePool <= 0) continue;
-                auto costFn = [this, &eHero](HexCoord c) -> int {
-                    const HexTile* t = m_map.getTile(c);
-                    if (!t || !eHero.canEnter(t->terrain)) return 999;
-                    return eHero.moveCost(t->terrain);
-                };
-                auto path = Pathfinder::find(m_map, eHero.pos, playerHero.pos, costFn);
-                if (!path.empty()) {
-                    HexCoord next = path[0];
-                    int cost = [&]() {
-                        const HexTile* t = m_map.getTile(next);
-                        return t ? eHero.moveCost(t->terrain) : 999;
-                    }();
-                    if (eHero.movePool >= cost) {
-                        // Clear old tile
-                        if (HexTile* old = m_map.getTile(eHero.pos)) old->heroId = 0;
-                        eHero.pos = next;
-                        eHero.movePool -= cost;
-                        if (HexTile* newT = m_map.getTile(eHero.pos)) newT->heroId = eHero.id;
+                if (combatTriggered) break;
+                while (eHero.movePool > 0) {
+                    // Pick target: player by default; prefer neutral towns or resources if closer
+                    HexCoord goal = playerHero.pos;
+                    int bestDist = HexGrid::distance(eHero.pos, playerHero.pos);
 
-                        // Check collision with player
-                        if (eHero.pos == playerHero.pos) {
-                            m_lastCombatEnemyId = eHero.id;
-                            auto pUnits = makeFactionUnits(playerHero.faction, true);
-                            applyHeroSkillsToUnits(playerHero, pUnits);
-                            auto eUnits = makeFactionUnits(eHero.faction, false);
-                            enterCombat(playerHero, pUnits, eHero, eUnits);
-                            return;
+                    for (const auto& t : m_towns) {
+                        if (t.ownerId != 0) continue; // only neutral towns
+                        int d = HexGrid::distance(eHero.pos, t.pos);
+                        if (d < bestDist) { bestDist = d; goal = t.pos; }
+                    }
+                    for (const auto& r : m_resources) {
+                        if (r.depleted) continue;
+                        int d = HexGrid::distance(eHero.pos, r.pos);
+                        if (d < bestDist - 2) { bestDist = d; goal = r.pos; }
+                    }
+
+                    auto costFn = [this, &eHero](HexCoord c) -> int {
+                        const HexTile* t = m_map.getTile(c);
+                        if (!t || !eHero.canEnter(t->terrain)) return 999;
+                        // Don't path through player-owned towns
+                        if (t->townId != 0) {
+                            for (const auto& town : m_towns)
+                                if (town.id == t->townId && town.ownerId == 1) return 999;
+                        }
+                        return eHero.moveCost(t->terrain);
+                    };
+                    auto path = Pathfinder::find(m_map, eHero.pos, goal, costFn);
+                    if (path.empty()) break;
+
+                    HexCoord next = path[0];
+                    const HexTile* nextTile = m_map.getTile(next);
+                    if (!nextTile) break;
+                    int cost = eHero.moveCost(nextTile->terrain);
+                    if (eHero.movePool < cost) break;
+
+                    // Move
+                    if (HexTile* old = m_map.getTile(eHero.pos)) old->heroId = 0;
+                    eHero.pos = next;
+                    eHero.movePool -= cost;
+                    if (HexTile* nT = m_map.getTile(eHero.pos)) nT->heroId = eHero.id;
+
+                    // Combat with player?
+                    if (eHero.pos == playerHero.pos) {
+                        m_lastCombatEnemyId = eHero.id;
+                        auto pUnits = makeFactionUnits(playerHero.faction, true);
+                        applyHeroSkillsToUnits(playerHero, pUnits);
+                        auto eUnits = makeFactionUnits(eHero.faction, false);
+                        enterCombat(playerHero, pUnits, eHero, eUnits);
+                        combatTriggered = true;
+                        break;
+                    }
+
+                    // Collect world objects
+                    for (auto& obj : m_worldObjects) {
+                        if (!obj.collected && obj.pos == eHero.pos)
+                            obj.collected = true;
+                    }
+
+                    // Collect resource nodes
+                    if (nextTile->resourceId != 0) {
+                        for (auto& r : m_resources) {
+                            if (r.id == nextTile->resourceId && !r.depleted) {
+                                r.depleted = true;
+                                if (HexTile* t2 = m_map.getTile(r.pos)) t2->resourceId = 0;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Capture neutral towns
+                    if (nextTile->townId != 0) {
+                        for (auto& t : m_towns) {
+                            if (t.id != nextTile->townId) continue;
+                            if (t.ownerId == 0) {
+                                t.ownerId = eHero.id;
+                                printf("Enemy %s captured %s\n", eHero.name.c_str(), t.name.c_str());
+                            }
+                            break;
                         }
                     }
                 }
+                if (combatTriggered) return;
             }
         }
 
@@ -429,13 +483,17 @@ void Game::renderWorldOverlay()
         constexpr float HS = 14.0f;
 
         bool isPlayer = (town.ownerId == 1);
-        ImU32 fillCol = isPlayer ? IM_COL32(40, 80, 180, 210)
-                                 : IM_COL32(90, 60, 20, 210);
+        bool isEnemy  = (town.ownerId > 1);
+        ImU32 fillCol = isPlayer ? IM_COL32( 40,  80, 180, 210)
+                       : isEnemy ? IM_COL32(140,  30,  30, 210)
+                                 : IM_COL32( 90,  60,  20, 210);
         ImU32 ringCol = isPlayer ? IM_COL32(120, 180, 255, 255)
-                                 : IM_COL32(200, 160, 60, 255);
+                       : isEnemy ? IM_COL32(255, 100, 100, 255)
+                                 : IM_COL32(200, 160,  60, 255);
         ImU32 lblCol  = isPlayer ? IM_COL32(220, 240, 255, 255)
+                       : isEnemy ? IM_COL32(255, 200, 200, 255)
                                  : IM_COL32(240, 200, 100, 255);
-        const char* lbl = isPlayer ? "T" : "N";
+        const char* lbl = isPlayer ? "T" : isEnemy ? "E" : "N";
 
         dl->AddRectFilled({sx - HS, sy - HS}, {sx + HS, sy + HS}, fillCol, 3.0f);
         dl->AddRect({sx - HS, sy - HS}, {sx + HS, sy + HS}, ringCol, 3.0f, 0, 1.5f);
