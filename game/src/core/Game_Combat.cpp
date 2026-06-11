@@ -138,22 +138,29 @@ void Game::exitCombat(bool playerWon)
 
     if (playerWon) {
         // Capture town if this was a garrison fight
-        if (m_pendingTownCapture) {
-            m_pendingTownCapture->ownerId = 1;
-            m_pendingTownCapture->garrison.clear();
-            m_capturedTownName = m_pendingTownCapture->name;
-            m_showCapturePopup = true;
-            printf("Captured town after garrison fight: %s\n", m_capturedTownName.c_str());
-            m_pendingTownCapture = nullptr;
+        Town* captured = nullptr;
+        if (m_pendingTownCaptureId != 0) {
+            for (auto& t : m_towns)
+                if (t.id == m_pendingTownCaptureId) { captured = &t; break; }
+            if (captured) {
+                captured->ownerId = 1;
+                captured->garrison.clear();
+                m_capturedTownName = captured->name;
+                m_showCapturePopup = true;
+                printf("Captured town after garrison fight: %s\n", m_capturedTownName.c_str());
+            }
+            m_pendingTownCaptureId = 0;
         }
 
         // Remove defeated enemy hero from the world
         if (m_lastCombatEnemyId != 0) {
+            // Release all mines owned by the defeated hero
+            for (auto& r : m_resources)
+                if (r.ownedBy == m_lastCombatEnemyId) r.ownedBy = 0;
             m_enemyHeroes.erase(
                 std::remove_if(m_enemyHeroes.begin(), m_enemyHeroes.end(),
                     [&](const Hero& e){ return e.id == m_lastCombatEnemyId; }),
                 m_enemyHeroes.end());
-            // Clear their map tile
             m_map.forEach([&](HexTile& t){
                 if (t.heroId == m_lastCombatEnemyId) t.heroId = 0;
             });
@@ -182,6 +189,12 @@ void Game::exitCombat(bool playerWon)
                 m_showLevelUpModal = true;
             }
         }
+
+        // After a garrison victory, drop the player into the captured town
+        if (captured) {
+            enterTown(captured);
+            return;
+        }
     } else {
         // Sync surviving enemy army too (they won, they keep what's left)
         for (auto& eh : m_enemyHeroes) {
@@ -196,7 +209,7 @@ void Game::exitCombat(bool playerWon)
             }
             break;
         }
-        m_pendingTownCapture = nullptr;
+        m_pendingTownCaptureId = 0;
         m_triggers.fire(TriggerType::BattleLost, ctx);
         m_showDefeat = true;
     }

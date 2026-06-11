@@ -113,6 +113,7 @@ private:
     // ── Mage guild overlay in town (ImGui) ────────────────────────────────────
     void renderMageGuild();
     void renderCapturePopup();
+    void renderTownLostPopup();
     void renderTavern();
 
     // ── Unit exchange overlay ─────────────────────────────────────────────────
@@ -236,7 +237,11 @@ private:
     std::string m_capturedTownName;
 
     // ── Pending town capture after garrison combat ────────────────────────────
-    Town*       m_pendingTownCapture = nullptr;
+    uint32_t    m_pendingTownCaptureId = 0;
+
+    // ── Town-lost notification (enemy captured player town) ───────────────────
+    bool        m_showTownLostPopup = false;
+    std::string m_lostTownName;
 
     // ── Unit exchange between player heroes ────────────────────────────────────
     bool        m_showUnitExchange  = false;

@@ -238,6 +238,28 @@ void Game::renderCapturePopup()
     }
 }
 
+// ── Town lost notification (enemy captured player town) ───────────────────────
+void Game::renderTownLostPopup()
+{
+    ImGui::OpenPopup("Town Lost!");
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(340, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal("Town Lost!", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.2f, 1.0f),
+                           "%s has fallen to the enemy!", m_lostTownName.c_str());
+        ImGui::Spacing();
+        ImGui::TextDisabled("Recapture it to restore your income.");
+        ImGui::Spacing();
+        if (ImGui::Button("Acknowledge", ImVec2(-1, 32))) {
+            m_showTownLostPopup = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
 // ── State transitions ─────────────────────────────────────────────────────────
 void Game::enterTown(Town* town)
 {

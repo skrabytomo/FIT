@@ -330,6 +330,8 @@ void Game::updateWorldMap(float dt)
                                 if (atkStr > defStr) {
                                     t.ownerId = eHero.id;
                                     t.garrison.clear();
+                                    m_lostTownName       = t.name;
+                                    m_showTownLostPopup  = true;
                                     printf("Enemy %s sieged and captured your town %s!\n",
                                            eHero.name.c_str(), t.name.c_str());
                                 } else {
@@ -394,6 +396,7 @@ void Game::renderWorldMap()
     if (m_showArtifactPanel)  renderArtifactPanel();
     if (m_showHeroInspect)    renderHeroInspect();
     if (m_showUnitExchange)   renderUnitExchange();
+    if (m_showTownLostPopup)  renderTownLostPopup();
     if (m_showVictory)        renderVictoryModal();
     if (m_showDefeat)         renderDefeatModal();
     endImGuiFrame();
@@ -562,7 +565,7 @@ void Game::checkTileEvents()
                     garrisonHero.faction = t.faction;
                     garrisonHero.army   = t.garrison;
                     m_lastCombatEnemyId = 0; // no real enemy hero
-                    m_pendingTownCapture = &t;
+                    m_pendingTownCaptureId = t.id;
                     auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
                     applyHeroSkillsToUnits(hero, pUnits);
                     auto gUnits = makeHeroUnits(garrisonHero, m_registry.units(), false);
@@ -610,7 +613,7 @@ void Game::checkTileEvents()
 void Game::drawHero(const Hero& hero)
 {
     float wx, wy;
-    if (&hero == &m_heroes[m_activeHeroIdx] && m_moveT < 1.0f) {
+    if (!m_heroes.empty() && &hero == &m_heroes[m_activeHeroIdx] && m_moveT < 1.0f) {
         wx = m_moveSrcX + (m_moveDstX - m_moveSrcX) * m_moveT;
         wy = m_moveSrcY + (m_moveDstY - m_moveSrcY) * m_moveT;
     } else {
@@ -1002,7 +1005,8 @@ void Game::renderUnitExchange()
 {
     if (!m_showUnitExchange) return;
     if (m_heroes.empty() || m_exchangeHeroIdx < 0
-        || m_exchangeHeroIdx >= static_cast<int>(m_heroes.size())) {
+        || m_exchangeHeroIdx >= static_cast<int>(m_heroes.size())
+        || m_exchangeHeroIdx == m_activeHeroIdx) {
         m_showUnitExchange = false;
         return;
     }
@@ -1081,14 +1085,14 @@ void Game::renderUnitExchange()
 
     if (!canAtoB) ImGui::BeginDisabled();
     if (ImGui::Button("A>>B", {50, 26})) {
-        // Move selected slot from A into B (merge by defId or add to free slot)
         auto& srcSlot = heroA.army[m_exchangeSelSlotA];
         bool merged = false;
         for (auto& s : heroB.army)
             if (s.defId == srcSlot.defId) { s.count += srcSlot.count; merged = true; break; }
-        if (!merged && heroB.army.size() < 7)
-            heroB.army.push_back(srcSlot);
-        heroA.army.erase(heroA.army.begin() + m_exchangeSelSlotA);
+        bool added = merged;
+        if (!merged && heroB.army.size() < 7) { heroB.army.push_back(srcSlot); added = true; }
+        if (added)
+            heroA.army.erase(heroA.army.begin() + m_exchangeSelSlotA);
         m_exchangeSelSlotA = -1;
     }
     if (!canAtoB) ImGui::EndDisabled();
@@ -1101,9 +1105,10 @@ void Game::renderUnitExchange()
         bool merged = false;
         for (auto& s : heroA.army)
             if (s.defId == srcSlot.defId) { s.count += srcSlot.count; merged = true; break; }
-        if (!merged && heroA.army.size() < 7)
-            heroA.army.push_back(srcSlot);
-        heroB.army.erase(heroB.army.begin() + m_exchangeSelSlotB);
+        bool added = merged;
+        if (!merged && heroA.army.size() < 7) { heroA.army.push_back(srcSlot); added = true; }
+        if (added)
+            heroB.army.erase(heroB.army.begin() + m_exchangeSelSlotB);
         m_exchangeSelSlotB = -1;
     }
     if (!canBtoA) ImGui::EndDisabled();
@@ -1115,12 +1120,14 @@ void Game::renderUnitExchange()
         if (ImGui::Button("A/2>B", {50, 26})) {
             auto& src = heroA.army[m_exchangeSelSlotA];
             int half = src.count / 2;
-            src.count -= half;
             bool merged = false;
             for (auto& s : heroB.army)
                 if (s.defId == src.defId) { s.count += half; merged = true; break; }
-            if (!merged && heroB.army.size() < 7)
-                heroB.army.push_back({src.defId, half});
+            bool added = merged;
+            if (!merged && heroB.army.size() < 7) {
+                heroB.army.push_back({src.defId, half}); added = true;
+            }
+            if (added) src.count -= half;
             m_exchangeSelSlotA = -1;
         }
     }
@@ -1129,12 +1136,14 @@ void Game::renderUnitExchange()
         if (ImGui::Button("B/2>A", {50, 26})) {
             auto& src = heroB.army[m_exchangeSelSlotB];
             int half = src.count / 2;
-            src.count -= half;
             bool merged = false;
             for (auto& s : heroA.army)
                 if (s.defId == src.defId) { s.count += half; merged = true; break; }
-            if (!merged && heroA.army.size() < 7)
-                heroA.army.push_back({src.defId, half});
+            bool added = merged;
+            if (!merged && heroA.army.size() < 7) {
+                heroA.army.push_back({src.defId, half}); added = true;
+            }
+            if (added) src.count -= half;
             m_exchangeSelSlotB = -1;
         }
     }

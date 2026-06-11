@@ -161,22 +161,29 @@ void TownScreen::rebuildRecruitButtons()
 
         int capturedTier = dw.tier;
         rb.btn.onClick = [this, capturedTier]{
-            if (!m_town || !m_playerRes || !m_registry) return;
-            int recruited = m_town->recruit(capturedTier, 999,
-                *m_playerRes, m_registry->units());
-            if (recruited > 0 && m_hero) {
-                // Merge into existing army slot or add new one
-                for (const auto& ud : m_registry->units()) {
-                    if (ud.faction == m_town->faction && ud.tier == capturedTier
-                        && ud.path == UpgradePath::None) {
-                        bool merged = false;
-                        for (auto& s : m_hero->army)
-                            if (s.defId == ud.id) { s.count += recruited; merged = true; break; }
-                        if (!merged && m_hero->army.size() < 7)
-                            m_hero->army.push_back({ud.id, recruited});
-                        break;
-                    }
+            if (!m_town || !m_playerRes || !m_registry || !m_hero) return;
+            // Find matching UnitDef before spending gold — avoids charging for units
+            // that can't be added (no def, or army full with no matching stack)
+            const UnitDef* matchedUd = nullptr;
+            for (const auto& ud : m_registry->units()) {
+                if (ud.faction == m_town->faction && ud.tier == capturedTier
+                    && ud.path == UpgradePath::None) {
+                    matchedUd = &ud; break;
                 }
+            }
+            if (!matchedUd) return;
+            bool alreadyHasStack = false;
+            for (const auto& s : m_hero->army)
+                if (s.defId == matchedUd->id) { alreadyHasStack = true; break; }
+            if (!alreadyHasStack && m_hero->army.size() >= 7) return;
+
+            int recruited = m_town->recruit(capturedTier, 999, *m_playerRes, m_registry->units());
+            if (recruited > 0) {
+                bool merged = false;
+                for (auto& s : m_hero->army)
+                    if (s.defId == matchedUd->id) { s.count += recruited; merged = true; break; }
+                if (!merged)
+                    m_hero->army.push_back({matchedUd->id, recruited});
             }
             rebuildRecruitButtons();
         };
