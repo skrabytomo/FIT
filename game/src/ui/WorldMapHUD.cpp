@@ -96,6 +96,7 @@ void WorldMapHUD::drawDatePanel(UIRenderer& rdr, const TurnManager& turns)
 void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
                                   const std::vector<Hero>& heroes, int sel)
 {
+    m_heroCount = static_cast<int>(heroes.size());
     m_heroPanel.draw(rdr);
 
     float y = m_heroPanel.bounds.y + 28.0f;
@@ -152,7 +153,26 @@ bool WorldMapHUD::onMouseMove(float x, float y) {
     return false;
 }
 bool WorldMapHUD::onMouseDown(float x, float y) {
-    return m_endTurnBtn.onMouseDown(x, y);
+    if (m_endTurnBtn.onMouseDown(x, y)) return true;
+
+    // Hero panel click — pick which hero entry was hit
+    if (onHeroClicked && m_heroCount > 0) {
+        float px = m_heroPanel.bounds.x + 4.0f;
+        float py = m_heroPanel.bounds.y + 28.0f;
+        float pw = m_heroPanel.bounds.w - 8.0f;
+        float ph = 48.0f;
+        float gap = 52.0f;
+        if (x >= px && x <= px + pw) {
+            for (int i = 0; i < m_heroCount; ++i) {
+                float ey = py + i * gap;
+                if (y >= ey && y <= ey + ph) {
+                    onHeroClicked(i);
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 bool WorldMapHUD::onMouseUp(float x, float y) {
     return m_endTurnBtn.onMouseUp(x, y);

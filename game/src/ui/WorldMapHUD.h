@@ -43,6 +43,7 @@ private:
     // Hero list (right side)
     Panel m_heroPanel;
     std::vector<Button> m_heroBtns;
+    int   m_heroCount = 0;  // updated each draw(); used for click detection
 
     TooltipWidget m_tooltip;
 };
