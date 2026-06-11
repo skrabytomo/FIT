@@ -190,6 +190,8 @@ void Game::renderWorldMap()
     if (m_showHideoutScreen)  renderHideoutScreen();
     if (m_showArtifactPanel)  renderArtifactPanel();
     if (m_showHeroInspect)    renderHeroInspect();
+    if (m_showVictory)        renderVictoryModal();
+    if (m_showDefeat)         renderDefeatModal();
     endImGuiFrame();
 }
 
@@ -423,8 +425,10 @@ void Game::renderWorldOverlay()
         dl->AddText({sx - 3, sy - 6}, IM_COL32(20, 20, 20, 255), lbl);
     }
 
-    // ── Enemy heroes ──────────────────────────────────────────────────────────
+    // ── Enemy heroes (only if tile is visible) ────────────────────────────────
     for (const auto& hero : m_enemyHeroes) {
+        const HexTile* etile = m_map.getTile(hero.pos);
+        if (!etile || !etile->visible) continue;
         float sx, sy;
         project(hero.pos, sx, sy);
         dl->AddCircleFilled({sx, sy}, 12.0f, IM_COL32(200, 40, 40, 220));
@@ -622,4 +626,69 @@ void Game::renderHeroInspect()
         }
     }
     ImGui::End();
+}
+
+// ── Victory modal ─────────────────────────────────────────────────────────────
+void Game::renderVictoryModal()
+{
+    ImGui::OpenPopup("Victory!");
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(360, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal("Victory!", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.1f, 1.0f),
+                           "All enemy heroes have been defeated!");
+        ImGui::Spacing();
+        ImGui::TextDisabled("Day %d  Week %d  |  Gold: %d",
+                            m_turns.day(), m_turns.week(),
+                            m_playerResources.get(ResourceType::Gold));
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        float bw = ImGui::GetWindowWidth() - 32.0f;
+        if (ImGui::Button("Continue Exploring", ImVec2(bw * 0.55f, 36))) {
+            m_showVictory = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Main Menu", ImVec2(-1, 36))) {
+            m_showVictory = false;
+            m_state = GameState::MainMenu;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
+// ── Defeat modal ──────────────────────────────────────────────────────────────
+void Game::renderDefeatModal()
+{
+    ImGui::OpenPopup("Defeat");
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(360, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal("Defeat", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Your army was defeated!");
+        ImGui::Spacing();
+        ImGui::TextDisabled("Day %d  Week %d", m_turns.day(), m_turns.week());
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        float bw = ImGui::GetWindowWidth() - 32.0f;
+        if (ImGui::Button("Continue (retreat)", ImVec2(bw * 0.55f, 36))) {
+            m_showDefeat = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load Last Save", ImVec2(-1, 36))) {
+            m_showDefeat = false;
+            loadGame("saves/save0.json");
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }

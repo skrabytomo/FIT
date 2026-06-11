@@ -138,6 +138,7 @@ void Game::exitCombat(bool playerWon)
 
         m_hideout.addXP(50);
         m_triggers.fire(TriggerType::BattleWon, ctx);
+        if (m_enemyHeroes.empty()) m_showVictory = true;
 
         // Award hero XP
         if (!m_heroes.empty()) {
@@ -162,6 +163,7 @@ void Game::exitCombat(bool playerWon)
         }
     } else {
         m_triggers.fire(TriggerType::BattleLost, ctx);
+        m_showDefeat = true;
     }
     enterWorldMap();
 }

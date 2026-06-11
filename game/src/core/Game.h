@@ -113,6 +113,10 @@ private:
     // ── Mage guild overlay in town (ImGui) ────────────────────────────────────
     void renderMageGuild();
 
+    // ── Victory / defeat modals ────────────────────────────────────────────────
+    void renderVictoryModal();
+    void renderDefeatModal();
+
     // ── Lua scripting API (called from Lua, thin wrappers) ────────────────────
     void bindLuaAPI();
     int  luaGetDay()       const { return m_turns.day(); }
@@ -217,4 +221,8 @@ private:
     HeroClassRegistry          m_classRegistry;
     std::vector<LevelUpOffer>  m_levelUpOffers;
     bool                       m_showLevelUpModal = false;
+
+    // ── Victory / defeat ──────────────────────────────────────────────────────
+    bool m_showVictory = false;
+    bool m_showDefeat  = false;
 };
