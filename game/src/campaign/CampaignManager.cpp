@@ -275,6 +275,19 @@ void CampaignManager::onHeroDefeated(uint32_t heroId)
     checkAllObjectives();
 }
 
+void CampaignManager::onTileReached(HexCoord pos)
+{
+    if (m_over) return;
+    for (auto& obj : m_missions[m_currentIdx].objectives) {
+        if (obj.type == ObjectiveType::ReachTile &&
+            obj.targetTile == pos && !obj.completed)
+        {
+            tryCompleteObjective(obj, true);
+        }
+    }
+    checkAllObjectives();
+}
+
 void CampaignManager::onResourcesChecked(ResourceType type, int amount)
 {
     if (m_over) return;

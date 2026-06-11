@@ -104,6 +104,9 @@ private:
     // ── Combat spell panel ─────────────────────────────────────────────────────
     void renderSpellPanel();
 
+    // ── Combat board (hex grid with units) ────────────────────────────────────
+    void renderCombatBoard();
+
     // ── Artifact equip panel (F7) ──────────────────────────────────────────────
     void renderArtifactPanel();
 
@@ -185,6 +188,11 @@ private:
     CombatEngine m_combat;
     bool         m_showSpellPanel  = false;
     uint32_t     m_spellTargetId   = 0;    // unit ID pre-selected for spell
+
+    // Combat board rendering/click transform
+    float        m_combatBoardScale = 1.0f;
+    float        m_combatBoardOffX  = 0.0f;
+    float        m_combatBoardOffY  = 0.0f;
 
     // ── UI ────────────────────────────────────────────────────────────────────
     WorldMapHUD  m_worldHUD;

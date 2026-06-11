@@ -160,14 +160,15 @@ void TownScreen::rebuildRecruitButtons()
         rb.btn.colorBorder = UIColor::hex(UITheme::NATURE_GREEN, 0.6f);
 
         int capturedTier = dw.tier;
-        rb.btn.onClick = [this, capturedTier]{
+        UpgradePath capturedPath = dw.path;
+        rb.btn.onClick = [this, capturedTier, capturedPath]{
             if (!m_town || !m_playerRes || !m_registry || !m_hero) return;
             // Find matching UnitDef before spending gold — avoids charging for units
             // that can't be added (no def, or army full with no matching stack)
             const UnitDef* matchedUd = nullptr;
             for (const auto& ud : m_registry->units()) {
                 if (ud.faction == m_town->faction && ud.tier == capturedTier
-                    && ud.path == UpgradePath::None) {
+                    && ud.path == capturedPath) {
                     matchedUd = &ud; break;
                 }
             }

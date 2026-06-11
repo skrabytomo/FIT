@@ -37,8 +37,9 @@ void TurnManager::onNewWeek(std::vector<Town>& towns,
     printf("=== WEEK %d BEGINS ===\n", m_week);
 
     for (auto& town : towns) {
-        // Add weekly resource income
-        playerResources.addAll(town.weeklyIncome);
+        // Add weekly resource income — only player-owned towns
+        if (town.ownerId == 1)
+            playerResources.addAll(town.weeklyIncome);
 
         // Add unit growth to dwellings
         town.onWeekStart(registry.buildings());

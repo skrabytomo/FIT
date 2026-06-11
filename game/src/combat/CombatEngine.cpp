@@ -350,6 +350,16 @@ bool CombatEngine::submitAction(const CombatAction& action)
                     t->applyDamage(dmg);
                     ss << " → " << t->name << " takes " << dmg;
                     if (!t->alive) addLog(t->name + " destroyed!");
+                    // Death Coil and Drain Life restore HP to caster's unit
+                    if (action.spellId == SPL::DEATH_COIL ||
+                        action.spellId == SPL::DRAIN_LIFE)
+                    {
+                        int heal = dmg / 2;
+                        if (heal > 0) {
+                            unit->hp = std::min(unit->maxHp, unit->hp + heal);
+                            ss << " (+" << heal << " HP lifesteal)";
+                        }
+                    }
                     break;
                 }
                 case SpellEffect::Heal: {

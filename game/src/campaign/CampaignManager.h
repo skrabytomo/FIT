@@ -33,6 +33,7 @@ public:
     void onTownCaptured(uint32_t townId);
     void onHeroDefeated(uint32_t heroId);
     void onResourcesChecked(ResourceType type, int amount);
+    void onTileReached(HexCoord pos);
 
     // Decision flow
     bool                    hasPendingDecision() const;

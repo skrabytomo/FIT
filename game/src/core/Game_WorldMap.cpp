@@ -108,9 +108,10 @@ static std::vector<CombatUnit> makeHeroUnits(const Hero& hero,
         u.speed    = ud->speed;
         u.range    = ud->range;
         u.shots    = u.shotsLeft = ud->shots;
-        u.flying   = ud->flying;
-        u.tags     = ud->tags;
-        u.isPlayer = isPlayer;
+        u.flying      = ud->flying;
+        u.tags        = ud->tags;
+        u.isPlayer    = isPlayer;
+        u.hasSecondLife = (hero.faction == FactionId::EternalEmpire);
         out.push_back(u);
     }
     return out.empty() ? makeFactionUnits(hero.faction, isPlayer) : out;
@@ -500,6 +501,9 @@ void Game::checkTileEvents()
     ctx.playerSide = true;
     m_triggers.fireTileEnter(hero.pos, ctx);
     m_triggers.fire(TriggerType::EnterTile, ctx);
+
+    if (m_state == GameState::Campaign)
+        m_campaign.onTileReached(hero.pos);
 
     // World objects (scrolls, chests, shrines)
     for (auto& obj : m_worldObjects) {

@@ -5,18 +5,56 @@
 #include <stdio.h>
 #include <sstream>
 #include <algorithm>
+#include <cmath>
 
 // ── Combat update ─────────────────────────────────────────────────────────────
 void Game::updateCombat(float dt)
 {
     (void)dt;
     const auto& mouse = m_input.mouse();
+    float mx = static_cast<float>(mouse.x);
+    float my = static_cast<float>(mouse.y);
 
-    if (mouse.leftDown)
-        m_combatHUD.onMouseDown(static_cast<float>(mouse.x),
-                                static_cast<float>(mouse.y));
-    m_combatHUD.onMouseMove(static_cast<float>(mouse.x),
-                            static_cast<float>(mouse.y));
+    if (mouse.leftDown) {
+        bool consumed = m_combatHUD.onMouseDown(mx, my);
+        if (!consumed && m_combat.phase() == CombatPhase::PlayerTurn) {
+            // Convert mouse → world → hex
+            float wx = (mx - m_combatBoardOffX) / m_combatBoardScale;
+            float wy = (my - m_combatBoardOffY) / m_combatBoardScale;
+            HexCoord clicked = m_combat.grid().hexGrid().worldToHex(wx, wy);
+
+            if (m_combat.grid().inBounds(clicked)) {
+                CombatUnit* active = m_combat.activeUnit();
+                if (active && active->isPlayer) {
+                    const CombatUnit* tgt = m_combat.grid().getUnitAt(clicked);
+                    if (tgt && !tgt->isPlayer && tgt->alive) {
+                        // Attack or shoot
+                        CombatAction act;
+                        act.type         = (active->shotsLeft > 0 && active->range > 0)
+                                           ? ActionType::Shoot
+                                           : ActionType::Attack;
+                        act.targetUnitId = tgt->id;
+                        act.target       = clicked;
+                        m_combat.submitAction(act);
+                    } else if (!tgt) {
+                        // Move to empty reachable tile
+                        auto reach = m_combat.grid().reachable(
+                            active->pos, active->speed, active->flying);
+                        for (const auto& h : reach) {
+                            if (h == clicked) {
+                                CombatAction act;
+                                act.type   = ActionType::Move;
+                                act.target = clicked;
+                                m_combat.submitAction(act);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    m_combatHUD.onMouseMove(mx, my);
 
     if (m_combat.phase() == CombatPhase::EnemyTurn)
         m_combat.processAITurn();
@@ -36,8 +74,145 @@ void Game::renderCombat()
 
     beginImGuiFrame();
     m_ui.flushText(ImGui::GetBackgroundDrawList());
+    renderCombatBoard();
     if (m_showSpellPanel) renderSpellPanel();
     endImGuiFrame();
+}
+
+// ── Combat board ──────────────────────────────────────────────────────────────
+void Game::renderCombatBoard()
+{
+    if (!m_imguiReady) return;
+    ImDrawList* dl = ImGui::GetBackgroundDrawList();
+    const CombatGrid& grid = m_combat.grid();
+    const HexGrid& hg = grid.hexGrid();
+    const auto& coords = grid.allCoords();
+    if (coords.empty()) return;
+
+    // Compute world-space bounding box from hex corners
+    float wxMin = 1e9f, wyMin = 1e9f, wxMax = -1e9f, wyMax = -1e9f;
+    for (const auto& h : coords) {
+        float corners[12];
+        hg.hexCorners(h, corners);
+        for (int i = 0; i < 6; ++i) {
+            if (corners[i*2]   < wxMin) wxMin = corners[i*2];
+            if (corners[i*2]   > wxMax) wxMax = corners[i*2];
+            if (corners[i*2+1] < wyMin) wyMin = corners[i*2+1];
+            if (corners[i*2+1] > wyMax) wyMax = corners[i*2+1];
+        }
+    }
+
+    // Screen area between turn bar (44 px) and HUD (130 px)
+    float areaX = 0.0f;
+    float areaY = 44.0f;
+    float areaW = static_cast<float>(m_width);
+    float areaH = static_cast<float>(m_height) - 44.0f - 130.0f;
+
+    float margin = 12.0f;
+    float worldW = wxMax - wxMin;
+    float worldH = wyMax - wyMin;
+    if (worldW < 1.0f || worldH < 1.0f) return;
+
+    float scale = std::min((areaW - 2.0f * margin) / worldW,
+                           (areaH - 2.0f * margin) / worldH);
+
+    float boardW = worldW * scale;
+    float boardH = worldH * scale;
+    m_combatBoardScale = scale;
+    m_combatBoardOffX  = areaX + (areaW - boardW) * 0.5f - wxMin * scale;
+    m_combatBoardOffY  = areaY + (areaH - boardH) * 0.5f - wyMin * scale;
+
+    // Reachable tiles for active player unit
+    std::vector<HexCoord> reach;
+    const CombatUnit* active = const_cast<CombatEngine&>(m_combat).activeUnit();
+    if (active && active->isPlayer && !active->hasMoved)
+        reach = grid.reachable(active->pos, active->speed, active->flying);
+
+    // Draw background
+    dl->AddRectFilled(
+        {areaX, areaY},
+        {areaX + areaW, areaY + areaH},
+        IM_COL32(18, 18, 28, 255));
+
+    // Draw tiles
+    for (const auto& h : coords) {
+        float corners[12];
+        hg.hexCorners(h, corners);
+
+        ImVec2 pts[6];
+        for (int i = 0; i < 6; ++i) {
+            pts[i].x = corners[i*2]   * scale + m_combatBoardOffX;
+            pts[i].y = corners[i*2+1] * scale + m_combatBoardOffY;
+        }
+
+        const CombatTile* tile = grid.getTile(h);
+        ImU32 fill = IM_COL32(32, 32, 48, 255);
+        if (tile) {
+            switch (tile->type) {
+                case CombatTileType::Attack:       fill = IM_COL32(70, 20, 20, 255); break;
+                case CombatTileType::Defense:      fill = IM_COL32(20, 20, 70, 255); break;
+                case CombatTileType::Speed:        fill = IM_COL32(20, 60, 20, 255); break;
+                case CombatTileType::SpeedPenalty: fill = IM_COL32(55, 40, 10, 255); break;
+                case CombatTileType::Obstacle:     fill = IM_COL32(55, 55, 55, 255); break;
+                case CombatTileType::Wall:         fill = IM_COL32(90, 90, 90, 255); break;
+                default: break;
+            }
+        }
+        // Reachable highlight overrides terrain
+        for (const auto& rh : reach)
+            if (rh == h) { fill = IM_COL32(35, 80, 35, 220); break; }
+
+        // Active unit tile highlight
+        if (active && h == active->pos)
+            fill = IM_COL32(80, 70, 20, 255);
+
+        dl->AddConvexPolyFilled(pts, 6, fill);
+        dl->AddPolyline(pts, 6, IM_COL32(55, 55, 75, 200),
+                        ImDrawFlags_Closed, 1.0f);
+    }
+
+    // Draw units
+    float hexR = hg.hexSize() * scale * 0.38f;
+    for (const auto& u : grid.units()) {
+        if (!u.alive) continue;
+        float wx, wy;
+        hg.hexToWorld(u.pos, wx, wy);
+        float sx = wx * scale + m_combatBoardOffX;
+        float sy = wy * scale + m_combatBoardOffY;
+
+        ImU32 fillCol  = u.isPlayer ? IM_COL32(55, 155, 55, 230)
+                                    : IM_COL32(185, 45, 45, 230);
+        bool  isActive = (active && u.id == active->id);
+        ImU32 rimCol   = isActive ? IM_COL32(255, 205, 50, 255)
+                                  : IM_COL32(210, 210, 210, 200);
+
+        dl->AddCircleFilled({sx, sy}, hexR, fillCol);
+        dl->AddCircle({sx, sy}, hexR, rimCol, 0, isActive ? 2.5f : 1.5f);
+
+        // Stack count
+        char buf[12];
+        std::snprintf(buf, sizeof(buf), "%d", u.count);
+        ImVec2 ts = ImGui::CalcTextSize(buf);
+        dl->AddText({sx - ts.x * 0.5f, sy - ts.y * 0.5f},
+                    IM_COL32(255, 255, 255, 255), buf);
+    }
+
+    // Coordinate hint for hovered hex (debug feel)
+    const auto& mouse = m_input.mouse();
+    float mwx = (mouse.x - m_combatBoardOffX) / m_combatBoardScale;
+    float mwy = (mouse.y - m_combatBoardOffY) / m_combatBoardScale;
+    HexCoord mh = hg.worldToHex(mwx, mwy);
+    if (grid.inBounds(mh)) {
+        float corners[12];
+        hg.hexCorners(mh, corners);
+        ImVec2 pts[6];
+        for (int i = 0; i < 6; ++i) {
+            pts[i].x = corners[i*2]   * scale + m_combatBoardOffX;
+            pts[i].y = corners[i*2+1] * scale + m_combatBoardOffY;
+        }
+        dl->AddPolyline(pts, 6, IM_COL32(220, 220, 120, 180),
+                        ImDrawFlags_Closed, 1.5f);
+    }
 }
 
 // ── Spell panel (ImGui) ───────────────────────────────────────────────────────

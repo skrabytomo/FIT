@@ -311,15 +311,17 @@ void WorldGen::buildTowns(WorldGenResult& result,
 {
     // Faction IDs match order of spawn positions (players pick factions separately)
     static const FactionId kFactions[] = {
-        FactionId::HolyOrder, FactionId::CrimsonWardens,
-        FactionId::Thornkin,  FactionId::EternalEmpire,
-        FactionId::Bloodsworn, FactionId::Voidkin,
-        FactionId::IronAssembly, FactionId::Amalgamate,
+        FactionId::HolyOrder,   FactionId::CrimsonWardens,
+        FactionId::Thornkin,    FactionId::EternalEmpire,
+        FactionId::Bloodsworn,  FactionId::Voidkin,
+        FactionId::IronAssembly,FactionId::Amalgamate,
+        FactionId::Convergence,
     };
 
     static const char* kTownNames[] = {
-        "Sanctuary", "Ironhold",  "Thornwald", "Greyspire",
-        "Crimsongate", "Voidhaven", "Forge City", "The Meld",
+        "Sanctuary",   "Ironhold",   "Thornwald",  "Greyspire",
+        "Crimsongate", "Voidhaven",  "Forge City", "The Meld",
+        "The Nexus",
     };
 
     for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
