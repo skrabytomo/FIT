@@ -112,6 +112,7 @@ private:
 
     // ── Mage guild overlay in town (ImGui) ────────────────────────────────────
     void renderMageGuild();
+    void renderCapturePopup();
 
     // ── Victory / defeat modals ────────────────────────────────────────────────
     void renderVictoryModal();
@@ -225,4 +226,8 @@ private:
     // ── Victory / defeat ──────────────────────────────────────────────────────
     bool m_showVictory = false;
     bool m_showDefeat  = false;
+
+    // ── Town capture notification ─────────────────────────────────────────────
+    bool        m_showCapturePopup = false;
+    std::string m_capturedTownName;
 };

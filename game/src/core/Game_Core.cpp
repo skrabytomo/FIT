@@ -122,7 +122,7 @@ bool Game::init(const std::string& title, int width, int height)
     placeEnemy(101, "Bloodsworn Raider", FactionId::Bloodsworn,  {-6, 4});
     placeEnemy(102, "Thornkin Shaman",   FactionId::Thornkin,    {5,  5});
 
-    // Place a sample town
+    // Place player town
     Town town;
     town.id      = 1;
     town.name    = "Sanctuary";
@@ -132,6 +132,21 @@ bool Game::init(const std::string& title, int width, int height)
     town.builtBuildings.push_back(BID::MAGE_GUILD);  // Sanctuary starts with a guild
     m_towns.push_back(town);
     if (HexTile* t = m_map.getTile(town.pos)) t->townId = town.id;
+
+    // Place neutral towns (capturable)
+    auto addNeutralTown = [&](uint32_t id, const char* name,
+                               FactionId f, HexCoord pos) {
+        Town nt;
+        nt.id      = id;
+        nt.name    = name;
+        nt.faction = f;
+        nt.pos     = pos;
+        nt.ownerId = 0;  // neutral — capturable
+        m_towns.push_back(nt);
+        if (HexTile* t = m_map.getTile(pos)) t->townId = id;
+    };
+    addNeutralTown(2, "Thornwood",   FactionId::Thornkin,      {-3, -2});
+    addNeutralTown(3, "Iron Citadel",FactionId::IronAssembly,  { 6,  2});
 
     // Fog of war
     FogOfWar::hideAll(m_map);

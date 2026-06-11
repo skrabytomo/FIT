@@ -360,13 +360,19 @@ void Game::checkTileEvents()
         }
     }
 
-    // Town entry
+    // Town entry / capture
     if (tile->townId != 0) {
         for (auto& t : m_towns) {
-            if (t.id == tile->townId) {
-                enterTown(&t);
-                return;
+            if (t.id != tile->townId) continue;
+            if (t.ownerId != 1) {
+                // Capture neutral/enemy town
+                t.ownerId = 1;
+                printf("Captured town: %s\n", t.name.c_str());
+                m_capturedTownName = t.name;
+                m_showCapturePopup = true;
             }
+            enterTown(&t);
+            return;
         }
     }
 
@@ -412,15 +418,25 @@ void Game::renderWorldOverlay()
 
     // ── Towns ──────────────────────────────────────────────────────────────────
     for (const auto& town : m_towns) {
+        const HexTile* ttile = m_map.getTile(town.pos);
+        if (ttile && !ttile->visible) continue;
+
         float sx, sy;
         project(town.pos, sx, sy);
         constexpr float HS = 14.0f;
-        dl->AddRectFilled({sx - HS, sy - HS}, {sx + HS, sy + HS},
-                          IM_COL32(40, 80, 180, 210), 3.0f);
-        dl->AddRect({sx - HS, sy - HS}, {sx + HS, sy + HS},
-                    IM_COL32(120, 180, 255, 255), 3.0f, 0, 1.5f);
-        dl->AddText({sx - 4, sy - 6}, IM_COL32(220, 240, 255, 255), "T");
-        // Name label below
+
+        bool isPlayer = (town.ownerId == 1);
+        ImU32 fillCol = isPlayer ? IM_COL32(40, 80, 180, 210)
+                                 : IM_COL32(90, 60, 20, 210);
+        ImU32 ringCol = isPlayer ? IM_COL32(120, 180, 255, 255)
+                                 : IM_COL32(200, 160, 60, 255);
+        ImU32 lblCol  = isPlayer ? IM_COL32(220, 240, 255, 255)
+                                 : IM_COL32(240, 200, 100, 255);
+        const char* lbl = isPlayer ? "T" : "N";
+
+        dl->AddRectFilled({sx - HS, sy - HS}, {sx + HS, sy + HS}, fillCol, 3.0f);
+        dl->AddRect({sx - HS, sy - HS}, {sx + HS, sy + HS}, ringCol, 3.0f, 0, 1.5f);
+        dl->AddText({sx - 4, sy - 6}, lblCol, lbl);
         dl->AddText({sx - town.name.size() * 3.5f, sy + HS + 2},
                     IM_COL32(200, 220, 255, 200), town.name.c_str());
     }

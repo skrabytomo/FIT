@@ -27,6 +27,7 @@ void Game::renderTown()
 
     beginImGuiFrame();
     renderMageGuild();
+    if (m_showCapturePopup) renderCapturePopup();
     endImGuiFrame();
 }
 
@@ -101,6 +102,28 @@ void Game::renderMageGuild()
         ImGui::PopID();
     }
     ImGui::End();
+}
+
+// ── Capture notification popup ────────────────────────────────────────────────
+void Game::renderCapturePopup()
+{
+    ImGui::OpenPopup("Town Captured!");
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(340, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal("Town Captured!", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImVec4(0.2f, 1.0f, 0.4f, 1.0f),
+                           "%s is now under your control!", m_capturedTownName.c_str());
+        ImGui::Spacing();
+        ImGui::TextDisabled("Weekly income from this town will begin next week.");
+        ImGui::Spacing();
+        if (ImGui::Button("Continue", ImVec2(-1, 32))) {
+            m_showCapturePopup = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }
 
 // ── State transitions ─────────────────────────────────────────────────────────
