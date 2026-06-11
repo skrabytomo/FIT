@@ -7,6 +7,7 @@
 #include "../hero/Hero.h"
 #include "../town/Town.h"
 #include "../data/Resources.h"
+#include "../data/ResourceNode.h"
 #include "../world/WorldObject.h"
 
 // ── Tile save data (only fields that change at runtime) ────────────────────────
@@ -23,6 +24,17 @@ struct TileSave
 
 // ── Skill instance save ────────────────────────────────────────────────────────
 struct SkillInstSave { int defId = 0; int tier = 0; };
+
+// ── Resource node save ────────────────────────────────────────────────────────
+struct ResourceNodeSave
+{
+    uint32_t id       = 0;
+    int      posQ     = 0;
+    int      posR     = 0;
+    int      type     = 0;   // ResourceType as int
+    int      amount   = 0;
+    bool     depleted = false;
+};
 
 // ── World object save ──────────────────────────────────────────────────────────
 struct WorldObjectSave
@@ -128,6 +140,7 @@ struct GameSaveData
     std::vector<HeroSave>        enemyHeroes;
     std::vector<TownSave>        towns;
     std::vector<WorldObjectSave> worldObjects;
+    std::vector<ResourceNodeSave> resourceNodes;
     uint32_t                     nextObjId = 1;
 
     // Tile fog/entity state
@@ -149,6 +162,7 @@ namespace SaveLoad
                            const std::vector<Hero>& enemyHeroes,
                            const std::vector<Town>& towns,
                            const std::vector<WorldObject>& worldObjects,
+                           const std::vector<ResourceNode>& resourceNodes,
                            uint32_t nextObjId,
                            const Resources& playerRes,
                            int day, int week,
@@ -160,6 +174,7 @@ namespace SaveLoad
                      std::vector<Hero>& enemyHeroes,
                      std::vector<Town>& towns,
                      std::vector<WorldObject>& worldObjects,
+                     std::vector<ResourceNode>& resourceNodes,
                      uint32_t& nextObjId,
                      Resources& playerRes,
                      int& day, int& week);
