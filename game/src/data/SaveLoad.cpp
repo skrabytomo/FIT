@@ -58,6 +58,24 @@ static DwellingSave dwellingFromJson(const json& j)
     return d;
 }
 
+// ── ResourceNodeSave ──────────────────────────────────────────────────────────
+static json resNodeToJson(const ResourceNodeSave& n)
+{
+    return {{"id",n.id},{"q",n.posQ},{"r",n.posR},
+            {"type",n.type},{"amt",n.amount},{"dep",n.depleted}};
+}
+static ResourceNodeSave resNodeFromJson(const json& j)
+{
+    ResourceNodeSave n;
+    n.id       = j.at("id").get<uint32_t>();
+    n.posQ     = j.at("q").get<int>();
+    n.posR     = j.at("r").get<int>();
+    n.type     = j.at("type").get<int>();
+    n.amount   = j.at("amt").get<int>();
+    n.depleted = j.value("dep", false);
+    return n;
+}
+
 // ── WorldObjectSave ───────────────────────────────────────────────────────────
 static json worldObjToJson(const WorldObjectSave& o)
 {
@@ -236,6 +254,11 @@ bool SaveLoad::saveGame(const std::string& path, const GameSaveData& data)
         j["worldObjects"] = objArr;
         j["nextObjId"] = data.nextObjId;
 
+        // Resource nodes
+        json rnArr = json::array();
+        for (auto& n : data.resourceNodes) rnArr.push_back(resNodeToJson(n));
+        j["resNodes"] = rnArr;
+
         // Tiles
         json tileArr = json::array();
         for (auto& t : data.tiles) tileArr.push_back(tileToJson(t));
@@ -303,6 +326,10 @@ bool SaveLoad::loadGame(const std::string& path, GameSaveData& out)
         if (j.contains("worldObjects"))
             for (auto& jo : j.at("worldObjects")) out.worldObjects.push_back(worldObjFromJson(jo));
         out.nextObjId = j.value("nextObjId", 1u);
+
+        out.resourceNodes.clear();
+        if (j.contains("resNodes"))
+            for (auto& jn : j.at("resNodes")) out.resourceNodes.push_back(resNodeFromJson(jn));
 
         out.tiles.clear();
         if (j.contains("tiles"))
@@ -413,6 +440,7 @@ GameSaveData SaveLoad::packState(const HexMap& map,
                                  const std::vector<Hero>& enemyHeroes,
                                  const std::vector<Town>& towns,
                                  const std::vector<WorldObject>& worldObjects,
+                                 const std::vector<ResourceNode>& resourceNodes,
                                  uint32_t nextObjId,
                                  const Resources& playerRes,
                                  int day, int week,
@@ -468,6 +496,18 @@ GameSaveData SaveLoad::packState(const HexMap& map,
         save.worldObjects.push_back(os);
     }
 
+    // Resource nodes
+    for (const auto& rn : resourceNodes) {
+        ResourceNodeSave ns;
+        ns.id       = rn.id;
+        ns.posQ     = rn.pos.q;
+        ns.posR     = rn.pos.r;
+        ns.type     = static_cast<int>(rn.type);
+        ns.amount   = rn.amount;
+        ns.depleted = rn.depleted;
+        save.resourceNodes.push_back(ns);
+    }
+
     // Tiles (fog of war + entity references)
     for (auto c : map.coords()) {
         const HexTile* tile = map.getTile(c);
@@ -494,6 +534,7 @@ void SaveLoad::unpackState(const GameSaveData& save,
                            std::vector<Hero>& enemyHeroes,
                            std::vector<Town>& towns,
                            std::vector<WorldObject>& worldObjects,
+                           std::vector<ResourceNode>& resourceNodes,
                            uint32_t& nextObjId,
                            Resources& playerRes,
                            int& day, int& week)
@@ -533,6 +574,18 @@ void SaveLoad::unpackState(const GameSaveData& save,
         obj.resourceType = static_cast<ResourceType>(os.resType);
         obj.collected    = os.collected;
         worldObjects.push_back(obj);
+    }
+
+    // Restore resource nodes
+    resourceNodes.clear();
+    for (const auto& ns : save.resourceNodes) {
+        ResourceNode rn;
+        rn.id       = ns.id;
+        rn.pos      = {ns.posQ, ns.posR};
+        rn.type     = static_cast<ResourceType>(ns.type);
+        rn.amount   = ns.amount;
+        rn.depleted = ns.depleted;
+        resourceNodes.push_back(rn);
     }
 
     // Restore towns

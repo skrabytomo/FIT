@@ -343,7 +343,7 @@ void Game::saveGame(const std::string& path)
 
     GameSaveData data = SaveLoad::packState(
         m_map, m_heroes, m_enemyHeroes,
-        m_towns, m_worldObjects, m_nextObjId,
+        m_towns, m_worldObjects, m_resources, m_nextObjId,
         m_playerResources,
         m_turns.day(), m_turns.week(),
         m_mapSize);
@@ -369,7 +369,7 @@ bool Game::loadGame(const std::string& path)
 
     int day = 1, week = 1;
     SaveLoad::unpackState(data, m_map, m_heroes, m_enemyHeroes,
-                          m_towns, m_worldObjects, m_nextObjId,
+                          m_towns, m_worldObjects, m_resources, m_nextObjId,
                           m_playerResources, day, week);
 
     m_activeHeroIdx = 0;
