@@ -3,6 +3,7 @@
 #include "../hero/SkillRegistry.h"
 #include "../magic/SpellRegistry.h"
 #include "../world/HexGrid.h"
+#include "../town/UnitDef.h"
 #include <imgui.h>
 #include <cmath>
 #include <algorithm>
@@ -80,6 +81,59 @@ static std::vector<CombatUnit> makeFactionUnits(FactionId faction, bool isPlayer
     return out;
 }
 
+// Build CombatUnits from hero's actual army; falls back to faction template if army empty
+static std::vector<CombatUnit> makeHeroUnits(const Hero& hero,
+    const std::vector<UnitDef>& defs, bool isPlayer)
+{
+    if (hero.army.empty())
+        return makeFactionUnits(hero.faction, isPlayer);
+
+    std::vector<CombatUnit> out;
+    int nextId = isPlayer ? 1 : 50;
+    for (const auto& stack : hero.army) {
+        if (stack.count <= 0) continue;
+        const UnitDef* ud = nullptr;
+        for (const auto& d : defs) if (d.id == stack.defId) { ud = &d; break; }
+        if (!ud) continue;
+        CombatUnit u;
+        u.id = nextId++;
+        u.defId = ud->id;
+        u.name = ud->name;
+        u.count = stack.count;
+        u.hp = u.maxHp = ud->hp;
+        u.attack   = ud->attack;
+        u.defense  = ud->defense;
+        u.damageMin = ud->damage_min;
+        u.damageMax = ud->damage_max;
+        u.speed    = ud->speed;
+        u.range    = ud->range;
+        u.shots    = u.shotsLeft = ud->shots;
+        u.flying   = ud->flying;
+        u.tags     = ud->tags;
+        u.isPlayer = isPlayer;
+        out.push_back(u);
+    }
+    return out.empty() ? makeFactionUnits(hero.faction, isPlayer) : out;
+}
+
+// Estimated combat strength: sum(count * hp * attack) per stack
+static int heroStrength(const Hero& hero, const std::vector<UnitDef>& defs)
+{
+    if (hero.army.empty()) {
+        auto units = makeFactionUnits(hero.faction, true);
+        int s = 0;
+        for (auto& u : units) s += u.count * u.hp * u.attack;
+        return s;
+    }
+    int s = 0;
+    for (const auto& stack : hero.army) {
+        if (stack.count <= 0) continue;
+        for (const auto& d : defs)
+            if (d.id == stack.defId) { s += stack.count * d.hp * d.attack; break; }
+    }
+    return s;
+}
+
 // ── World map update ──────────────────────────────────────────────────────────
 void Game::updateWorldMap(float dt)
 {
@@ -128,32 +182,52 @@ void Game::updateWorldMap(float dt)
         for (auto& h : m_heroes)      h.movePool = h.maxMove;
         for (auto& h : m_enemyHeroes) h.movePool = h.maxMove;
 
-        // Enemy hero AI — drain full move pool each turn
+        // Enemy hero AI — strength-aware, full move pool
         if (!m_heroes.empty()) {
             Hero& playerHero = m_heroes[m_activeHeroIdx];
+            const auto& unitDefs = m_registry.units();
             bool combatTriggered = false;
+
             for (auto& eHero : m_enemyHeroes) {
                 if (combatTriggered) break;
-                while (eHero.movePool > 0) {
-                    // Pick target: player by default; prefer neutral towns or resources if closer
-                    HexCoord goal = playerHero.pos;
-                    int bestDist = HexGrid::distance(eHero.pos, playerHero.pos);
 
-                    for (const auto& t : m_towns) {
-                        if (t.ownerId != 0) continue; // only neutral towns
-                        int d = HexGrid::distance(eHero.pos, t.pos);
-                        if (d < bestDist) { bestDist = d; goal = t.pos; }
-                    }
+                int eiStr = heroStrength(eHero, unitDefs);
+                int plStr = heroStrength(playerHero, unitDefs);
+                // Fight if we have ≥70% of player strength; otherwise focus economy
+                bool aggressive = (eiStr * 10 >= plStr * 7);
+
+                while (eHero.movePool > 0) {
+                    // Priority: player (if aggressive) > unowned mine > neutral town
+                    // If weak: skip player as target, prefer economy
+                    HexCoord goal = {};
+                    bool goalSet = false;
+
+                    auto tryGoal = [&](HexCoord pos, int bias = 0) {
+                        int d = HexGrid::distance(eHero.pos, pos) - bias;
+                        if (!goalSet || d < HexGrid::distance(eHero.pos, goal)) {
+                            goal = pos; goalSet = true;
+                        }
+                    };
+
+                    // Unowned mines (always valuable)
                     for (const auto& r : m_resources) {
-                        if (r.depleted) continue;
-                        int d = HexGrid::distance(eHero.pos, r.pos);
-                        if (d < bestDist - 2) { bestDist = d; goal = r.pos; }
+                        if (r.ownedBy == eHero.id) continue; // already ours
+                        tryGoal(r.pos, 3); // slight preference over equidistant towns
                     }
+                    // Neutral towns
+                    for (const auto& t : m_towns) {
+                        if (t.ownerId != 0) continue;
+                        tryGoal(t.pos);
+                    }
+                    // Player hero (only if aggressive or no other target found)
+                    if (aggressive || !goalSet)
+                        tryGoal(playerHero.pos);
+
+                    if (!goalSet) break;
 
                     auto costFn = [this, &eHero](HexCoord c) -> int {
                         const HexTile* t = m_map.getTile(c);
                         if (!t || !eHero.canEnter(t->terrain)) return 999;
-                        // Don't path through player-owned towns
                         if (t->townId != 0) {
                             for (const auto& town : m_towns)
                                 if (town.id == t->townId && town.ownerId == 1) return 999;
@@ -178,26 +252,24 @@ void Game::updateWorldMap(float dt)
                     // Combat with player?
                     if (eHero.pos == playerHero.pos) {
                         m_lastCombatEnemyId = eHero.id;
-                        auto pUnits = makeFactionUnits(playerHero.faction, true);
+                        auto pUnits = makeHeroUnits(playerHero, unitDefs, true);
                         applyHeroSkillsToUnits(playerHero, pUnits);
-                        auto eUnits = makeFactionUnits(eHero.faction, false);
+                        auto eUnits = makeHeroUnits(eHero, unitDefs, false);
                         enterCombat(playerHero, pUnits, eHero, eUnits);
                         combatTriggered = true;
                         break;
                     }
 
                     // Collect world objects
-                    for (auto& obj : m_worldObjects) {
+                    for (auto& obj : m_worldObjects)
                         if (!obj.collected && obj.pos == eHero.pos)
                             obj.collected = true;
-                    }
 
-                    // Collect resource nodes
+                    // Claim resource node (mine control)
                     if (nextTile->resourceId != 0) {
                         for (auto& r : m_resources) {
-                            if (r.id == nextTile->resourceId && !r.depleted) {
-                                r.depleted = true;
-                                if (HexTile* t2 = m_map.getTile(r.pos)) t2->resourceId = 0;
+                            if (r.id == nextTile->resourceId) {
+                                r.ownedBy = eHero.id;
                                 break;
                             }
                         }
@@ -222,6 +294,10 @@ void Game::updateWorldMap(float dt)
         bool newWeek = m_turns.endTurn(m_towns, m_heroes,
                                        m_playerResources, m_registry);
         if (newWeek) {
+            // Mine income for player-controlled resource nodes
+            for (const auto& r : m_resources)
+                if (r.ownedBy == 1) m_playerResources.add(r.type, r.amount);
+
             printf("New week %d — income applied\n", m_turns.week());
             ScriptContext ctx; ctx.heroId = 0;
             m_triggers.fire(TriggerType::WeekStart, ctx);
@@ -404,14 +480,13 @@ void Game::checkTileEvents()
         }
     }
 
-    // Resource node pickup
+    // Resource node — claim mine (immediate payout + weekly income)
     if (tile->resourceId != 0) {
         for (auto& r : m_resources) {
-            if (r.id == tile->resourceId && !r.depleted) {
-                m_playerResources.add(r.type, r.amount);
-                printf("Picked up %d %s\n", r.amount, resourceName(r.type));
-                r.depleted = true;
-                if (HexTile* t2 = m_map.getTile(r.pos)) t2->resourceId = 0;
+            if (r.id == tile->resourceId && r.ownedBy != 1) {
+                r.ownedBy = 1;
+                m_playerResources.add(r.type, r.amount); // first-capture payout
+                printf("Claimed mine: +%d %s/week\n", r.amount, resourceName(r.type));
                 break;
             }
         }
@@ -440,9 +515,9 @@ void Game::checkTileEvents()
             if (e.id == tile->heroId) { enemyPtr = &e; break; }
         if (enemyPtr) {
             m_lastCombatEnemyId = enemyPtr->id;
-            auto pUnits = makeFactionUnits(hero.faction, true);
+            auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
             applyHeroSkillsToUnits(hero, pUnits);
-            auto eUnits = makeFactionUnits(enemyPtr->faction, false);
+            auto eUnits = makeHeroUnits(*enemyPtr, m_registry.units(), false);
             enterCombat(hero, pUnits, *enemyPtr, eUnits);
         }
     }
@@ -519,6 +594,33 @@ void Game::renderWorldOverlay()
         dl->AddCircleFilled({sx, sy}, 8.0f, col);
         dl->AddCircle({sx, sy}, 8.0f, IM_COL32(255,255,255,160), 0, 1.2f);
         dl->AddText({sx - 3, sy - 6}, IM_COL32(20, 20, 20, 255), lbl);
+    }
+
+    // ── Resource nodes (mines) ────────────────────────────────────────────────
+    for (const auto& r : m_resources) {
+        const HexTile* rtile = m_map.getTile(r.pos);
+        if (!rtile || !rtile->explored) continue;
+        float sx, sy;
+        project(r.pos, sx, sy);
+        ImU32 fill = r.ownedBy == 1  ? IM_COL32( 40, 100, 220, 200)
+                   : r.ownedBy >  1  ? IM_COL32(180,  30,  30, 200)
+                                     : IM_COL32(160, 130,  20, 200);
+        ImU32 ring = r.ownedBy == 1  ? IM_COL32(120, 180, 255, 255)
+                   : r.ownedBy >  1  ? IM_COL32(255, 100, 100, 255)
+                                     : IM_COL32(220, 190,  60, 255);
+        const char* ml;
+        switch (r.type) {
+        case ResourceType::Gold:         ml = "G"; break;
+        case ResourceType::Iron:         ml = "I"; break;
+        case ResourceType::FaithStones:  ml = "F"; break;
+        case ResourceType::BloodEssence: ml = "B"; break;
+        case ResourceType::VerdantSap:   ml = "V"; break;
+        case ResourceType::Mercury:      ml = "M"; break;
+        default:                         ml = "?"; break;
+        }
+        dl->AddRectFilled({sx - 8, sy - 8}, {sx + 8, sy + 8}, fill, 2.0f);
+        dl->AddRect({sx - 8, sy - 8}, {sx + 8, sy + 8}, ring, 2.0f, 0, 1.2f);
+        dl->AddText({sx - 3, sy - 6}, IM_COL32(240, 240, 240, 240), ml);
     }
 
     // ── Enemy heroes (only if tile is visible) ────────────────────────────────

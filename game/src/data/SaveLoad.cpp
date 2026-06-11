@@ -62,7 +62,7 @@ static DwellingSave dwellingFromJson(const json& j)
 static json resNodeToJson(const ResourceNodeSave& n)
 {
     return {{"id",n.id},{"q",n.posQ},{"r",n.posR},
-            {"type",n.type},{"amt",n.amount},{"dep",n.depleted}};
+            {"type",n.type},{"amt",n.amount},{"dep",n.depleted},{"own",n.ownedBy}};
 }
 static ResourceNodeSave resNodeFromJson(const json& j)
 {
@@ -73,6 +73,7 @@ static ResourceNodeSave resNodeFromJson(const json& j)
     n.type     = j.at("type").get<int>();
     n.amount   = j.at("amt").get<int>();
     n.depleted = j.value("dep", false);
+    n.ownedBy  = j.value("own", 0u);
     return n;
 }
 
@@ -111,6 +112,9 @@ static json heroToJson(const HeroSave& h)
     json artInvArr = json::array();
     for (int a : h.artifactInventory) artInvArr.push_back(a);
 
+    json armyArr = json::array();
+    for (auto& [did, cnt] : h.army) armyArr.push_back({{"d", did}, {"c", cnt}});
+
     return {
         {"id", h.id}, {"name", h.name},
         {"faction", h.faction}, {"classId", h.classId},
@@ -126,6 +130,7 @@ static json heroToJson(const HeroSave& h)
         {"forgePower", h.forgePower}, {"fleshPower", h.fleshPower},
         {"spells", spellArr}, {"skills", skillArr},
         {"artEq", artEqArr}, {"artInv", artInvArr},
+        {"army", armyArr},
     };
 }
 static HeroSave heroFromJson(const json& j)
@@ -168,6 +173,9 @@ static HeroSave heroFromJson(const json& j)
     }
     if (j.contains("artInv"))
         for (auto& a : j.at("artInv")) h.artifactInventory.push_back(a.get<int>());
+    if (j.contains("army"))
+        for (auto& a : j.at("army"))
+            h.army.push_back({a.at("d").get<int>(), a.at("c").get<int>()});
     return h;
 }
 
@@ -391,6 +399,7 @@ static HeroSave packHero(const Hero& h)
     hs.artifactEquipped = {};
     for (int i = 0; i < 8; ++i) hs.artifactEquipped[i] = h.artifacts.equippedIds[i];
     hs.artifactInventory = h.artifactInventory;
+    for (auto& s : h.army) hs.army.push_back({s.defId, s.count});
     return hs;
 }
 
@@ -431,6 +440,7 @@ static Hero unpackHero(const HeroSave& hs)
     }
     for (int i = 0; i < 8; ++i) h.artifacts.equippedIds[i] = hs.artifactEquipped[i];
     h.artifactInventory = hs.artifactInventory;
+    for (auto& [did, cnt] : hs.army) h.army.push_back({did, cnt});
     return h;
 }
 
@@ -505,6 +515,7 @@ GameSaveData SaveLoad::packState(const HexMap& map,
         ns.type     = static_cast<int>(rn.type);
         ns.amount   = rn.amount;
         ns.depleted = rn.depleted;
+        ns.ownedBy  = rn.ownedBy;
         save.resourceNodes.push_back(ns);
     }
 
@@ -585,6 +596,7 @@ void SaveLoad::unpackState(const GameSaveData& save,
         rn.type     = static_cast<ResourceType>(ns.type);
         rn.amount   = ns.amount;
         rn.depleted = ns.depleted;
+        rn.ownedBy  = ns.ownedBy;
         resourceNodes.push_back(rn);
     }
 

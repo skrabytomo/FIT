@@ -3,13 +3,15 @@
 #include "../town/Town.h"
 #include "../town/BuildingRegistry.h"
 #include "../data/Resources.h"
+#include "../hero/Hero.h"
 #include <functional>
 
 class TownScreen
 {
 public:
     bool init(int screenW, int screenH);
-    void open(Town* town, Resources* playerRes, const BuildingRegistry* registry);
+    void open(Town* town, Resources* playerRes, const BuildingRegistry* registry,
+              Hero* visitingHero = nullptr);
     void close() { m_open = false; m_town = nullptr; }
     bool isOpen() const { return m_open; }
     const Town* currentTown() const { return m_town; }
@@ -29,10 +31,11 @@ private:
     void drawRecruitPanel(UIRenderer& rdr);
     void drawIncomePanel(UIRenderer& rdr);
 
-    Town*                   m_town     = nullptr;
-    Resources*              m_playerRes = nullptr;
-    const BuildingRegistry* m_registry  = nullptr;
-    bool                    m_open      = false;
+    Town*                   m_town       = nullptr;
+    Resources*              m_playerRes  = nullptr;
+    const BuildingRegistry* m_registry   = nullptr;
+    Hero*                   m_hero       = nullptr;
+    bool                    m_open       = false;
 
     int m_screenW = 1280, m_screenH = 720;
 

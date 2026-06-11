@@ -98,6 +98,21 @@ bool Game::init(const std::string& title, int width, int height)
     m_activeHeroIdx = 0;
     if (HexTile* ht = m_map.getTile(hero.pos)) ht->heroId = hero.id;
 
+    // Give a hero starting army: 20 tier-1 + 10 tier-2 units of their faction
+    auto giveStartingArmy = [&](Hero& h) {
+        for (int tier : {1, 2}) {
+            for (const auto& ud : m_registry.units()) {
+                if (ud.faction == h.faction && ud.tier == tier
+                    && ud.path == UpgradePath::None) {
+                    int cnt = (tier == 1) ? 20 : 8;
+                    h.army.push_back({ud.id, cnt});
+                    break;
+                }
+            }
+        }
+    };
+    giveStartingArmy(m_heroes[0]);
+
     // Enemy heroes at the other spawn positions
     static const char* kEnemyNames[] = {
         "Dark Warlord", "Blood Raider", "Thornkin Shaman", "Void Stalker"
@@ -112,6 +127,7 @@ bool Game::init(const std::string& title, int width, int height)
         eHero.faction  = ef;
         eHero.pos      = wgResult.startPositions[i];
         eHero.movePool = eHero.maxMove;
+        giveStartingArmy(eHero);
         m_enemyHeroes.push_back(eHero);
         if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;
     }

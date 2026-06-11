@@ -34,6 +34,7 @@ struct ResourceNodeSave
     int      type     = 0;   // ResourceType as int
     int      amount   = 0;
     bool     depleted = false;
+    uint32_t ownedBy  = 0;
 };
 
 // ── World object save ──────────────────────────────────────────────────────────
@@ -81,6 +82,8 @@ struct HeroSave
     std::vector<SkillInstSave> skillSlots;
     std::array<int,8>          artifactEquipped = {};
     std::vector<int>           artifactInventory;
+    // Army
+    std::vector<std::pair<int,int>> army; // {defId, count}
 };
 
 // ── Dwelling save ──────────────────────────────────────────────────────────────

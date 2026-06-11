@@ -25,6 +25,12 @@ static constexpr int BASE_MOVE_COST[] = {
     3,  // FleshZone
 };
 
+struct UnitStack
+{
+    int defId = 0;
+    int count = 0;
+};
+
 struct Hero
 {
     uint32_t    id       = 0;
@@ -70,6 +76,9 @@ struct Hero
 
     // Collected artifact IDs not yet equipped
     std::vector<int> artifactInventory;
+
+    // Army — up to 7 unit stacks (indexed by slot)
+    std::vector<UnitStack> army;
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 

@@ -37,11 +37,13 @@ void TownScreen::buildLayout(int sw, int sh)
     m_incomePanel.title = "Weekly Income";
 }
 
-void TownScreen::open(Town* town, Resources* playerRes, const BuildingRegistry* registry)
+void TownScreen::open(Town* town, Resources* playerRes, const BuildingRegistry* registry,
+                      Hero* visitingHero)
 {
     m_town      = town;
     m_playerRes = playerRes;
     m_registry  = registry;
+    m_hero      = visitingHero;
     m_open      = true;
 
     m_mainPanel.title = town->name + " — " + [town]{
@@ -133,22 +135,50 @@ void TownScreen::rebuildRecruitButtons()
     for (auto& dw : m_town->dwellings) {
         if (dw.available <= 0) continue;
 
+        // Look up unit name from registry
+        std::string unitName = "T" + std::to_string(dw.tier);
+        int costPerUnit = 0;
+        if (m_registry) {
+            for (const auto& ud : m_registry->units()) {
+                if (ud.faction == m_town->faction && ud.tier == dw.tier
+                    && ud.path == dw.path) {
+                    unitName   = ud.name;
+                    costPerUnit = ud.cost.get(ResourceType::Gold);
+                    break;
+                }
+            }
+        }
+
         RecruitBtn rb;
-        rb.tier = dw.tier;
+        rb.tier      = dw.tier;
         rb.available = dw.available;
 
-        std::string label = "T" + std::to_string(dw.tier) +
-                            " Recruit (" + std::to_string(dw.available) + " avail)";
+        std::string label = unitName
+            + "  x" + std::to_string(dw.available)
+            + "  (" + std::to_string(costPerUnit * dw.available) + "g)";
         rb.btn = Button(label, {x, y, bw, 26.0f});
         rb.btn.colorBorder = UIColor::hex(UITheme::NATURE_GREEN, 0.6f);
 
         int capturedTier = dw.tier;
         rb.btn.onClick = [this, capturedTier]{
-            if (m_town && m_playerRes && m_registry) {
-                m_town->recruit(capturedTier, 999,
-                    *m_playerRes, m_registry->units());
-                rebuildRecruitButtons();
+            if (!m_town || !m_playerRes || !m_registry) return;
+            int recruited = m_town->recruit(capturedTier, 999,
+                *m_playerRes, m_registry->units());
+            if (recruited > 0 && m_hero) {
+                // Merge into existing army slot or add new one
+                for (const auto& ud : m_registry->units()) {
+                    if (ud.faction == m_town->faction && ud.tier == capturedTier
+                        && ud.path == UpgradePath::None) {
+                        bool merged = false;
+                        for (auto& s : m_hero->army)
+                            if (s.defId == ud.id) { s.count += recruited; merged = true; break; }
+                        if (!merged && m_hero->army.size() < 7)
+                            m_hero->army.push_back({ud.id, recruited});
+                        break;
+                    }
+                }
             }
+            rebuildRecruitButtons();
         };
 
         m_recruitBtns.push_back(rb);
@@ -189,6 +219,25 @@ void TownScreen::drawRecruitPanel(UIRenderer& rdr)
                      UIColor::hex(UITheme::TEXT_DISABLED), 12.0f);
     }
     for (auto& rb : m_recruitBtns) rb.btn.draw(rdr);
+
+    // Hero army summary below recruit buttons
+    if (m_hero && !m_hero->army.empty()) {
+        float ax = m_recruitPanel.bounds.x + 8;
+        float ay = m_recruitPanel.bounds.bottom() - 16.0f
+                 - static_cast<float>(m_hero->army.size()) * 14.0f;
+        rdr.drawText("Army:", ax, ay - 14.0f,
+                     UIColor::hex(UITheme::TEXT_SECONDARY), 11.0f);
+        for (auto& s : m_hero->army) {
+            if (s.count <= 0) continue;
+            std::string line = "  x" + std::to_string(s.count);
+            if (m_registry) {
+                for (const auto& ud : m_registry->units())
+                    if (ud.id == s.defId) { line = ud.name + " x" + std::to_string(s.count); break; }
+            }
+            rdr.drawText(line, ax, ay, UIColor::hex(UITheme::TEXT_PRIMARY), 11.0f);
+            ay += 14.0f;
+        }
+    }
 }
 
 void TownScreen::drawIncomePanel(UIRenderer& rdr)

@@ -220,7 +220,8 @@ void Game::enterTown(Town* town)
 {
     if (!town) return;
     m_state = GameState::Town;
-    m_townScreen.open(town, &m_playerResources, &m_registry);
+    Hero* hero = m_heroes.empty() ? nullptr : &m_heroes[m_activeHeroIdx];
+    m_townScreen.open(town, &m_playerResources, &m_registry, hero);
     printf("Entered town: %s\n", town->name.c_str());
 }
 
