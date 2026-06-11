@@ -115,6 +115,9 @@ private:
     void renderCapturePopup();
     void renderTavern();
 
+    // ── Unit exchange overlay ─────────────────────────────────────────────────
+    void renderUnitExchange();
+
     // ── Victory / defeat modals ────────────────────────────────────────────────
     void renderVictoryModal();
     void renderDefeatModal();
@@ -234,4 +237,10 @@ private:
 
     // ── Pending town capture after garrison combat ────────────────────────────
     Town*       m_pendingTownCapture = nullptr;
+
+    // ── Unit exchange between player heroes ────────────────────────────────────
+    bool        m_showUnitExchange  = false;
+    int         m_exchangeHeroIdx   = -1;   // index of the OTHER hero
+    int         m_exchangeSelSlotA  = -1;   // selected slot in hero A's army
+    int         m_exchangeSelSlotB  = -1;   // selected slot in hero B's army
 };

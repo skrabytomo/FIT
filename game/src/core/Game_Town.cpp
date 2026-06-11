@@ -181,12 +181,26 @@ void Game::renderTavern()
         int fi = static_cast<int>(town->faction);
         if (fi >= 0 && fi < 9) hired.knownSpells.push_back(kStartSpell[fi]);
 
-        // Starting army: 10 tier-1 units of the town's faction
-        for (const auto& ud : m_registry.units()) {
-            if (ud.faction == hired.faction && ud.tier == 1
-                && ud.path == UpgradePath::None) {
-                hired.army.push_back({ud.id, 10});
-                break;
+        // Starting army: faction-scaled from dwelling weekly growth
+        // T1: full week's growth  T2: one-third week's growth
+        for (int tier : {1, 2}) {
+            // Find weekly growth for this tier's base dwelling
+            int growth = 0;
+            for (const auto& bd : m_registry.buildings()) {
+                if (bd.faction == hired.faction && bd.tier == tier
+                    && bd.category == BuildingCategory::UnitDwelling
+                    && bd.path == UpgradePath::None) {
+                    growth = (tier == 1) ? bd.weeklyGrowth : bd.weeklyGrowth / 3;
+                    break;
+                }
+            }
+            if (growth <= 0) continue;
+            for (const auto& ud : m_registry.units()) {
+                if (ud.faction == hired.faction && ud.tier == tier
+                    && ud.path == UpgradePath::None) {
+                    hired.army.push_back({ud.id, growth});
+                    break;
+                }
             }
         }
 

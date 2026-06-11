@@ -241,24 +241,31 @@ void Game::updateWorldMap(float dt)
 
                     // Unowned mines (always valuable)
                     for (const auto& r : m_resources) {
-                        if (r.ownedBy == eHero.id) continue; // already ours
-                        tryGoal(r.pos, 3); // slight preference over equidistant towns
+                        if (r.ownedBy == eHero.id) continue;
+                        tryGoal(r.pos, 3);
                     }
                     // Neutral towns
                     for (const auto& t : m_towns) {
                         if (t.ownerId != 0) continue;
                         tryGoal(t.pos);
                     }
-                    // Player hero (only if aggressive or no other target found)
-                    if (aggressive || !goalSet)
+                    // Player towns / hero (only if aggressive or nothing else to do)
+                    if (aggressive || !goalSet) {
                         tryGoal(playerHero.pos);
+                        // Also target player towns when aggressive
+                        if (aggressive) {
+                            for (const auto& t : m_towns)
+                                if (t.ownerId == 1) tryGoal(t.pos);
+                        }
+                    }
 
                     if (!goalSet) break;
 
-                    auto costFn = [this, &eHero](HexCoord c) -> int {
+                    auto costFn = [this, &eHero, aggressive](HexCoord c) -> int {
                         const HexTile* t = m_map.getTile(c);
                         if (!t || !eHero.canEnter(t->terrain)) return 999;
-                        if (t->townId != 0) {
+                        // Only block passage through player towns, not destination
+                        if (!aggressive && t->townId != 0) {
                             for (const auto& town : m_towns)
                                 if (town.id == t->townId && town.ownerId == 1) return 999;
                         }
@@ -305,13 +312,31 @@ void Game::updateWorldMap(float dt)
                         }
                     }
 
-                    // Capture neutral towns
+                    // Capture neutral towns / siege player towns
                     if (nextTile->townId != 0) {
                         for (auto& t : m_towns) {
                             if (t.id != nextTile->townId) continue;
                             if (t.ownerId == 0) {
                                 t.ownerId = eHero.id;
                                 printf("Enemy %s captured %s\n", eHero.name.c_str(), t.name.c_str());
+                            } else if (t.ownerId == 1) {
+                                // Off-screen siege: compare attacker vs garrison strength
+                                Hero garHero;
+                                garHero.faction = t.faction;
+                                garHero.army    = t.garrison;
+                                int atkStr = heroStrength(eHero, unitDefs);
+                                int defStr = heroStrength(garHero, unitDefs);
+                                if (t.hasBuilding(BID::FORT)) defStr = defStr * 3 / 2;
+                                if (atkStr > defStr) {
+                                    t.ownerId = eHero.id;
+                                    t.garrison.clear();
+                                    printf("Enemy %s sieged and captured your town %s!\n",
+                                           eHero.name.c_str(), t.name.c_str());
+                                } else {
+                                    printf("Enemy %s failed to siege %s\n",
+                                           eHero.name.c_str(), t.name.c_str());
+                                }
+                                eHero.movePool = 0; // siege exhausts movement
                             }
                             break;
                         }
@@ -368,6 +393,7 @@ void Game::renderWorldMap()
     if (m_showHideoutScreen)  renderHideoutScreen();
     if (m_showArtifactPanel)  renderArtifactPanel();
     if (m_showHeroInspect)    renderHeroInspect();
+    if (m_showUnitExchange)   renderUnitExchange();
     if (m_showVictory)        renderVictoryModal();
     if (m_showDefeat)         renderDefeatModal();
     endImGuiFrame();
@@ -555,8 +581,19 @@ void Game::checkTileEvents()
         }
     }
 
-    // Enemy hero collision
+    // Hero collision — player meets player → unit exchange; player meets enemy → combat
     if (tile->heroId != 0 && tile->heroId != hero.id) {
+        // Check allied heroes first
+        for (int i = 0; i < static_cast<int>(m_heroes.size()); ++i) {
+            if (m_heroes[i].id == tile->heroId && i != m_activeHeroIdx) {
+                m_showUnitExchange = true;
+                m_exchangeHeroIdx  = i;
+                m_exchangeSelSlotA = -1;
+                m_exchangeSelSlotB = -1;
+                return;
+            }
+        }
+        // Enemy hero
         Hero* enemyPtr = nullptr;
         for (auto& e : m_enemyHeroes)
             if (e.id == tile->heroId) { enemyPtr = &e; break; }
@@ -958,4 +995,153 @@ void Game::renderDefeatModal()
         }
         ImGui::EndPopup();
     }
+}
+
+// ── Unit exchange overlay (two player heroes on same tile) ────────────────────
+void Game::renderUnitExchange()
+{
+    if (!m_showUnitExchange) return;
+    if (m_heroes.empty() || m_exchangeHeroIdx < 0
+        || m_exchangeHeroIdx >= static_cast<int>(m_heroes.size())) {
+        m_showUnitExchange = false;
+        return;
+    }
+    Hero& heroA = m_heroes[m_activeHeroIdx];
+    Hero& heroB = m_heroes[m_exchangeHeroIdx];
+    const auto& unitDefs = m_registry.units();
+
+    auto unitName = [&](int defId) -> std::string {
+        for (const auto& ud : unitDefs)
+            if (ud.id == defId) return ud.name;
+        return "Unit";
+    };
+
+    ImGuiIO& io = ImGui::GetIO();
+    float cx = io.DisplaySize.x * 0.5f, cy = io.DisplaySize.y * 0.5f;
+    ImGui::SetNextWindowPos({cx, cy}, ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({520, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.92f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##exchange", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({1.0f, 0.85f, 0.2f, 1.0f}, "Unit Exchange");
+    ImGui::SameLine(ImGui::GetWindowWidth() - 60);
+    if (ImGui::SmallButton("Close")) {
+        m_showUnitExchange = false;
+        m_exchangeSelSlotA = m_exchangeSelSlotB = -1;
+    }
+    ImGui::Separator();
+
+    // Helper: draw one hero's army column
+    // Returns true if the user selected a slot
+    auto drawCol = [&](const char* label, Hero& h, int& selSlot, bool isA) {
+        ImGui::BeginGroup();
+        ImGui::TextColored({0.7f,0.85f,1.0f,1.0f}, "%s", label);
+        ImGui::Text("%s", h.name.c_str());
+        ImGui::Spacing();
+        constexpr int MAX_SLOTS = 7;
+        for (int i = 0; i < MAX_SLOTS; ++i) {
+            ImGui::PushID(isA ? (i * 100) : (i * 100 + 50));
+            bool occupied = i < static_cast<int>(h.army.size()) && h.army[i].count > 0;
+            bool selected = (selSlot == i);
+            if (selected)
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.9f, 0.9f));
+            else if (!occupied)
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f,0.15f,0.15f,0.6f));
+            else
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f,0.35f,0.25f,0.8f));
+
+            char lbl[64];
+            if (occupied)
+                std::snprintf(lbl, sizeof(lbl), "%-16s x%d",
+                    unitName(h.army[i].defId).c_str(), h.army[i].count);
+            else
+                std::snprintf(lbl, sizeof(lbl), "[ empty ]");
+
+            if (ImGui::Button(lbl, {220, 26})) selSlot = (selSlot == i) ? -1 : i;
+            ImGui::PopStyleColor();
+            ImGui::PopID();
+        }
+        ImGui::EndGroup();
+    };
+
+    drawCol("HERO A", heroA, m_exchangeSelSlotA, true);
+    ImGui::SameLine(0, 16);
+
+    // Transfer arrow buttons in the middle
+    ImGui::BeginGroup();
+    ImGui::Dummy({50, 60});
+    bool canAtoB = m_exchangeSelSlotA >= 0
+        && m_exchangeSelSlotA < static_cast<int>(heroA.army.size())
+        && heroA.army[m_exchangeSelSlotA].count > 0;
+    bool canBtoA = m_exchangeSelSlotB >= 0
+        && m_exchangeSelSlotB < static_cast<int>(heroB.army.size())
+        && heroB.army[m_exchangeSelSlotB].count > 0;
+
+    if (!canAtoB) ImGui::BeginDisabled();
+    if (ImGui::Button("A>>B", {50, 26})) {
+        // Move selected slot from A into B (merge by defId or add to free slot)
+        auto& srcSlot = heroA.army[m_exchangeSelSlotA];
+        bool merged = false;
+        for (auto& s : heroB.army)
+            if (s.defId == srcSlot.defId) { s.count += srcSlot.count; merged = true; break; }
+        if (!merged && heroB.army.size() < 7)
+            heroB.army.push_back(srcSlot);
+        heroA.army.erase(heroA.army.begin() + m_exchangeSelSlotA);
+        m_exchangeSelSlotA = -1;
+    }
+    if (!canAtoB) ImGui::EndDisabled();
+
+    ImGui::Spacing();
+
+    if (!canBtoA) ImGui::BeginDisabled();
+    if (ImGui::Button("B>>A", {50, 26})) {
+        auto& srcSlot = heroB.army[m_exchangeSelSlotB];
+        bool merged = false;
+        for (auto& s : heroA.army)
+            if (s.defId == srcSlot.defId) { s.count += srcSlot.count; merged = true; break; }
+        if (!merged && heroA.army.size() < 7)
+            heroA.army.push_back(srcSlot);
+        heroB.army.erase(heroB.army.begin() + m_exchangeSelSlotB);
+        m_exchangeSelSlotB = -1;
+    }
+    if (!canBtoA) ImGui::EndDisabled();
+
+    ImGui::Spacing();
+
+    // Split half
+    if (canAtoB && heroA.army[m_exchangeSelSlotA].count >= 2) {
+        if (ImGui::Button("A/2>B", {50, 26})) {
+            auto& src = heroA.army[m_exchangeSelSlotA];
+            int half = src.count / 2;
+            src.count -= half;
+            bool merged = false;
+            for (auto& s : heroB.army)
+                if (s.defId == src.defId) { s.count += half; merged = true; break; }
+            if (!merged && heroB.army.size() < 7)
+                heroB.army.push_back({src.defId, half});
+            m_exchangeSelSlotA = -1;
+        }
+    }
+    ImGui::Spacing();
+    if (canBtoA && heroB.army[m_exchangeSelSlotB].count >= 2) {
+        if (ImGui::Button("B/2>A", {50, 26})) {
+            auto& src = heroB.army[m_exchangeSelSlotB];
+            int half = src.count / 2;
+            src.count -= half;
+            bool merged = false;
+            for (auto& s : heroA.army)
+                if (s.defId == src.defId) { s.count += half; merged = true; break; }
+            if (!merged && heroA.army.size() < 7)
+                heroA.army.push_back({src.defId, half});
+            m_exchangeSelSlotB = -1;
+        }
+    }
+    ImGui::EndGroup();
+
+    ImGui::SameLine(0, 16);
+    drawCol("HERO B", heroB, m_exchangeSelSlotB, false);
+
+    ImGui::End();
 }
