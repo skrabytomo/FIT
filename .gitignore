@@ -1,4 +1,5 @@
 game/build/
+build/
 *.o
 *.a
 *.so
