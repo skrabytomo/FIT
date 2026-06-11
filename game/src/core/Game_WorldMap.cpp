@@ -278,9 +278,12 @@ void Game::updateHeroMovement(float dt)
         m_moveDstX = dx; m_moveDstY = dy;
         m_moveT    = 0.0f;
 
+        // Update tile hero IDs for this player hero
+        if (HexTile* oldT = m_map.getTile(hero.pos)) oldT->heroId = 0;
         hero.pos = next;
         hero.movePool -= cost;
         hero.pathStep++;
+        if (HexTile* newT = m_map.getTile(hero.pos)) newT->heroId = hero.id;
 
         FogOfWar::updateVision(m_map, hero);
 
