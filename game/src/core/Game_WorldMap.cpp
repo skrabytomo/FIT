@@ -9,6 +9,23 @@
 
 static constexpr float MOVE_SPEED = 4.0f;
 
+// Apply a hero's UnitStatBonus skills to their combat units
+static void applyHeroSkillsToUnits(const Hero& hero, std::vector<CombatUnit>& units)
+{
+    for (const auto& si : hero.skills.slots) {
+        const SkillDef* def = findSkillDef(si.defId);
+        if (!def || def->effectType != SkillEffectType::UnitStatBonus) continue;
+        int val = def->values[static_cast<int>(si.tier)];
+        for (auto& u : units) {
+            // Archery only boosts ranged units
+            if (def->id == SID::ARCHERY && u.range == 0) continue;
+            if (def->statName == "attack")  u.attack  += val;
+            if (def->statName == "defense") u.defense += val;
+            if (def->statName == "speed")   u.speed   += val;
+        }
+    }
+}
+
 // ── Per-faction combat unit templates ─────────────────────────────────────────
 static std::vector<CombatUnit> makeFactionUnits(FactionId faction, bool isPlayer)
 {
@@ -138,6 +155,7 @@ void Game::updateWorldMap(float dt)
                         if (eHero.pos == playerHero.pos) {
                             m_lastCombatEnemyId = eHero.id;
                             auto pUnits = makeFactionUnits(playerHero.faction, true);
+                            applyHeroSkillsToUnits(playerHero, pUnits);
                             auto eUnits = makeFactionUnits(eHero.faction, false);
                             enterCombat(playerHero, pUnits, eHero, eUnits);
                             return;
@@ -359,8 +377,9 @@ void Game::checkTileEvents()
             if (e.id == tile->heroId) { enemyPtr = &e; break; }
         if (enemyPtr) {
             m_lastCombatEnemyId = enemyPtr->id;
-            auto pUnits = makeFactionUnits(hero.faction,        true);
-            auto eUnits = makeFactionUnits(enemyPtr->faction,   false);
+            auto pUnits = makeFactionUnits(hero.faction, true);
+            applyHeroSkillsToUnits(hero, pUnits);
+            auto eUnits = makeFactionUnits(enemyPtr->faction, false);
             enterCombat(hero, pUnits, *enemyPtr, eUnits);
         }
     }
@@ -487,6 +506,28 @@ void Game::renderLevelUpModal()
             ImGui::PushID(i);
             if (ImGui::Button(offer.label.c_str(), ImVec2(-1, 0))) {
                 LevelUpSystem::applyOffer(offer, hero.skills);
+
+                // Apply immediate passive bonuses from the newly learned skill
+                if (!offer.isUpgrade) {
+                    const SkillDef* sd = findSkillDef(offer.skillId);
+                    if (sd) {
+                        int v = sd->values[0]; // Basic tier
+                        if (sd->effectType == SkillEffectType::MovementBonus) {
+                            hero.maxMove += v; hero.movePool += v;
+                        } else if (sd->effectType == SkillEffectType::VisionBonus) {
+                            hero.visionRange += v;
+                            FogOfWar::updateVision(m_map, hero);
+                        } else if (sd->effectType == SkillEffectType::MagicSchoolBonus) {
+                            if      (sd->statName == "lightPower")  hero.lightPower  += v;
+                            else if (sd->statName == "bloodPower")  hero.bloodPower  += v;
+                            else if (sd->statName == "deathPower")  hero.deathPower  += v;
+                            else if (sd->statName == "naturePower") hero.naturePower += v;
+                            else if (sd->statName == "forgePower")  hero.forgePower  += v;
+                            else if (sd->statName == "fleshPower")  hero.fleshPower  += v;
+                        }
+                    }
+                }
+
                 // Apply per-class stat growth
                 const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
                 if (cls) {
