@@ -39,11 +39,28 @@ struct Hero
     int pathStep = 0;
 
     int level       = 1;
+    int xp          = 0;
+    int xpToNext    = 100;
     int attack      = 2;
     int defense     = 2;
     int visionRange = 5;
 
     HeroSkills skills;
+
+    static int xpRequired(int lvl) { return 100 * lvl * lvl; }
+
+    // Returns true if the hero leveled up
+    bool addXp(int amount) {
+        xp += amount;
+        bool leveled = false;
+        while (xp >= xpToNext) {
+            xp -= xpToNext;
+            level++;
+            xpToNext = xpRequired(level);
+            leveled = true;
+        }
+        return leveled;
+    }
 
     int moveCost(Terrain t) const;
     bool canEnter(Terrain t) const;

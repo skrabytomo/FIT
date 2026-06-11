@@ -72,6 +72,9 @@ public:
     const std::vector<CombatLog>& log() const { return m_log; }
     void setLogCallback(LogCallback cb) { m_logCb = cb; }
 
+    // XP earned this battle (enemy unit-count × 5, awarded on victory)
+    int xpEarned() const { return m_enemyStartCount * 5; }
+
     // Headless batch simulation — both sides use AI, returns final phase
     void setSilent(bool s) { m_silent = s; }
     CombatPhase runHeadless(int maxRounds = 60);
@@ -88,6 +91,7 @@ private:
     void checkVictory();
     void applyTileEffect(CombatUnit& unit);
     void addLog(const std::string& msg);
+    void applySymbiosisRound(); // Thornkin bond bonus — called at round start
 
     // AI dispatch — delegates to difficulty-specific implementation
     void aiActUnit(CombatUnit& unit);
@@ -102,6 +106,7 @@ private:
 
     std::vector<uint32_t>  m_turnOrder;   // unit IDs in speed order
     std::vector<uint32_t>  m_waitQueue;   // units that used Wait
+    int                    m_enemyStartCount = 0; // total enemy units at battle start
 
     std::vector<CombatLog> m_log;
     LogCallback            m_logCb;

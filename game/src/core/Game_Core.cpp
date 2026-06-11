@@ -53,6 +53,9 @@ bool Game::init(const std::string& title, int width, int height)
     // Building registry
     m_registry.init();
 
+    // Hero class registry
+    m_classRegistry.init();
+
     // Build map
     m_mapSize = MapSize::Small;
     m_map.create(m_mapSize);

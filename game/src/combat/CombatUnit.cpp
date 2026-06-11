@@ -31,8 +31,10 @@ int CombatUnit::applyDamage(int dmg)
 
 void CombatUnit::newRound()
 {
-    hasMoved    = false;
-    hasActed    = false;
-    waitUsed    = false;
-    canRetaliate = true;
+    hasMoved          = false;
+    hasActed          = false;
+    waitUsed          = false;
+    canRetaliate      = true;
+    roundAttackBonus  = 0;
+    roundDefenseBonus = 0;
 }

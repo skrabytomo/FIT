@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "../hero/SkillRegistry.h"
 #include <stdio.h>
 
 // ── Combat update ─────────────────────────────────────────────────────────────
@@ -48,9 +49,32 @@ void Game::exitCombat(bool playerWon)
 {
     printf("Combat ended — %s\n", playerWon ? "Victory" : "Defeat/Retreat");
     ScriptContext ctx; ctx.heroId = m_heroes.empty() ? 0 : (int)m_heroes[m_activeHeroIdx].id;
+
     if (playerWon) {
         m_hideout.addXP(50);
         m_triggers.fire(TriggerType::BattleWon, ctx);
+
+        // Award hero XP
+        if (!m_heroes.empty()) {
+            Hero& hero = m_heroes[m_activeHeroIdx];
+            int xp = m_combat.xpEarned();
+            printf("Hero earns %d XP\n", xp);
+            if (hero.addXp(xp)) {
+                printf("Hero leveled up to %d!\n", hero.level);
+                const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                if (cls) {
+                    // Build allSkills vector from static table
+                    std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                    m_levelUpOffers = LevelUpSystem::generateOffers(
+                        *cls, hero.skills, hero.level, allSkills, hero.faction);
+                }
+                if (m_levelUpOffers.empty()) {
+                    // Fallback: generic offense offer
+                    m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                }
+                m_showLevelUpModal = true;
+            }
+        }
     } else {
         m_triggers.fire(TriggerType::BattleLost, ctx);
     }

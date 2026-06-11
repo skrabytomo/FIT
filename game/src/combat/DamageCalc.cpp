@@ -80,8 +80,9 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
     // Base damage roll
     int baseDmg = rollDamage(attacker.damageMin, attacker.damageMax, attacker.count);
 
-    // Attack vs defense modifier
-    int diff = attacker.attack - defender.defense;
+    // Attack vs defense modifier (include per-round bonuses)
+    int diff = (attacker.attack + attacker.roundAttackBonus)
+             - (defender.defense + defender.roundDefenseBonus);
     float modifier = 1.0f;
     if (diff > 0)
         modifier = 1.0f + std::min(diff * 0.05f, 3.0f);

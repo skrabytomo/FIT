@@ -31,6 +31,9 @@
 #include "../editor/SimulatorWindow.h"
 #include "../campaign/CampaignManager.h"
 #include "../ui/CampaignHUD.h"
+#include "../ui/HideoutScreen.h"
+#include "../hero/LevelUpSystem.h"
+#include "../hero/HeroClass.h"
 
 class Game
 {
@@ -89,6 +92,12 @@ private:
     // ── Save / Load ────────────────────────────────────────────────────────────
     void saveGame(const std::string& path);
     bool loadGame(const std::string& path);
+
+    // ── Level-up modal ─────────────────────────────────────────────────────────
+    void renderLevelUpModal();
+
+    // ── Hideout screen ─────────────────────────────────────────────────────────
+    void renderHideoutScreen();
 
     // ── SDL / GL ───────────────────────────────────────────────────────────────
     SDL_Window*   m_window  = nullptr;
@@ -157,4 +166,11 @@ private:
 
     // ── Persistent meta layer ──────────────────────────────────────────────────
     HideoutDB    m_hideout;
+    HideoutScreen m_hideoutScreen;
+    bool          m_showHideoutScreen = false;
+
+    // ── Level-up flow ──────────────────────────────────────────────────────────
+    HeroClassRegistry          m_classRegistry;
+    std::vector<LevelUpOffer>  m_levelUpOffers;
+    bool                       m_showLevelUpModal = false;
 };

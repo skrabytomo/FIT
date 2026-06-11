@@ -1,4 +1,6 @@
 #include "Game.h"
+#include "../hero/LevelUpSystem.h"
+#include <imgui.h>
 #include <cmath>
 #include <algorithm>
 #include <stdio.h>
@@ -44,6 +46,9 @@ void Game::updateWorldMap(float dt)
 
     updateHeroMovement(dt);
 
+    if (m_input.keyDown(SDLK_F6))
+        m_showHideoutScreen = !m_showHideoutScreen;
+
     if (m_input.keyDown(SDLK_SPACE)) {
         bool newWeek = m_turns.endTurn(m_towns, m_heroes,
                                        m_playerResources, m_registry);
@@ -79,6 +84,11 @@ void Game::renderWorldMap()
     m_worldHUD.draw(m_ui, m_playerResources, m_turns,
                     m_heroes, m_activeHeroIdx);
     m_ui.endFrame();
+
+    beginImGuiFrame();
+    if (m_showLevelUpModal)   renderLevelUpModal();
+    if (m_showHideoutScreen)  renderHideoutScreen();
+    endImGuiFrame();
 }
 
 // ── State transition ──────────────────────────────────────────────────────────
@@ -231,4 +241,46 @@ void Game::drawHero(const Hero& hero)
     }
     // Placeholder — sprite rendering added when tileset exists
     (void)wx; (void)wy;
+}
+
+// ── Level-up modal ────────────────────────────────────────────────────────────
+void Game::renderLevelUpModal()
+{
+    if (!m_showLevelUpModal) return;
+    ImGui::OpenPopup("Level Up!");
+
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(420, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal("Level Up!", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        Hero& hero = m_heroes[m_activeHeroIdx];
+
+        ImGui::Text("Congratulations! %s reached Level %d!", hero.name.c_str(), hero.level);
+        ImGui::Separator();
+        ImGui::Text("Choose a skill:");
+        ImGui::Spacing();
+
+        for (int i = 0; i < static_cast<int>(m_levelUpOffers.size()); ++i) {
+            const auto& offer = m_levelUpOffers[i];
+            ImGui::PushID(i);
+            if (ImGui::Button(offer.label.c_str(), ImVec2(-1, 0))) {
+                LevelUpSystem::applyOffer(offer, hero.skills);
+                m_levelUpOffers.clear();
+                m_showLevelUpModal = false;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::PopID();
+        }
+
+        ImGui::Spacing();
+        ImGui::TextDisabled("XP: %d / %d", hero.xp, hero.xpToNext);
+        ImGui::EndPopup();
+    }
+}
+
+// ── Hideout screen ────────────────────────────────────────────────────────────
+void Game::renderHideoutScreen()
+{
+    m_hideoutScreen.draw(m_hideout, m_showHideoutScreen);
 }

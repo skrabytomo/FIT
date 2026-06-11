@@ -73,6 +73,10 @@ struct CombatUnit
     bool        hasSecondLife  = false;
     bool        secondLifeUsed = false;
 
+    // Per-round temporary bonuses (cleared by newRound())
+    int         roundAttackBonus  = 0;
+    int         roundDefenseBonus = 0;
+
     // Faction-specific state
     int         desperationMeter  = 0;   // Holy Order
     bool        isLastOfType      = false;

@@ -70,6 +70,11 @@ void CombatEngine::startBattle(
         }
     }
 
+    // Tally starting enemy count for XP calculation
+    m_enemyStartCount = 0;
+    for (auto& u : m_grid.units())
+        if (!u.isPlayer) m_enemyStartCount += u.count;
+
     buildTurnOrder();
 
     // Apply hero attack/defense bonuses to their unit stacks
@@ -162,6 +167,7 @@ void CombatEngine::advanceTurn()
             m_round++;
             for (auto& u : m_grid.units()) u.newRound();
             buildTurnOrder();
+            applySymbiosisRound();
             addLog("=== Round " + std::to_string(m_round) + " ===");
         }
     }
@@ -467,6 +473,46 @@ void CombatEngine::applyTileEffect(CombatUnit& unit)
     if (!tile) return;
     if (tile->type == CombatTileType::Speed && !unit.moraleImmune)
         unit.morale = std::min(100, unit.morale + 5);
+}
+
+// ── Thornkin Symbiosis — Beast bond bonus applied at round start ───────────────
+void CombatEngine::applySymbiosisRound()
+{
+    // Check if either hero has SYMBIOSIS skill; apply per side
+    auto getSymbiosisValue = [](const Hero& hero) -> int {
+        if (const SkillInstance* s = hero.skills.getSkill(SID::SYMBIOSIS)) {
+            if (const SkillDef* def = findSkillDef(SID::SYMBIOSIS))
+                return def->values[static_cast<int>(s->tier)];
+        }
+        return 0;
+    };
+
+    int playerVal = getSymbiosisValue(m_playerHero);
+    int enemyVal  = getSymbiosisValue(m_enemyHero);
+    if (playerVal == 0 && enemyVal == 0) return;
+
+    for (auto& unit : m_grid.units()) {
+        if (!unit.alive) continue;
+        if (!hasTag(unit.tags, UnitTag::Beast)) continue;
+
+        int val = unit.isPlayer ? playerVal : enemyVal;
+        if (val == 0) continue;
+
+        // Check for at least one adjacent Beast ally
+        bool hasBond = false;
+        for (const auto& other : m_grid.units()) {
+            if (!other.alive) continue;
+            if (other.id == unit.id) continue;
+            if (other.isPlayer != unit.isPlayer) continue;
+            if (!hasTag(other.tags, UnitTag::Beast)) continue;
+            if (HexGrid::distance(unit.pos, other.pos) <= 1) { hasBond = true; break; }
+        }
+
+        if (hasBond) {
+            unit.roundAttackBonus  += val;
+            unit.roundDefenseBonus += val;
+        }
+    }
 }
 
 // ── Victory check ──────────────────────────────────────────────────────────────
