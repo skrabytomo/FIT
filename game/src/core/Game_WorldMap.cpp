@@ -177,6 +177,14 @@ void Game::updateWorldMap(float dt)
     if (m_input.keyDown(SDLK_F7)) m_showArtifactPanel   = !m_showArtifactPanel;
     if (m_input.keyDown(SDLK_F8)) m_showHeroInspect     = !m_showHeroInspect;
 
+    // Tab — cycle to next player hero
+    if (m_input.keyDown(SDLK_TAB) && !m_heroes.empty()) {
+        m_activeHeroIdx = (m_activeHeroIdx + 1) % static_cast<int>(m_heroes.size());
+        float hx2, hy2;
+        m_hexRenderer.grid().hexToWorld(m_heroes[m_activeHeroIdx].pos, hx2, hy2);
+        m_camera.setPosition(hx2, hy2);
+    }
+
     if (m_input.keyDown(SDLK_SPACE)) {
         // Restore hero movement pools
         for (auto& h : m_heroes)      h.movePool = h.maxMove;
@@ -190,6 +198,28 @@ void Game::updateWorldMap(float dt)
 
             for (auto& eHero : m_enemyHeroes) {
                 if (combatTriggered) break;
+
+                // Recruit from any owned town within 1 tile (free for AI)
+                for (auto& t : m_towns) {
+                    if (t.ownerId != eHero.id) continue;
+                    if (HexGrid::distance(eHero.pos, t.pos) > 1) continue;
+                    for (auto& dw : t.dwellings) {
+                        if (dw.available <= 0) continue;
+                        for (const auto& ud : unitDefs) {
+                            if (ud.faction == t.faction && ud.tier == dw.tier
+                                && ud.path == dw.path) {
+                                int recruited = dw.available;
+                                dw.available = 0;
+                                bool merged = false;
+                                for (auto& s : eHero.army)
+                                    if (s.defId == ud.id) { s.count += recruited; merged = true; break; }
+                                if (!merged && eHero.army.size() < 7)
+                                    eHero.army.push_back({ud.id, recruited});
+                                break;
+                            }
+                        }
+                    }
+                }
 
                 int eiStr = heroStrength(eHero, unitDefs);
                 int plStr = heroStrength(playerHero, unitDefs);
@@ -497,8 +527,25 @@ void Game::checkTileEvents()
         for (auto& t : m_towns) {
             if (t.id != tile->townId) continue;
             if (t.ownerId != 1) {
-                // Capture neutral/enemy town
+                // Fight the garrison if one exists
+                if (!t.garrison.empty()) {
+                    // Build garrison CombatUnits as the "enemy"
+                    Hero garrisonHero; // dummy hero for the garrison
+                    garrisonHero.id     = 0;
+                    garrisonHero.name   = t.name + " Garrison";
+                    garrisonHero.faction = t.faction;
+                    garrisonHero.army   = t.garrison;
+                    m_lastCombatEnemyId = 0; // no real enemy hero
+                    m_pendingTownCapture = &t;
+                    auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
+                    applyHeroSkillsToUnits(hero, pUnits);
+                    auto gUnits = makeHeroUnits(garrisonHero, m_registry.units(), false);
+                    enterCombat(hero, pUnits, garrisonHero, gUnits);
+                    return;
+                }
+                // No garrison — capture immediately
                 t.ownerId = 1;
+                t.garrison.clear();
                 printf("Captured town: %s\n", t.name.c_str());
                 m_capturedTownName = t.name;
                 m_showCapturePopup = true;

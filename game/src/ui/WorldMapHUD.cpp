@@ -121,8 +121,11 @@ void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
         rdr.drawText(label, x + 4.0f, y + 4.0f,
                      UIColor::hex(UITheme::TEXT_PRIMARY), 11.0f);
 
-        // XP / mana on same line
-        std::string stats = "MP:" + std::to_string(h.mana) + "/" + std::to_string(h.maxMana);
+        // Army count + mana
+        int armyTotal = 0;
+        for (const auto& s : h.army) armyTotal += s.count;
+        std::string stats = "A:" + std::to_string(armyTotal)
+                          + "  MP:" + std::to_string(h.mana) + "/" + std::to_string(h.maxMana);
         rdr.drawText(stats, x + 4.0f, y + 17.0f,
                      UIColor::hex(0x88AAFF), 10.0f);
 

@@ -122,7 +122,31 @@ void Game::exitCombat(bool playerWon)
     printf("Combat ended — %s\n", playerWon ? "Victory" : "Defeat/Retreat");
     ScriptContext ctx; ctx.heroId = m_heroes.empty() ? 0 : (int)m_heroes[m_activeHeroIdx].id;
 
+    // Sync surviving units back to their hero armies
+    if (!m_heroes.empty()) {
+        Hero& hero = m_heroes[m_activeHeroIdx];
+        hero.army.clear();
+        for (const auto& cu : m_combat.grid().units()) {
+            if (!cu.alive || cu.isPlayer == false || cu.count <= 0) continue;
+            bool merged = false;
+            for (auto& s : hero.army)
+                if (s.defId == cu.defId) { s.count += cu.count; merged = true; break; }
+            if (!merged) hero.army.push_back({cu.defId, cu.count});
+        }
+        printf("Hero survivors: %zu stacks\n", hero.army.size());
+    }
+
     if (playerWon) {
+        // Capture town if this was a garrison fight
+        if (m_pendingTownCapture) {
+            m_pendingTownCapture->ownerId = 1;
+            m_pendingTownCapture->garrison.clear();
+            m_capturedTownName = m_pendingTownCapture->name;
+            m_showCapturePopup = true;
+            printf("Captured town after garrison fight: %s\n", m_capturedTownName.c_str());
+            m_pendingTownCapture = nullptr;
+        }
+
         // Remove defeated enemy hero from the world
         if (m_lastCombatEnemyId != 0) {
             m_enemyHeroes.erase(
@@ -149,19 +173,30 @@ void Game::exitCombat(bool playerWon)
                 printf("Hero leveled up to %d!\n", hero.level);
                 const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
                 if (cls) {
-                    // Build allSkills vector from static table
                     std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
                     m_levelUpOffers = LevelUpSystem::generateOffers(
                         *cls, hero.skills, hero.level, allSkills, hero.faction);
                 }
-                if (m_levelUpOffers.empty()) {
-                    // Fallback: generic offense offer
+                if (m_levelUpOffers.empty())
                     m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
-                }
                 m_showLevelUpModal = true;
             }
         }
     } else {
+        // Sync surviving enemy army too (they won, they keep what's left)
+        for (auto& eh : m_enemyHeroes) {
+            if (eh.id != m_lastCombatEnemyId) continue;
+            eh.army.clear();
+            for (const auto& cu : m_combat.grid().units()) {
+                if (!cu.alive || cu.isPlayer || cu.count <= 0) continue;
+                bool merged = false;
+                for (auto& s : eh.army)
+                    if (s.defId == cu.defId) { s.count += cu.count; merged = true; break; }
+                if (!merged) eh.army.push_back({cu.defId, cu.count});
+            }
+            break;
+        }
+        m_pendingTownCapture = nullptr;
         m_triggers.fire(TriggerType::BattleLost, ctx);
         m_showDefeat = true;
     }

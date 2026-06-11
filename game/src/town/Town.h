@@ -41,6 +41,9 @@ public:
     int fortHP    = 0;
     int fortMaxHP = 0;
 
+    // Garrison — units defending the town (up to 7 slots)
+    std::vector<UnitStack> garrison;
+
     // ── Queries ────────────────────────────────────────────────────────────────
     bool hasBuilding(int buildingId) const;
     bool canBuild(int buildingId, const std::vector<BuildingDef>& defs) const;

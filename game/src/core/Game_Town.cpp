@@ -181,6 +181,15 @@ void Game::renderTavern()
         int fi = static_cast<int>(town->faction);
         if (fi >= 0 && fi < 9) hired.knownSpells.push_back(kStartSpell[fi]);
 
+        // Starting army: 10 tier-1 units of the town's faction
+        for (const auto& ud : m_registry.units()) {
+            if (ud.faction == hired.faction && ud.tier == 1
+                && ud.path == UpgradePath::None) {
+                hired.army.push_back({ud.id, 10});
+                break;
+            }
+        }
+
         m_heroes.push_back(hired);
         if (HexTile* ht = m_map.getTile(spawnPos)) ht->heroId = hired.id;
         FogOfWar::updateVision(m_map, hired);

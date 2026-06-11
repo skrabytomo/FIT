@@ -191,6 +191,9 @@ static json townToJson(const TownSave& t)
     json incArr = json::array();
     for (int a : t.weeklyIncomeAmounts) incArr.push_back(a);
 
+    json garArr = json::array();
+    for (auto& [did, cnt] : t.garrison) garArr.push_back({{"d", did}, {"c", cnt}});
+
     return {
         {"id", t.id}, {"name", t.name},
         {"faction", t.faction},
@@ -199,6 +202,7 @@ static json townToJson(const TownSave& t)
         {"buildings", bldArr},
         {"dwellings", dwArr},
         {"fortHP", t.fortHP}, {"fortMaxHP", t.fortMaxHP},
+        {"garrison", garArr},
         {"income", incArr},
     };
 }
@@ -216,6 +220,9 @@ static TownSave townFromJson(const json& j)
 
     for (auto& b : j.at("buildings")) t.builtBuildings.push_back(b.get<int>());
     for (auto& d : j.at("dwellings")) t.dwellings.push_back(dwellingFromJson(d));
+    if (j.contains("garrison"))
+        for (auto& g : j.at("garrison"))
+            t.garrison.push_back({g.at("d").get<int>(), g.at("c").get<int>()});
 
     if (j.contains("income")) {
         int i = 0;
@@ -480,6 +487,7 @@ GameSaveData SaveLoad::packState(const HexMap& map,
         ts.builtBuildings = t.builtBuildings;
         ts.fortHP     = t.fortHP;
         ts.fortMaxHP  = t.fortMaxHP;
+        for (auto& s : t.garrison) ts.garrison.push_back({s.defId, s.count});
         ts.weeklyIncomeAmounts = t.weeklyIncome.amounts;
         for (auto& d : t.dwellings) {
             DwellingSave ds;
@@ -612,6 +620,7 @@ void SaveLoad::unpackState(const GameSaveData& save,
         t.builtBuildings = ts.builtBuildings;
         t.fortHP     = ts.fortHP;
         t.fortMaxHP  = ts.fortMaxHP;
+        for (auto& [did, cnt] : ts.garrison) t.garrison.push_back({did, cnt});
         t.weeklyIncome.amounts = ts.weeklyIncomeAmounts;
         for (auto& ds : ts.dwellings) {
             DwellingState d;

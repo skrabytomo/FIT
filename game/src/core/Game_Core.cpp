@@ -132,7 +132,7 @@ bool Game::init(const std::string& title, int width, int height)
         if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;
     }
 
-    // Towns: first is player's, rest are neutral
+    // Towns: first is player's, rest are neutral with a small garrison
     for (int i = 0; i < static_cast<int>(wgResult.towns.size()); ++i) {
         Town& wt = wgResult.towns[i];
         if (i == 0) {
@@ -140,6 +140,14 @@ bool Game::init(const std::string& title, int width, int height)
             wt.builtBuildings.push_back(BID::MAGE_GUILD);
         } else {
             wt.ownerId = 0;
+            // Give neutral towns a tier-1 garrison (15 units) as defenders
+            for (const auto& ud : m_registry.units()) {
+                if (ud.faction == wt.faction && ud.tier == 1
+                    && ud.path == UpgradePath::None) {
+                    wt.garrison.push_back({ud.id, 15});
+                    break;
+                }
+            }
         }
         if (HexTile* ht = m_map.getTile(wt.pos)) ht->townId = wt.id;
         m_towns.push_back(wt);

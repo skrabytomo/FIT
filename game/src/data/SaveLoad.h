@@ -108,6 +108,7 @@ struct TownSave
     std::vector<DwellingSave> dwellings;
     int         fortHP;
     int         fortMaxHP;
+    std::vector<std::pair<int,int>> garrison; // {defId, count}
     // Weekly income stored
     std::array<int, RESOURCE_COUNT> weeklyIncomeAmounts;
 };

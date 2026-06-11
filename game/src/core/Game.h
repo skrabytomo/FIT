@@ -229,6 +229,9 @@ private:
     bool m_showDefeat  = false;
 
     // ── Town capture notification ─────────────────────────────────────────────
-    bool        m_showCapturePopup = false;
+    bool        m_showCapturePopup  = false;
     std::string m_capturedTownName;
+
+    // ── Pending town capture after garrison combat ────────────────────────────
+    Town*       m_pendingTownCapture = nullptr;
 };
