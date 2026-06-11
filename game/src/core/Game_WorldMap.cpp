@@ -185,6 +185,7 @@ void Game::renderWorldMap()
     m_ui.endFrame();
 
     beginImGuiFrame();
+    renderWorldOverlay();
     if (m_showLevelUpModal)   renderLevelUpModal();
     if (m_showHideoutScreen)  renderHideoutScreen();
     if (m_showArtifactPanel)  renderArtifactPanel();
@@ -374,6 +375,89 @@ void Game::drawHero(const Hero& hero)
     }
     // Placeholder — sprite rendering added when tileset exists
     (void)wx; (void)wy;
+}
+
+// ── World entity overlay (ImGui DrawList markers) ─────────────────────────────
+void Game::renderWorldOverlay()
+{
+    if (!m_imguiReady) return;
+    ImDrawList* dl = ImGui::GetBackgroundDrawList();
+
+    auto project = [&](HexCoord h, float& sx, float& sy) {
+        float wx, wy;
+        m_hexRenderer.grid().hexToWorld(h, wx, wy);
+        m_camera.worldToScreen(wx, wy, sx, sy);
+    };
+
+    // ── Towns ──────────────────────────────────────────────────────────────────
+    for (const auto& town : m_towns) {
+        float sx, sy;
+        project(town.pos, sx, sy);
+        constexpr float HS = 14.0f;
+        dl->AddRectFilled({sx - HS, sy - HS}, {sx + HS, sy + HS},
+                          IM_COL32(40, 80, 180, 210), 3.0f);
+        dl->AddRect({sx - HS, sy - HS}, {sx + HS, sy + HS},
+                    IM_COL32(120, 180, 255, 255), 3.0f, 0, 1.5f);
+        dl->AddText({sx - 4, sy - 6}, IM_COL32(220, 240, 255, 255), "T");
+        // Name label below
+        dl->AddText({sx - town.name.size() * 3.5f, sy + HS + 2},
+                    IM_COL32(200, 220, 255, 200), town.name.c_str());
+    }
+
+    // ── World objects ──────────────────────────────────────────────────────────
+    for (const auto& obj : m_worldObjects) {
+        if (obj.collected) continue;
+        float sx, sy;
+        project(obj.pos, sx, sy);
+        ImU32 col;
+        const char* lbl;
+        switch (obj.type) {
+        case WorldObjectType::SpellScroll:   col = IM_COL32(100,200,255,230); lbl = "S"; break;
+        case WorldObjectType::ArtifactChest: col = IM_COL32(255,180, 50,230); lbl = "A"; break;
+        case WorldObjectType::XPShrine:      col = IM_COL32(160, 80,255,230); lbl = "X"; break;
+        case WorldObjectType::ResourceCache: col = IM_COL32(100,220,100,230); lbl = "R"; break;
+        default:                             col = IM_COL32(200,200,200,180); lbl = "?"; break;
+        }
+        dl->AddCircleFilled({sx, sy}, 8.0f, col);
+        dl->AddCircle({sx, sy}, 8.0f, IM_COL32(255,255,255,160), 0, 1.2f);
+        dl->AddText({sx - 3, sy - 6}, IM_COL32(20, 20, 20, 255), lbl);
+    }
+
+    // ── Enemy heroes ──────────────────────────────────────────────────────────
+    for (const auto& hero : m_enemyHeroes) {
+        float sx, sy;
+        project(hero.pos, sx, sy);
+        dl->AddCircleFilled({sx, sy}, 12.0f, IM_COL32(200, 40, 40, 220));
+        dl->AddCircle({sx, sy}, 12.0f, IM_COL32(255, 140, 140, 255), 0, 1.5f);
+        dl->AddText({sx - 4, sy - 6}, IM_COL32(255, 240, 240, 255), "E");
+        dl->AddText({sx - hero.name.size() * 3.0f, sy + 14},
+                    IM_COL32(255, 160, 160, 200), hero.name.c_str());
+    }
+
+    // ── Player heroes ─────────────────────────────────────────────────────────
+    for (int i = 0; i < static_cast<int>(m_heroes.size()); ++i) {
+        const auto& hero = m_heroes[i];
+        float wx, wy;
+        // Use animated position for active hero
+        if (i == m_activeHeroIdx && m_moveT < 1.0f) {
+            wx = m_moveSrcX + (m_moveDstX - m_moveSrcX) * m_moveT;
+            wy = m_moveSrcY + (m_moveDstY - m_moveSrcY) * m_moveT;
+        } else {
+            m_hexRenderer.grid().hexToWorld(hero.pos, wx, wy);
+        }
+        float sx, sy;
+        m_camera.worldToScreen(wx, wy, sx, sy);
+
+        bool active = (i == m_activeHeroIdx);
+        ImU32 fill = active ? IM_COL32(255, 220, 50, 230) : IM_COL32(200, 175, 40, 200);
+        ImU32 ring = active ? IM_COL32(255, 255, 200, 255) : IM_COL32(200, 200, 100, 200);
+        dl->AddCircleFilled({sx, sy}, 12.0f, fill);
+        dl->AddCircle({sx, sy}, 12.0f, ring, 0, active ? 2.0f : 1.5f);
+        dl->AddText({sx - 4, sy - 6}, IM_COL32(30, 20, 0, 255), "H");
+        if (active)
+            dl->AddText({sx - hero.name.size() * 3.0f, sy + 14},
+                        IM_COL32(255, 230, 100, 220), hero.name.c_str());
+    }
 }
 
 // ── Level-up modal ────────────────────────────────────────────────────────────

@@ -65,3 +65,9 @@ void Camera2D::screenToWorld(float sx, float sy, float& wx, float& wy) const
     wx = m_x - hw + (sx / m_w) * (hw * 2.0f);
     wy = m_y - hh + (sy / m_h) * (hh * 2.0f);
 }
+
+void Camera2D::worldToScreen(float wx, float wy, float& sx, float& sy) const
+{
+    sx = (wx - m_x) * m_zoom + m_w * 0.5f;
+    sy = (wy - m_y) * m_zoom + m_h * 0.5f;
+}

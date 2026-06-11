@@ -188,12 +188,49 @@ void CampaignHUD::drawDecisionModal(CampaignManager& mgr, LuaEngine& lua)
         for (int i = 0; i < static_cast<int>(dec->choices.size()); ++i) {
             const auto& c = dec->choices[i];
 
-            // Show alignment hint on hover
+            // Alignment delta badge — colour-coded
+            char badge[32] = {};
+            int ord = c.alignment.orderDelta;
+            int lgt = c.alignment.lightDelta;
+            if (ord != 0 || lgt != 0) {
+                std::snprintf(badge, sizeof(badge), " [%s%d / %s%d]",
+                    ord >= 0 ? "+" : "", ord,
+                    lgt >= 0 ? "+" : "", lgt);
+            }
+
+            std::string btnLabel = c.label + badge;
             ImGui::PushID(i);
-            if (ImGui::Button(c.label.c_str(), ImVec2(-1, 0)))
+
+            // Colour the delta badge: Order=blue-ish, Light=warm
+            bool hasGoodOrder = ord > 0;
+            bool hasBadOrder  = ord < 0;
+            bool hasGoodLight = lgt > 0;
+            bool hasBadLight  = lgt < 0;
+            bool allNeg = (ord < 0 && lgt < 0);
+
+            if (allNeg)
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.45f,0.1f,0.1f,0.9f));
+            else if (hasGoodOrder && hasGoodLight)
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f,0.35f,0.45f,0.9f));
+            else
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f,0.2f,0.3f,0.9f));
+
+            if (ImGui::Button(btnLabel.c_str(), ImVec2(-1, 0)))
                 mgr.resolveDecision(i, lua);
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("%s", c.tooltip.c_str());
+            ImGui::PopStyleColor();
+
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::TextUnformatted(c.tooltip.c_str());
+                if (ord != 0 || lgt != 0) {
+                    ImGui::Separator();
+                    ImGui::TextColored(ImVec4(0.7f,0.85f,1.0f,1.0f),
+                        "Order  %+d", ord);
+                    ImGui::TextColored(ImVec4(1.0f,0.9f,0.6f,1.0f),
+                        "Light  %+d", lgt);
+                }
+                ImGui::EndTooltip();
+            }
             ImGui::PopID();
             ImGui::Spacing();
         }

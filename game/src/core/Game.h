@@ -82,6 +82,7 @@ private:
     // ── World map helpers ──────────────────────────────────────────────────────
     void updateHeroMovement(float dt);
     void drawHero(const Hero& hero);
+    void renderWorldOverlay();      // ImGui DrawList markers for all map entities
     void onTileClicked(HexCoord h);
     void checkTileEvents();
 

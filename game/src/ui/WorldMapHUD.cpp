@@ -104,7 +104,7 @@ void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
 
     for (int i = 0; i < static_cast<int>(heroes.size()); ++i) {
         auto& h = heroes[i];
-        Rect btn{x, y, w, 28.0f};
+        Rect btn{x, y, w, 48.0f};
 
         UIColor bg = (i == sel) ?
             UIColor::hex(UITheme::BG_HOVER) :
@@ -116,19 +116,34 @@ void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
         rdr.drawRect(btn, bg, brd, 1.0f);
 
         // Hero name + level
-        std::string label = h.name + " L" + std::to_string(h.level);
-        rdr.drawText(label, x + 4.0f, y + 7.0f,
+        std::string label = h.name + "  L" + std::to_string(h.level);
+        rdr.drawText(label, x + 4.0f, y + 4.0f,
                      UIColor::hex(UITheme::TEXT_PRIMARY), 11.0f);
 
-        // Movement bar
+        // XP / mana on same line
+        std::string stats = "MP:" + std::to_string(h.mana) + "/" + std::to_string(h.maxMana);
+        rdr.drawText(stats, x + 4.0f, y + 17.0f,
+                     UIColor::hex(0x88AAFF), 10.0f);
+
+        // Move bar (green)
         float moveFrac = h.maxMove > 0 ?
             static_cast<float>(h.movePool) / h.maxMove : 0.0f;
-        Rect movebar{x + 4.0f, y + 20.0f, w - 8.0f, 4.0f};
+        Rect movebar{x + 4.0f, y + 30.0f, w - 8.0f, 4.0f};
         rdr.drawBar(movebar, moveFrac,
                     UIColor::hex(UITheme::NATURE_GREEN),
                     UIColor::hex(UITheme::BG_DARK),
                     UIColor::hex(UITheme::BORDER));
-        y += 32.0f;
+
+        // XP bar (purple)
+        float xpFrac = h.xpToNext > 0 ?
+            static_cast<float>(h.xp) / h.xpToNext : 1.0f;
+        Rect xpbar{x + 4.0f, y + 38.0f, w - 8.0f, 4.0f};
+        rdr.drawBar(xpbar, xpFrac,
+                    UIColor::hex(0xAA55FF),
+                    UIColor::hex(UITheme::BG_DARK),
+                    UIColor::hex(UITheme::BORDER));
+
+        y += 52.0f;
     }
 }
 

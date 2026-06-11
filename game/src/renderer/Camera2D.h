@@ -25,6 +25,9 @@ public:
     // Convert screen pixel → world coordinate
     void screenToWorld(float sx, float sy, float& wx, float& wy) const;
 
+    // Convert world coordinate → screen pixel
+    void worldToScreen(float wx, float wy, float& sx, float& sy) const;
+
 private:
     float m_x    = 0.0f;
     float m_y    = 0.0f;
