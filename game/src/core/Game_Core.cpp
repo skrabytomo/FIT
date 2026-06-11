@@ -2,6 +2,8 @@
 #include "../magic/SpellRegistry.h"
 #include "../hero/SkillRegistry.h"
 #include "../hero/LevelUpSystem.h"
+#include "../world/WorldGen.h"
+#include "../world/HexGrid.h"
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -63,90 +65,120 @@ bool Game::init(const std::string& title, int width, int height)
     // Artifact registry
     m_artifactRegistry.init();
 
-    // Build map
+    // Generate world procedurally
     m_mapSize = MapSize::Small;
     m_map.create(m_mapSize);
-    m_map.forEach([](HexTile& t) {
-        int q = t.coord.q, r = t.coord.r;
-        if ((q + r) % 5 == 0)      t.terrain = Terrain::Forest;
-        else if ((q * r) % 7 == 0) t.terrain = Terrain::Water;
-        else if (q % 4 == 0)       t.terrain = Terrain::Highland;
-        else if (r % 6 == 0)       t.terrain = Terrain::Sacred;
-    });
+
+    WorldGenParams wgp;
+    wgp.seed        = static_cast<uint32_t>(SDL_GetTicks()) ^ 0x5A5A5A5Au;
+    wgp.size        = MapSize::Small;
+    wgp.playerCount = 4;   // player + 3 AI
+    wgp.waterRatio  = 0.18f;
+    auto wgResult   = WorldGen::generate(m_map, wgp);
+
+    // Resource nodes from generator
+    m_resources  = std::move(wgResult.resources);
+    m_nextObjId  = static_cast<uint32_t>(m_resources.size()) + 1;
 
     // Player resources
     m_playerResources.set(ResourceType::Gold, 5000);
     m_playerResources.set(ResourceType::Iron, 20);
 
-    // Create player hero
+    // Player hero
     Hero hero;
     hero.id        = 1;
     hero.name      = "Player Hero";
     hero.faction   = FactionId::HolyOrder;
-    hero.pos       = {0, 0};
+    hero.pos       = wgResult.startPositions.empty() ? HexCoord{0,0}
+                                                     : wgResult.startPositions[0];
     hero.movePool  = hero.maxMove;
-    hero.lightPower = 3;  // base casting power for HolyOrder
-    // Starting spells: Bless (buff) + Smite (damage)
+    hero.lightPower = 3;
     hero.knownSpells = {SPL::BLESS, SPL::SMITE, SPL::DIVINE_SHIELD};
     m_heroes.push_back(hero);
     m_activeHeroIdx = 0;
+    if (HexTile* ht = m_map.getTile(hero.pos)) ht->heroId = hero.id;
 
-    // Scatter world objects
-    m_worldObjects.clear();
-    auto addObj = [&](WorldObjectType t, HexCoord p, int v,
-                      ResourceType rt = ResourceType::Gold) {
-        m_worldObjects.push_back({m_nextObjId++, t, p, v, rt, false});
+    // Enemy heroes at the other spawn positions
+    static const char* kEnemyNames[] = {
+        "Dark Warlord", "Blood Raider", "Thornkin Shaman", "Void Stalker"
     };
-    addObj(WorldObjectType::SpellScroll,   {4,  1},  SPL::SMITE);
-    addObj(WorldObjectType::SpellScroll,   {-3, 3},  SPL::REGROWTH);
-    addObj(WorldObjectType::SpellScroll,   {6, -2},  SPL::CURSE);
-    addObj(WorldObjectType::ArtifactChest, {2,  3},  5);   // Iron Helm (id=5)
-    addObj(WorldObjectType::ArtifactChest, {-4, 2},  1);   // Iron Sword (id=1)
-    addObj(WorldObjectType::XPShrine,      {5,  2},  80);
-    addObj(WorldObjectType::XPShrine,      {-2,-3},  60);
-    addObj(WorldObjectType::ResourceCache, {1, -3}, 500, ResourceType::Gold);
-    addObj(WorldObjectType::ResourceCache, {3, -4},   8, ResourceType::Iron);
-
-    // Place enemy heroes
-    auto placeEnemy = [&](uint32_t id, const char* name, FactionId faction, HexCoord pos) {
+    for (int i = 1; i < static_cast<int>(wgResult.startPositions.size())
+                    && i <= 3; ++i) {
+        FactionId ef = (i < static_cast<int>(wgResult.towns.size()))
+                       ? wgResult.towns[i].faction : FactionId::EternalEmpire;
         Hero eHero;
-        eHero.id       = id;
-        eHero.name     = name;
-        eHero.faction  = faction;
-        eHero.pos      = pos;
+        eHero.id       = 99u + static_cast<uint32_t>(i);
+        eHero.name     = kEnemyNames[i - 1];
+        eHero.faction  = ef;
+        eHero.pos      = wgResult.startPositions[i];
         eHero.movePool = eHero.maxMove;
         m_enemyHeroes.push_back(eHero);
-        if (HexTile* t = m_map.getTile(pos)) t->heroId = id;
-    };
-    placeEnemy(100, "Dark Warlord",    FactionId::EternalEmpire, {8, -4});
-    placeEnemy(101, "Bloodsworn Raider", FactionId::Bloodsworn,  {-6, 4});
-    placeEnemy(102, "Thornkin Shaman",   FactionId::Thornkin,    {5,  5});
+        if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;
+    }
 
-    // Place player town
-    Town town;
-    town.id      = 1;
-    town.name    = "Sanctuary";
-    town.faction = FactionId::HolyOrder;
-    town.pos     = {3, -2};
-    town.ownerId = 1;
-    town.builtBuildings.push_back(BID::MAGE_GUILD);  // Sanctuary starts with a guild
-    m_towns.push_back(town);
-    if (HexTile* t = m_map.getTile(town.pos)) t->townId = town.id;
+    // Towns: first is player's, rest are neutral
+    for (int i = 0; i < static_cast<int>(wgResult.towns.size()); ++i) {
+        Town& wt = wgResult.towns[i];
+        if (i == 0) {
+            wt.ownerId = 1;
+            wt.builtBuildings.push_back(BID::MAGE_GUILD);
+        } else {
+            wt.ownerId = 0;
+        }
+        if (HexTile* ht = m_map.getTile(wt.pos)) ht->townId = wt.id;
+        m_towns.push_back(wt);
+    }
 
-    // Place neutral towns (capturable)
-    auto addNeutralTown = [&](uint32_t id, const char* name,
-                               FactionId f, HexCoord pos) {
-        Town nt;
-        nt.id      = id;
-        nt.name    = name;
-        nt.faction = f;
-        nt.pos     = pos;
-        nt.ownerId = 0;  // neutral — capturable
-        m_towns.push_back(nt);
-        if (HexTile* t = m_map.getTile(pos)) t->townId = id;
-    };
-    addNeutralTown(2, "Thornwood",   FactionId::Thornkin,      {-3, -2});
-    addNeutralTown(3, "Iron Citadel",FactionId::IronAssembly,  { 6,  2});
+    // Scatter world objects on random land tiles away from entities
+    m_worldObjects.clear();
+    {
+        uint32_t rng = wgp.seed ^ 0xF00DBABE;
+        auto lcg = [&]() { return (rng = rng * 1664525u + 1013904223u); };
+
+        auto allCoords = m_map.coords();
+        for (size_t ci = allCoords.size() - 1; ci > 0; --ci)
+            std::swap(allCoords[ci], allCoords[lcg() % (ci + 1)]);
+
+        auto pickTile = [&]() -> HexCoord {
+            for (auto& c : allCoords) {
+                const HexTile* t = m_map.getTile(c);
+                if (!t || t->terrain == Terrain::Water) continue;
+                if (t->heroId || t->townId || t->resourceId) continue;
+                // check no world object already here
+                bool used = false;
+                for (auto& o : m_worldObjects) if (o.pos == c) { used = true; break; }
+                if (!used) return c;
+            }
+            return {0, 0};
+        };
+
+        static const int kScrollSpells[] = {
+            SPL::SMITE, SPL::REGROWTH, SPL::CURSE, SPL::BLESS, SPL::CALL_LIGHTNING
+        };
+        for (int s = 0; s < 4; ++s) {
+            HexCoord p = pickTile();
+            int sid = kScrollSpells[lcg() % 5];
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::SpellScroll, p, sid, ResourceType::Gold, false});
+        }
+        for (int a = 0; a < 3; ++a) {
+            HexCoord p = pickTile();
+            int aid = 1 + static_cast<int>(lcg() % 8);   // artifact ids 1-8
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ArtifactChest, p, aid, ResourceType::Gold, false});
+        }
+        for (int x = 0; x < 3; ++x) {
+            HexCoord p = pickTile();
+            int xp = 50 + static_cast<int>(lcg() % 80);
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::XPShrine, p, xp, ResourceType::Gold, false});
+        }
+        for (int rc = 0; rc < 3; ++rc) {
+            HexCoord p = pickTile();
+            bool isGold = (lcg() & 1);
+            ResourceType rtype = isGold ? ResourceType::Gold : ResourceType::Iron;
+            int rval  = isGold ? 300 + static_cast<int>(lcg() % 400)
+                               : 5   + static_cast<int>(lcg() % 10);
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ResourceCache, p, rval, rtype, false});
+        }
+    }
 
     // Fog of war
     FogOfWar::hideAll(m_map);
