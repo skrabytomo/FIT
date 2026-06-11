@@ -119,7 +119,9 @@ void CombatEngine::startBattle(
     applySkills(m_playerHero, true);
     applySkills(m_enemyHero,  false);
 
-    m_phase = CombatPhase::PlayerTurn;
+    auto* firstUnit = activeUnit();
+    m_phase = (firstUnit && !firstUnit->isPlayer) ? CombatPhase::EnemyTurn
+                                                  : CombatPhase::PlayerTurn;
     addLog("Battle started! Round 1");
 }
 
@@ -491,6 +493,10 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
         ss << unit.name << " attacks " << target->name << " for " << result.damage;
         addLog(ss.str());
         if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (result.moraleTrigger) {
+            addLog(unit.name + " morale surge — bonus action!");
+            unit.hasActed = false; unit.hasMoved = false; return;
+        }
         unit.hasActed = true; advanceTurn(); return;
     }
 
@@ -521,6 +527,10 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
         if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (result.moraleTrigger) {
+            addLog(unit.name + " morale surge — bonus action!");
+            unit.hasActed = false; unit.hasMoved = false; return;
+        }
         unit.hasActed = true; advanceTurn(); return;
     }
 
@@ -579,6 +589,10 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
             ss << unit.name << " shoots " << shtTarget->name << " for " << result.damage;
             addLog(ss.str());
             if (!shtTarget->alive) { addLog(shtTarget->name + " destroyed!"); m_grid.removeDeadUnits(); }
+            if (result.moraleTrigger) {
+                addLog(unit.name + " morale surge — bonus action!");
+                unit.hasActed = false; unit.hasMoved = false; return;
+            }
             unit.hasActed = true; advanceTurn(); return;
         }
     }
@@ -604,6 +618,10 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
         if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (result.moraleTrigger) {
+            addLog(unit.name + " morale surge — bonus action!");
+            unit.hasActed = false; unit.hasMoved = false; return;
+        }
         unit.hasActed = true; advanceTurn(); return;
     }
 
@@ -629,8 +647,10 @@ CombatPhase CombatEngine::runHeadless(int maxRounds)
         }
     };
 
-    // Initial turn may already be PlayerTurn after startBattle
-    if (m_phase == CombatPhase::PlayerTurn)
+    // Kick off whichever side goes first
+    if (m_phase == CombatPhase::EnemyTurn)
+        processAITurn();
+    else if (m_phase == CombatPhase::PlayerTurn)
         processPlayerAI();
 
     int safety = maxRounds * 300;

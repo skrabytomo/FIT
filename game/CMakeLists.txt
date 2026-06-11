@@ -104,3 +104,22 @@ add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
     $<TARGET_FILE_DIR:${PROJECT_NAME}>/maps
     $<TARGET_FILE_DIR:${PROJECT_NAME}>/scripts
 )
+
+# ── Standalone balance simulator (no SDL / ImGui / OpenGL) ───────────────────
+set(SIM_SOURCES
+    src/sim/sim_main.cpp
+    src/sim/Simulator.cpp
+    src/sim/ArmyBuilder.cpp
+    src/combat/CombatEngine.cpp
+    src/combat/CombatGrid.cpp
+    src/combat/CombatUnit.cpp
+    src/combat/DamageCalc.cpp
+    src/world/HexGrid.cpp
+    src/world/HexMap.cpp
+    src/hero/Hero.cpp
+    src/hero/Artifacts.cpp
+)
+
+add_executable(sim_test ${SIM_SOURCES})
+target_include_directories(sim_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
+target_compile_features(sim_test PRIVATE cxx_std_20)

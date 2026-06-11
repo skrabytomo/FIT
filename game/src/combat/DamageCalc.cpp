@@ -15,7 +15,9 @@ int DamageCalc::rollDamage(int dmin, int dmax, int count)
 {
     if (dmin >= dmax) return dmin * count;
     std::uniform_int_distribution<int> dist(dmin, dmax);
-    return dist(s_rng) * count;
+    int total = 0;
+    for (int i = 0; i < count; ++i) total += dist(s_rng);
+    return total;
 }
 
 // ── Tile modifiers ─────────────────────────────────────────────────────────────
