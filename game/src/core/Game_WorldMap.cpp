@@ -50,6 +50,54 @@ void Game::updateWorldMap(float dt)
         m_showHideoutScreen = !m_showHideoutScreen;
 
     if (m_input.keyDown(SDLK_SPACE)) {
+        // Restore hero movement pools
+        for (auto& h : m_heroes)      h.movePool = h.maxMove;
+        for (auto& h : m_enemyHeroes) h.movePool = h.maxMove;
+
+        // Enemy hero AI — each moves one step toward active player hero
+        if (!m_heroes.empty()) {
+            Hero& playerHero = m_heroes[m_activeHeroIdx];
+            for (auto& eHero : m_enemyHeroes) {
+                if (eHero.movePool <= 0) continue;
+                auto costFn = [this, &eHero](HexCoord c) -> int {
+                    const HexTile* t = m_map.getTile(c);
+                    if (!t || !eHero.canEnter(t->terrain)) return 999;
+                    return eHero.moveCost(t->terrain);
+                };
+                auto path = Pathfinder::find(m_map, eHero.pos, playerHero.pos, costFn);
+                if (!path.empty()) {
+                    HexCoord next = path[0];
+                    int cost = [&]() {
+                        const HexTile* t = m_map.getTile(next);
+                        return t ? eHero.moveCost(t->terrain) : 999;
+                    }();
+                    if (eHero.movePool >= cost) {
+                        // Clear old tile
+                        if (HexTile* old = m_map.getTile(eHero.pos)) old->heroId = 0;
+                        eHero.pos = next;
+                        eHero.movePool -= cost;
+                        if (HexTile* newT = m_map.getTile(eHero.pos)) newT->heroId = eHero.id;
+
+                        // Check collision with player
+                        if (eHero.pos == playerHero.pos) {
+                            CombatUnit pUnit;
+                            pUnit.id = 1; pUnit.name = "Penitent"; pUnit.count = 10;
+                            pUnit.hp = 5; pUnit.maxHp = 5; pUnit.attack = 2;
+                            pUnit.defense = 1; pUnit.speed = 5; pUnit.isPlayer = true;
+
+                            CombatUnit eUnit;
+                            eUnit.id = 2; eUnit.name = "Skeleton"; eUnit.count = 10;
+                            eUnit.hp = 4; eUnit.maxHp = 4; eUnit.attack = 2;
+                            eUnit.defense = 1; eUnit.speed = 4; eUnit.isPlayer = false;
+
+                            enterCombat(playerHero, {pUnit}, eHero, {eUnit});
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
         bool newWeek = m_turns.endTurn(m_towns, m_heroes,
                                        m_playerResources, m_registry);
         if (newWeek) {
@@ -266,6 +314,22 @@ void Game::renderLevelUpModal()
             ImGui::PushID(i);
             if (ImGui::Button(offer.label.c_str(), ImVec2(-1, 0))) {
                 LevelUpSystem::applyOffer(offer, hero.skills);
+                // Apply per-class stat growth
+                const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                if (cls) {
+                    if (cls->scalesAttack) hero.attack  += 1;
+                    else                   hero.defense += 1;
+                    if (hero.level % 2 == 0) {
+                        if (cls->scalesLightPower)  hero.lightPower  += 1;
+                        if (cls->scalesBloodPower)  hero.bloodPower  += 1;
+                        if (cls->scalesDeathPower)  hero.deathPower  += 1;
+                        if (cls->scalesNaturePower) hero.naturePower += 1;
+                        if (cls->scalesForgePower)  hero.forgePower  += 1;
+                        if (cls->scalesFleshPower)  hero.fleshPower  += 1;
+                    }
+                    hero.maxMana += 1;
+                    hero.mana = hero.maxMana;
+                }
                 m_levelUpOffers.clear();
                 m_showLevelUpModal = false;
                 ImGui::CloseCurrentPopup();

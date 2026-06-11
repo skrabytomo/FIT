@@ -1,6 +1,9 @@
 #include "Game.h"
 #include "../hero/SkillRegistry.h"
+#include "../magic/SpellRegistry.h"
+#include <imgui.h>
 #include <stdio.h>
+#include <sstream>
 
 // ── Combat update ─────────────────────────────────────────────────────────────
 void Game::updateCombat(float dt)
@@ -29,6 +32,74 @@ void Game::renderCombat()
     m_ui.beginFrame();
     m_combatHUD.draw(m_ui, m_combat);
     m_ui.endFrame();
+
+    beginImGuiFrame();
+    if (m_showSpellPanel) renderSpellPanel();
+    endImGuiFrame();
+}
+
+// ── Spell panel (ImGui) ───────────────────────────────────────────────────────
+void Game::renderSpellPanel()
+{
+    if (m_heroes.empty()) return;
+    const Hero& hero = m_heroes[m_activeHeroIdx];
+    if (hero.knownSpells.empty()) {
+        ImGui::Begin("Spells", &m_showSpellPanel, ImGuiWindowFlags_AlwaysAutoResize);
+        ImGui::TextDisabled("No spells known.");
+        ImGui::TextDisabled("Find spellbooks on the world map or build a mage tower.");
+        ImGui::End();
+        return;
+    }
+
+    ImGui::SetNextWindowSize(ImVec2(340, 0), ImGuiCond_FirstUseEver);
+    if (!ImGui::Begin("Spells", &m_showSpellPanel)) { ImGui::End(); return; }
+
+    ImGui::Text("Mana: %d / %d", hero.mana, hero.maxMana);
+    ImGui::Separator();
+
+    // Target selector — pick from living enemy units
+    if (ImGui::BeginCombo("Target", m_spellTargetId == 0 ? "— pick —" : [&]() -> const char* {
+        auto* u = m_combat.grid().getUnit(m_spellTargetId);
+        return u ? u->name.c_str() : "—";
+    }()))
+    {
+        for (auto& u : m_combat.grid().units()) {
+            if (!u.alive) continue;
+            bool sel = (u.id == m_spellTargetId);
+            std::string lbl = u.name + (u.isPlayer ? " [ally]" : " [enemy]");
+            if (ImGui::Selectable(lbl.c_str(), sel))
+                m_spellTargetId = u.id;
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::Separator();
+
+    CombatUnit* active = m_combat.activeUnit();
+    bool isPlayerTurn  = active && active->isPlayer;
+
+    for (int sid : hero.knownSpells) {
+        const SpellDef* spell = findSpell(sid);
+        if (!spell) continue;
+
+        bool canAfford = hero.mana >= spell->manaCost;
+        if (!isPlayerTurn || !canAfford) ImGui::BeginDisabled();
+
+        char btnLabel[128];
+        std::snprintf(btnLabel, sizeof(btnLabel), "%s  (%d mana)", spell->name, spell->manaCost);
+        if (ImGui::Button(btnLabel, ImVec2(-1, 0))) {
+            CombatAction act;
+            act.type         = ActionType::UseAbility;
+            act.spellId      = sid;
+            act.targetUnitId = m_spellTargetId;
+            m_combat.submitAction(act);
+            m_showSpellPanel = false;
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", spell->desc);
+
+        if (!isPlayerTurn || !canAfford) ImGui::EndDisabled();
+    }
+    ImGui::End();
 }
 
 // ── State transitions ─────────────────────────────────────────────────────────

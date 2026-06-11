@@ -19,6 +19,7 @@ public:
     UICallback onWait;
     UICallback onDefend;
     UICallback onEndCombat;  // retreat
+    UICallback onSpells;     // open spell panel
 
 private:
     void buildLayout(int sw, int sh);
@@ -39,6 +40,7 @@ private:
     Button m_waitBtn;
     Button m_defendBtn;
     Button m_retreatBtn;
+    Button m_spellsBtn;
 
     // Turn order bar — top
     Rect   m_turnOrderBar;

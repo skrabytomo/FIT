@@ -5,6 +5,7 @@
 #include "CombatGrid.h"
 #include "DamageCalc.h"
 #include "../hero/Hero.h"
+#include "../magic/SpellDef.h"
 
 // ── AI difficulty / personality ────────────────────────────────────────────────
 enum class AIDifficulty : uint8_t
@@ -19,10 +20,11 @@ enum class ActionType { Move, Attack, Wait, Defend, Shoot, UseAbility };
 
 struct CombatAction
 {
-    ActionType type    = ActionType::Move;
-    uint32_t   unitId  = 0;
-    HexCoord   target  = {0, 0};   // move target or attack position
-    uint32_t   targetUnitId = 0;   // for attacks
+    ActionType type         = ActionType::Move;
+    uint32_t   unitId       = 0;
+    HexCoord   target       = {0, 0};   // move target or attack position
+    uint32_t   targetUnitId = 0;        // for attacks
+    int        spellId      = 0;        // for UseAbility (cast spell)
 };
 
 // ── Combat log entry ───────────────────────────────────────────────────────────

@@ -96,6 +96,9 @@ private:
     // ── Level-up modal ─────────────────────────────────────────────────────────
     void renderLevelUpModal();
 
+    // ── Combat spell panel ─────────────────────────────────────────────────────
+    void renderSpellPanel();
+
     // ── Hideout screen ─────────────────────────────────────────────────────────
     void renderHideoutScreen();
 
@@ -122,6 +125,7 @@ private:
 
     // ── Heroes ────────────────────────────────────────────────────────────────
     std::vector<Hero> m_heroes;
+    std::vector<Hero> m_enemyHeroes;
     int               m_activeHeroIdx = 0;
 
     HexCoord       m_hovered  {-999, -999};
@@ -145,6 +149,8 @@ private:
 
     // ── Combat ────────────────────────────────────────────────────────────────
     CombatEngine m_combat;
+    bool         m_showSpellPanel  = false;
+    uint32_t     m_spellTargetId   = 0;    // unit ID pre-selected for spell
 
     // ── UI ────────────────────────────────────────────────────────────────────
     WorldMapHUD  m_worldHUD;

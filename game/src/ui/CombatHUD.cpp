@@ -41,7 +41,8 @@ void CombatHUD::buildLayout(int sw, int sh)
     float btnY = by + 30.0f;
     m_waitBtn    = Button("Wait",    {ax+8, btnY,      160.0f, 26.0f}, [this]{ if(onWait)     onWait();    });
     m_defendBtn  = Button("Defend",  {ax+8, btnY+30.0f,160.0f, 26.0f}, [this]{ if(onDefend)   onDefend();  });
-    m_retreatBtn = Button("Retreat", {ax+8, btnY+60.0f,160.0f, 26.0f}, [this]{ if(onEndCombat) onEndCombat(); });
+    m_spellsBtn  = Button("Spells",  {ax+8, btnY+60.0f,160.0f, 26.0f}, [this]{ if(onSpells)   onSpells();  });
+    m_retreatBtn = Button("Retreat", {ax+8, btnY+90.0f,160.0f, 26.0f}, [this]{ if(onEndCombat) onEndCombat(); });
 
     m_retreatBtn.colorBorder = UIColor::hex(UITheme::DANGER_RED, 0.7f);
     m_retreatBtn.colorText   = UIColor::hex(UITheme::DANGER_RED);
@@ -213,24 +214,28 @@ void CombatHUD::drawActionBar(UIRenderer& rdr)
     m_actionPanel.draw(rdr);
     m_waitBtn.draw(rdr);
     m_defendBtn.draw(rdr);
+    m_spellsBtn.draw(rdr);
     m_retreatBtn.draw(rdr);
 }
 
 bool CombatHUD::onMouseMove(float x, float y) {
     m_waitBtn.onMouseMove(x, y);
     m_defendBtn.onMouseMove(x, y);
+    m_spellsBtn.onMouseMove(x, y);
     m_retreatBtn.onMouseMove(x, y);
     return false;
 }
 bool CombatHUD::onMouseDown(float x, float y) {
     if (m_waitBtn.onMouseDown(x, y))    return true;
     if (m_defendBtn.onMouseDown(x, y))  return true;
+    if (m_spellsBtn.onMouseDown(x, y))  return true;
     if (m_retreatBtn.onMouseDown(x, y)) return true;
     return false;
 }
 bool CombatHUD::onMouseUp(float x, float y) {
     m_waitBtn.onMouseUp(x, y);
     m_defendBtn.onMouseUp(x, y);
+    m_spellsBtn.onMouseUp(x, y);
     m_retreatBtn.onMouseUp(x, y);
     return false;
 }

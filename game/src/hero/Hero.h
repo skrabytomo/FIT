@@ -4,6 +4,7 @@
 #include "../world/HexMap.h"
 #include "FactionId.h"
 #include "Skills.h"
+#include "Artifacts.h"
 
 // Movement cost per terrain (indexed by Terrain enum)
 static constexpr int BASE_MOVE_COST[] = {
@@ -45,7 +46,27 @@ struct Hero
     int defense     = 2;
     int visionRange = 5;
 
-    HeroSkills skills;
+    HeroSkills    skills;
+    HeroArtifacts artifacts;
+
+    // Casting stats (grow via class scaling on level-up)
+    int lightPower  = 0;
+    int bloodPower  = 0;
+    int deathPower  = 0;
+    int naturePower = 0;
+    int forgePower  = 0;
+    int fleshPower  = 0;
+
+    // Hero mana pool
+    int mana    = 10;
+    int maxMana = 10;
+
+    // Hero HP (for targeted abilities)
+    int heroHp    = 100;
+    int heroMaxHp = 100;
+
+    // Known spell IDs (learned via spellbooks on map or town buildings)
+    std::vector<int> knownSpells;
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 

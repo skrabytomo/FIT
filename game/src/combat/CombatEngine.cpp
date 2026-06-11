@@ -1,5 +1,6 @@
 #include "CombatEngine.h"
 #include "../hero/SkillRegistry.h"
+#include "../magic/SpellRegistry.h"
 #include <algorithm>
 #include <stdio.h>
 #include <sstream>
@@ -248,6 +249,110 @@ bool CombatEngine::submitAction(const CombatAction& action)
         unit->defense += 3; // temporary defense bonus
         unit->hasActed = true;
         addLog(unit->name + " defends (+3 Defense this round)");
+        advanceTurn();
+        return true;
+    }
+    case ActionType::UseAbility: {
+        const SpellDef* spell = findSpell(action.spellId);
+        if (!spell) return false;
+
+        // Deduct mana from the casting hero
+        Hero& caster = unit->isPlayer ? m_playerHero : m_enemyHero;
+        if (caster.mana < spell->manaCost) return false;
+        caster.mana -= spell->manaCost;
+
+        // School power for scaling
+        int schoolPow = 0;
+        switch (spell->school) {
+            case SpellSchool::Light:  schoolPow = caster.lightPower;  break;
+            case SpellSchool::Blood:  schoolPow = caster.bloodPower;  break;
+            case SpellSchool::Death:  schoolPow = caster.deathPower;  break;
+            case SpellSchool::Nature: schoolPow = caster.naturePower; break;
+            case SpellSchool::Forge:  schoolPow = caster.forgePower;  break;
+            case SpellSchool::Flesh:  schoolPow = caster.fleshPower;  break;
+        }
+        int potency = spell->power + schoolPow;
+
+        // Collect targets
+        std::vector<CombatUnit*> targets;
+        bool wantPlayer  = unit->isPlayer;   // ally
+        bool wantEnemy   = !unit->isPlayer;  // enemy
+        switch (spell->target) {
+            case SpellTarget::SingleAlly: {
+                auto* t = m_grid.getUnit(action.targetUnitId);
+                if (t && t->alive && t->isPlayer == unit->isPlayer) targets.push_back(t);
+                break;
+            }
+            case SpellTarget::SingleEnemy: {
+                auto* t = m_grid.getUnit(action.targetUnitId);
+                if (t && t->alive && t->isPlayer != unit->isPlayer) targets.push_back(t);
+                break;
+            }
+            case SpellTarget::AllAllies:
+                for (auto& u : m_grid.units())
+                    if (u.alive && u.isPlayer == unit->isPlayer) targets.push_back(&u);
+                break;
+            case SpellTarget::AllEnemies:
+                for (auto& u : m_grid.units())
+                    if (u.alive && u.isPlayer != unit->isPlayer) targets.push_back(&u);
+                break;
+            case SpellTarget::Self:
+                targets.push_back(unit);
+                break;
+        }
+        if (targets.empty()) return false;
+
+        std::ostringstream ss;
+        ss << unit->name << " casts " << spell->name;
+
+        for (CombatUnit* t : targets) {
+            switch (spell->effect) {
+                case SpellEffect::Damage: {
+                    int dmg = std::max(1, potency);
+                    t->applyDamage(dmg);
+                    ss << " → " << t->name << " takes " << dmg;
+                    if (!t->alive) addLog(t->name + " destroyed!");
+                    break;
+                }
+                case SpellEffect::Heal: {
+                    int healed = potency;
+                    t->hp = std::min(t->maxHp, t->hp + healed);
+                    ss << " → " << t->name << " healed " << healed;
+                    break;
+                }
+                case SpellEffect::AttackBuff:
+                    t->roundAttackBonus  += spell->power;
+                    ss << " → " << t->name << " +" << spell->power << " atk";
+                    break;
+                case SpellEffect::DefenseBuff:
+                    t->roundDefenseBonus += spell->power;
+                    ss << " → " << t->name << " +" << spell->power << " def";
+                    break;
+                case SpellEffect::AttackDebuff:
+                    t->roundAttackBonus  -= spell->power;
+                    ss << " → " << t->name << " -" << spell->power << " atk";
+                    break;
+                case SpellEffect::DefenseDebuff:
+                    t->roundDefenseBonus -= spell->power;
+                    ss << " → " << t->name << " -" << spell->power << " def";
+                    break;
+                case SpellEffect::MoraleBoost:
+                    if (!t->moraleImmune)
+                        t->morale = std::min(100, t->morale + potency);
+                    ss << " → " << t->name << " morale +" << potency;
+                    break;
+                case SpellEffect::MoraleDrain:
+                    if (!t->moraleImmune)
+                        t->morale = std::max(0, t->morale - potency);
+                    ss << " → " << t->name << " morale -" << potency;
+                    break;
+            }
+        }
+        addLog(ss.str());
+        m_grid.removeDeadUnits();
+        checkVictory();
+
+        unit->hasActed = true;
         advanceTurn();
         return true;
     }

@@ -1,4 +1,5 @@
 #include "Game.h"
+#include "../magic/SpellRegistry.h"
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -73,13 +74,28 @@ bool Game::init(const std::string& title, int width, int height)
 
     // Create player hero
     Hero hero;
-    hero.id       = 1;
-    hero.name     = "Player Hero";
-    hero.faction  = FactionId::HolyOrder;
-    hero.pos      = {0, 0};
-    hero.movePool = hero.maxMove;
+    hero.id        = 1;
+    hero.name      = "Player Hero";
+    hero.faction   = FactionId::HolyOrder;
+    hero.pos       = {0, 0};
+    hero.movePool  = hero.maxMove;
+    hero.lightPower = 3;  // base casting power for HolyOrder
+    // Starting spells: Bless (buff) + Smite (damage)
+    hero.knownSpells = {SPL::BLESS, SPL::SMITE, SPL::DIVINE_SHIELD};
     m_heroes.push_back(hero);
     m_activeHeroIdx = 0;
+
+    // Place an enemy hero
+    {
+        Hero eHero;
+        eHero.id      = 100;
+        eHero.name    = "Dark Warlord";
+        eHero.faction = FactionId::EternalEmpire;
+        eHero.pos     = {8, -4};
+        eHero.movePool = eHero.maxMove;
+        m_enemyHeroes.push_back(eHero);
+        if (HexTile* t = m_map.getTile(eHero.pos)) t->heroId = eHero.id;
+    }
 
     // Place a sample town
     Town town;
@@ -132,6 +148,7 @@ bool Game::init(const std::string& title, int width, int height)
     m_combatHUD.onWait      = [this]() { m_combat.wait(); };
     m_combatHUD.onDefend    = [this]() { m_combat.skipUnit(); };
     m_combatHUD.onEndCombat = [this]() { exitCombat(false); };
+    m_combatHUD.onSpells    = [this]() { m_showSpellPanel = !m_showSpellPanel; };
 
     // Open hideout DB (non-fatal if it fails)
     m_hideout.open(HIDEOUT_PATH);

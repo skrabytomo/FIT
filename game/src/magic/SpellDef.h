@@ -1,0 +1,79 @@
+#pragma once
+#include <cstdint>
+
+enum class SpellSchool : uint8_t { Light, Blood, Death, Nature, Forge, Flesh };
+
+// Who the spell targets
+enum class SpellTarget : uint8_t
+{
+    SingleEnemy,   // one enemy unit
+    SingleAlly,    // one friendly unit
+    AllEnemies,    // all enemy units
+    AllAllies,     // all friendly units
+    Self,          // the caster's hero
+};
+
+// What the spell does
+enum class SpellEffect : uint8_t
+{
+    Damage,        // deal power * school_power / 10 damage
+    Heal,          // restore HP proportional to power
+    AttackBuff,    // +power roundAttackBonus for 1 round
+    DefenseBuff,   // +power roundDefenseBonus for 1 round
+    AttackDebuff,  // -power roundAttackBonus for 1 round
+    DefenseDebuff, // -power roundDefenseBonus for 1 round
+    MoraleBoost,   // +power to morale of target
+    MoraleDrain,   // -power from morale of target
+};
+
+struct SpellDef
+{
+    int         id       = 0;
+    const char* name     = "";
+    const char* desc     = "";
+    SpellSchool school;
+    SpellTarget target;
+    SpellEffect effect;
+    int         manaCost = 5;
+    int         power    = 10;   // base potency; scaled by hero school stat
+};
+
+// ── Spell ID constants ─────────────────────────────────────────────────────────
+namespace SPL
+{
+    // Light
+    static constexpr int BLESS         = 1;
+    static constexpr int SMITE         = 2;
+    static constexpr int DIVINE_SHIELD = 3;
+    static constexpr int RADIANCE      = 4;
+
+    // Blood
+    static constexpr int BLOOD_FRENZY  = 10;
+    static constexpr int DRAIN_LIFE    = 11;
+    static constexpr int ENERVATE      = 12;
+    static constexpr int HEMORRHAGE    = 13;
+
+    // Death
+    static constexpr int CURSE         = 20;
+    static constexpr int WITHER        = 21;
+    static constexpr int DEATH_COIL    = 22;
+    static constexpr int PLAGUE        = 23;
+
+    // Nature
+    static constexpr int BARKSKIN      = 30;
+    static constexpr int ENTANGLE      = 31;
+    static constexpr int CALL_LIGHTNING= 32;
+    static constexpr int REGROWTH      = 33;
+
+    // Forge
+    static constexpr int REINFORCE     = 40;
+    static constexpr int OVERCLOCK     = 41;
+    static constexpr int SHRAPNEL      = 42;
+    static constexpr int HARDENED_SHELL= 43;
+
+    // Flesh
+    static constexpr int FESTER        = 50;
+    static constexpr int MEND_FLESH    = 51;
+    static constexpr int TOXIN         = 52;
+    static constexpr int GROWTH        = 53;
+}
