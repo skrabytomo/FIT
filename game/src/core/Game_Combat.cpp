@@ -4,6 +4,7 @@
 #include <imgui.h>
 #include <stdio.h>
 #include <sstream>
+#include <algorithm>
 
 // ── Combat update ─────────────────────────────────────────────────────────────
 void Game::updateCombat(float dt)
@@ -122,6 +123,19 @@ void Game::exitCombat(bool playerWon)
     ScriptContext ctx; ctx.heroId = m_heroes.empty() ? 0 : (int)m_heroes[m_activeHeroIdx].id;
 
     if (playerWon) {
+        // Remove defeated enemy hero from the world
+        if (m_lastCombatEnemyId != 0) {
+            m_enemyHeroes.erase(
+                std::remove_if(m_enemyHeroes.begin(), m_enemyHeroes.end(),
+                    [&](const Hero& e){ return e.id == m_lastCombatEnemyId; }),
+                m_enemyHeroes.end());
+            // Clear their map tile
+            m_map.forEach([&](HexTile& t){
+                if (t.heroId == m_lastCombatEnemyId) t.heroId = 0;
+            });
+            m_lastCombatEnemyId = 0;
+        }
+
         m_hideout.addXP(50);
         m_triggers.fire(TriggerType::BattleWon, ctx);
 

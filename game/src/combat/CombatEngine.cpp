@@ -258,6 +258,30 @@ bool CombatEngine::submitAction(const CombatAction& action)
         advanceTurn();
         return true;
     }
+    case ActionType::Shoot: {
+        if (unit->range == 0 || unit->shotsLeft <= 0) return false;
+        CombatUnit* target = m_grid.getUnit(action.targetUnitId);
+        if (!target || target->isPlayer || !target->alive) return false;
+        if (HexGrid::distance(unit->pos, target->pos) > unit->range) return false;
+
+        unit->shotsLeft--;
+        auto result = DamageCalc::attack(*unit, *target, m_grid);
+
+        std::ostringstream ss;
+        ss << unit->name << " shoots " << target->name
+           << " for " << result.damage << " damage";
+        if (result.killed > 0) ss << " (" << result.killed << " killed)";
+        addLog(ss.str());
+
+        if (!target->alive) {
+            addLog(target->name + " destroyed!");
+            m_grid.removeDeadUnits();
+        }
+
+        unit->hasActed = true;
+        advanceTurn();
+        return true;
+    }
     case ActionType::UseAbility: {
         const SpellDef* spell = findSpell(action.spellId);
         if (!spell) return false;

@@ -9,6 +9,59 @@
 
 static constexpr float MOVE_SPEED = 4.0f;
 
+// ── Per-faction combat unit templates ─────────────────────────────────────────
+static std::vector<CombatUnit> makeFactionUnits(FactionId faction, bool isPlayer)
+{
+    std::vector<CombatUnit> out;
+    int nextId = isPlayer ? 1 : 50;
+    auto add = [&](const char* name, int count, int hp, int atk, int def, int spd, int rng = 0) {
+        CombatUnit u;
+        u.id = nextId++; u.name = name; u.count = count;
+        u.maxHp = u.hp = hp; u.attack = atk; u.defense = def;
+        u.speed = spd; u.range = rng; u.shotsLeft = rng > 0 ? 8 : 0;
+        u.isPlayer = isPlayer;
+        out.push_back(u);
+    };
+    switch (faction) {
+    case FactionId::HolyOrder:
+        add("Penitent",       10, 6, 3, 2, 5);
+        add("Priest",          5, 4, 2, 1, 6, 3);
+        break;
+    case FactionId::Bloodsworn:
+        add("Raider",         10, 5, 4, 1, 7);
+        add("Bone Lancer",     6, 8, 3, 3, 4);
+        break;
+    case FactionId::Thornkin:
+        add("Thornling",      10, 4, 2, 3, 4);
+        add("Bark Sentinel",   5, 12, 3, 5, 3);
+        break;
+    case FactionId::EternalEmpire:
+        add("Skeleton",       10, 4, 2, 1, 4);
+        add("Shadow Archer",   6, 4, 4, 1, 5, 4);
+        break;
+    case FactionId::CrimsonWardens:
+        add("Warden Scout",    8, 5, 3, 2, 6);
+        add("Iron Warden",     5, 10, 4, 4, 4);
+        break;
+    case FactionId::Voidkin:
+        add("Void Wraith",     8, 5, 3, 1, 6);
+        add("Rift Stalker",    4, 8, 5, 2, 7);
+        break;
+    case FactionId::IronAssembly:
+        add("Automaton",       7, 8, 3, 3, 3);
+        add("Rifleman",        6, 5, 4, 1, 5, 5);
+        break;
+    case FactionId::Amalgamate:
+        add("Flesh Spawn",     9, 5, 2, 2, 4);
+        add("Plague Bearer",   5, 8, 3, 2, 5);
+        break;
+    default:
+        add("Soldier",        10, 5, 3, 2, 5);
+        break;
+    }
+    return out;
+}
+
 // ── World map update ──────────────────────────────────────────────────────────
 void Game::updateWorldMap(float dt)
 {
@@ -83,17 +136,10 @@ void Game::updateWorldMap(float dt)
 
                         // Check collision with player
                         if (eHero.pos == playerHero.pos) {
-                            CombatUnit pUnit;
-                            pUnit.id = 1; pUnit.name = "Penitent"; pUnit.count = 10;
-                            pUnit.hp = 5; pUnit.maxHp = 5; pUnit.attack = 2;
-                            pUnit.defense = 1; pUnit.speed = 5; pUnit.isPlayer = true;
-
-                            CombatUnit eUnit;
-                            eUnit.id = 2; eUnit.name = "Skeleton"; eUnit.count = 10;
-                            eUnit.hp = 4; eUnit.maxHp = 4; eUnit.attack = 2;
-                            eUnit.defense = 1; eUnit.speed = 4; eUnit.isPlayer = false;
-
-                            enterCombat(playerHero, {pUnit}, eHero, {eUnit});
+                            m_lastCombatEnemyId = eHero.id;
+                            auto pUnits = makeFactionUnits(playerHero.faction, true);
+                            auto eUnits = makeFactionUnits(eHero.faction, false);
+                            enterCombat(playerHero, pUnits, eHero, eUnits);
                             return;
                         }
                     }
@@ -129,6 +175,8 @@ void Game::renderWorldMap()
     m_batch.end();
 
     for (auto& hero : m_heroes)
+        drawHero(hero);
+    for (auto& hero : m_enemyHeroes)
         drawHero(hero);
 
     m_ui.beginFrame();
@@ -301,24 +349,17 @@ void Game::checkTileEvents()
         }
     }
 
-    // Enemy hero collision — placeholder with minimal units
+    // Enemy hero collision
     if (tile->heroId != 0 && tile->heroId != hero.id) {
-        Hero enemyHero;
-        enemyHero.id      = tile->heroId;
-        enemyHero.name    = "Enemy Hero";
-        enemyHero.faction = FactionId::EternalEmpire;
-
-        CombatUnit pUnit;
-        pUnit.id = 1; pUnit.name = "Penitent"; pUnit.count = 10;
-        pUnit.hp = 5; pUnit.maxHp = 5; pUnit.attack = 2; pUnit.defense = 1;
-        pUnit.speed = 5; pUnit.isPlayer = true;
-
-        CombatUnit eUnit;
-        eUnit.id = 2; eUnit.name = "Skeleton"; eUnit.count = 10;
-        eUnit.hp = 4; eUnit.maxHp = 4; eUnit.attack = 2; eUnit.defense = 1;
-        eUnit.speed = 4; eUnit.isPlayer = false;
-
-        enterCombat(hero, {pUnit}, enemyHero, {eUnit});
+        Hero* enemyPtr = nullptr;
+        for (auto& e : m_enemyHeroes)
+            if (e.id == tile->heroId) { enemyPtr = &e; break; }
+        if (enemyPtr) {
+            m_lastCombatEnemyId = enemyPtr->id;
+            auto pUnits = makeFactionUnits(hero.faction,        true);
+            auto eUnits = makeFactionUnits(enemyPtr->faction,   false);
+            enterCombat(hero, pUnits, *enemyPtr, eUnits);
+        }
     }
 }
 

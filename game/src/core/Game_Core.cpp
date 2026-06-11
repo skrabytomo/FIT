@@ -1,5 +1,7 @@
 #include "Game.h"
 #include "../magic/SpellRegistry.h"
+#include "../hero/SkillRegistry.h"
+#include "../hero/LevelUpSystem.h"
 #define GL_GLEXT_PROTOTYPES
 #include <GL/gl.h>
 #include <GL/glext.h>
@@ -10,6 +12,7 @@
 #include <cmath>
 extern "C" {
 #include <lua.h>
+#include <lauxlib.h>
 }
 
 static constexpr const char* SAVE_PATH    = "saves/save0.json";
@@ -104,17 +107,20 @@ bool Game::init(const std::string& title, int width, int height)
     addObj(WorldObjectType::ResourceCache, {1, -3}, 500, ResourceType::Gold);
     addObj(WorldObjectType::ResourceCache, {3, -4},   8, ResourceType::Iron);
 
-    // Place an enemy hero
-    {
+    // Place enemy heroes
+    auto placeEnemy = [&](uint32_t id, const char* name, FactionId faction, HexCoord pos) {
         Hero eHero;
-        eHero.id      = 100;
-        eHero.name    = "Dark Warlord";
-        eHero.faction = FactionId::EternalEmpire;
-        eHero.pos     = {8, -4};
+        eHero.id       = id;
+        eHero.name     = name;
+        eHero.faction  = faction;
+        eHero.pos      = pos;
         eHero.movePool = eHero.maxMove;
         m_enemyHeroes.push_back(eHero);
-        if (HexTile* t = m_map.getTile(eHero.pos)) t->heroId = eHero.id;
-    }
+        if (HexTile* t = m_map.getTile(pos)) t->heroId = id;
+    };
+    placeEnemy(100, "Dark Warlord",    FactionId::EternalEmpire, {8, -4});
+    placeEnemy(101, "Bloodsworn Raider", FactionId::Bloodsworn,  {-6, 4});
+    placeEnemy(102, "Thornkin Shaman",   FactionId::Thornkin,    {5,  5});
 
     // Place a sample town
     Town town;
@@ -176,11 +182,7 @@ bool Game::init(const std::string& title, int width, int height)
     // Scripting
     if (m_lua.init()) {
         m_triggers.setEngine(&m_lua);
-
-        m_lua.registerGameFunc("getDay", [](lua_State* L) -> int {
-            lua_pushinteger(L, 1); return 1;
-        });
-
+        bindLuaAPI();
         m_lua.execFile("scripts/autoload.lua");
     }
 
@@ -387,6 +389,94 @@ void Game::endImGuiFrame()
     if (!m_imguiReady) return;
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+}
+
+// ── Lua scripting API ─────────────────────────────────────────────────────────
+void Game::luaAddSpell(int spellId)
+{
+    if (m_heroes.empty()) return;
+    Hero& hero = m_heroes[m_activeHeroIdx];
+    for (int s : hero.knownSpells) if (s == spellId) return;
+    hero.knownSpells.push_back(spellId);
+}
+
+void Game::luaAddXP(int amount)
+{
+    if (m_heroes.empty()) return;
+    Hero& hero = m_heroes[m_activeHeroIdx];
+    if (hero.addXp(amount)) {
+        const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+        if (cls) {
+            std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+            m_levelUpOffers = LevelUpSystem::generateOffers(
+                *cls, hero.skills, hero.level, allSkills, hero.faction);
+        }
+        if (m_levelUpOffers.empty())
+            m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+        m_showLevelUpModal = true;
+    }
+}
+
+void Game::bindLuaAPI()
+{
+    lua_State* L = m_lua.state();
+    if (!L) return;
+
+    // Store this in registry so non-capturing callbacks can reach Game state
+    lua_pushlightuserdata(L, static_cast<void*>(this));
+    lua_setfield(L, LUA_REGISTRYINDEX, "Game");
+
+    m_lua.registerGameFunc("getDay", [](lua_State* L) -> int {
+        lua_getfield(L, LUA_REGISTRYINDEX, "Game");
+        auto* g = static_cast<Game*>(lua_touserdata(L, -1)); lua_pop(L, 1);
+        lua_pushinteger(L, g ? g->luaGetDay() : 0);
+        return 1;
+    });
+
+    m_lua.registerGameFunc("getWeek", [](lua_State* L) -> int {
+        lua_getfield(L, LUA_REGISTRYINDEX, "Game");
+        auto* g = static_cast<Game*>(lua_touserdata(L, -1)); lua_pop(L, 1);
+        lua_pushinteger(L, g ? g->luaGetWeek() : 0);
+        return 1;
+    });
+
+    m_lua.registerGameFunc("getGold", [](lua_State* L) -> int {
+        lua_getfield(L, LUA_REGISTRYINDEX, "Game");
+        auto* g = static_cast<Game*>(lua_touserdata(L, -1)); lua_pop(L, 1);
+        lua_pushinteger(L, g ? g->luaGetGold() : 0);
+        return 1;
+    });
+
+    m_lua.registerGameFunc("getHeroLevel", [](lua_State* L) -> int {
+        lua_getfield(L, LUA_REGISTRYINDEX, "Game");
+        auto* g = static_cast<Game*>(lua_touserdata(L, -1)); lua_pop(L, 1);
+        lua_pushinteger(L, g ? g->luaGetHeroLevel() : 1);
+        return 1;
+    });
+
+    m_lua.registerGameFunc("addGold", [](lua_State* L) -> int {
+        int n = static_cast<int>(luaL_checkinteger(L, 1));
+        lua_getfield(L, LUA_REGISTRYINDEX, "Game");
+        auto* g = static_cast<Game*>(lua_touserdata(L, -1)); lua_pop(L, 1);
+        if (g) g->luaAddGold(n);
+        return 0;
+    });
+
+    m_lua.registerGameFunc("addSpell", [](lua_State* L) -> int {
+        int id = static_cast<int>(luaL_checkinteger(L, 1));
+        lua_getfield(L, LUA_REGISTRYINDEX, "Game");
+        auto* g = static_cast<Game*>(lua_touserdata(L, -1)); lua_pop(L, 1);
+        if (g) g->luaAddSpell(id);
+        return 0;
+    });
+
+    m_lua.registerGameFunc("addXP", [](lua_State* L) -> int {
+        int n = static_cast<int>(luaL_checkinteger(L, 1));
+        lua_getfield(L, LUA_REGISTRYINDEX, "Game");
+        auto* g = static_cast<Game*>(lua_touserdata(L, -1)); lua_pop(L, 1);
+        if (g) g->luaAddXP(n);
+        return 0;
+    });
 }
 
 // ── Shutdown ──────────────────────────────────────────────────────────────────

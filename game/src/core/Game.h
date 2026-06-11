@@ -110,6 +110,16 @@ private:
     // ── Mage guild overlay in town (ImGui) ────────────────────────────────────
     void renderMageGuild();
 
+    // ── Lua scripting API (called from Lua, thin wrappers) ────────────────────
+    void bindLuaAPI();
+    int  luaGetDay()       const { return m_turns.day(); }
+    int  luaGetWeek()      const { return m_turns.week(); }
+    int  luaGetGold()      const { return m_playerResources.get(ResourceType::Gold); }
+    int  luaGetHeroLevel() const { return m_heroes.empty() ? 1 : m_heroes[m_activeHeroIdx].level; }
+    void luaAddGold(int n)       { m_playerResources.add(ResourceType::Gold, n); }
+    void luaAddXP(int n);
+    void luaAddSpell(int spellId);
+
     // ── Hideout screen ─────────────────────────────────────────────────────────
     void renderHideoutScreen();
 
@@ -191,6 +201,9 @@ private:
     // ── Artifact / Hero inspect overlay flags ─────────────────────────────────
     bool m_showArtifactPanel = false;
     bool m_showHeroInspect   = false;
+
+    // ── Combat tracking ───────────────────────────────────────────────────────
+    uint32_t m_lastCombatEnemyId = 0;
 
     // ── Persistent meta layer ──────────────────────────────────────────────────
     HideoutDB    m_hideout;
