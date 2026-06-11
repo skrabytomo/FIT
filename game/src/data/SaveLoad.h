@@ -1,11 +1,13 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <array>
 #include <utility>
 #include "../world/HexMap.h"
 #include "../hero/Hero.h"
 #include "../town/Town.h"
 #include "../data/Resources.h"
+#include "../world/WorldObject.h"
 
 // ── Tile save data (only fields that change at runtime) ────────────────────────
 struct TileSave
@@ -17,6 +19,21 @@ struct TileSave
     uint32_t heroId;
     uint32_t townId;
     uint32_t resourceId;
+};
+
+// ── Skill instance save ────────────────────────────────────────────────────────
+struct SkillInstSave { int defId = 0; int tier = 0; };
+
+// ── World object save ──────────────────────────────────────────────────────────
+struct WorldObjectSave
+{
+    uint32_t id        = 0;
+    int      type      = 0;  // WorldObjectType as int
+    int      posQ      = 0;
+    int      posR      = 0;
+    int      value     = 0;
+    int      resType   = 0;  // ResourceType as int
+    bool     collected = false;
 };
 
 // ── Hero save data ─────────────────────────────────────────────────────────────
@@ -33,7 +50,7 @@ struct HeroSave
     int         attack;
     int         defense;
     int         visionRange;
-    // Extended stats
+    // Stats
     int         xp;
     int         xpToNext;
     int         hp;
@@ -47,6 +64,11 @@ struct HeroSave
     int         naturePower;
     int         forgePower;
     int         fleshPower;
+    // Spells, skills, artifacts
+    std::vector<int>           knownSpells;
+    std::vector<SkillInstSave> skillSlots;
+    std::array<int,8>          artifactEquipped = {};
+    std::vector<int>           artifactInventory;
 };
 
 // ── Dwelling save ──────────────────────────────────────────────────────────────
@@ -88,7 +110,7 @@ struct CampaignSaveState
 // ── Full game save ─────────────────────────────────────────────────────────────
 struct GameSaveData
 {
-    int version = 1;
+    int version = 2;
 
     // Turn state
     int day  = 1;
@@ -102,8 +124,11 @@ struct GameSaveData
     std::array<int, RESOURCE_COUNT> resourceAmounts = {};
 
     // Entities
-    std::vector<HeroSave>  heroes;
-    std::vector<TownSave>  towns;
+    std::vector<HeroSave>        heroes;
+    std::vector<HeroSave>        enemyHeroes;
+    std::vector<TownSave>        towns;
+    std::vector<WorldObjectSave> worldObjects;
+    uint32_t                     nextObjId = 1;
 
     // Tile fog/entity state
     std::vector<TileSave>  tiles;
@@ -121,7 +146,10 @@ namespace SaveLoad
     // Convenience: pack/unpack live game objects
     GameSaveData packState(const HexMap& map,
                            const std::vector<Hero>& heroes,
+                           const std::vector<Hero>& enemyHeroes,
                            const std::vector<Town>& towns,
+                           const std::vector<WorldObject>& worldObjects,
+                           uint32_t nextObjId,
                            const Resources& playerRes,
                            int day, int week,
                            MapSize mapSize);
@@ -129,7 +157,10 @@ namespace SaveLoad
     void unpackState(const GameSaveData& save,
                      HexMap& map,
                      std::vector<Hero>& heroes,
+                     std::vector<Hero>& enemyHeroes,
                      std::vector<Town>& towns,
+                     std::vector<WorldObject>& worldObjects,
+                     uint32_t& nextObjId,
                      Resources& playerRes,
                      int& day, int& week);
 }

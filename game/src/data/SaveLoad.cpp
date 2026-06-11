@@ -1,4 +1,5 @@
 #include "SaveLoad.h"
+#include "../world/WorldObject.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <stdexcept>
@@ -57,9 +58,41 @@ static DwellingSave dwellingFromJson(const json& j)
     return d;
 }
 
+// ── WorldObjectSave ───────────────────────────────────────────────────────────
+static json worldObjToJson(const WorldObjectSave& o)
+{
+    return {{"id",o.id},{"type",o.type},{"q",o.posQ},{"r",o.posR},
+            {"val",o.value},{"res",o.resType},{"col",o.collected}};
+}
+static WorldObjectSave worldObjFromJson(const json& j)
+{
+    WorldObjectSave o;
+    o.id        = j.at("id").get<uint32_t>();
+    o.type      = j.at("type").get<int>();
+    o.posQ      = j.at("q").get<int>();
+    o.posR      = j.at("r").get<int>();
+    o.value     = j.at("val").get<int>();
+    o.resType   = j.value("res", 0);
+    o.collected = j.value("col", false);
+    return o;
+}
+
 // ── HeroSave ──────────────────────────────────────────────────────────────────
 static json heroToJson(const HeroSave& h)
 {
+    json spellArr = json::array();
+    for (int s : h.knownSpells) spellArr.push_back(s);
+
+    json skillArr = json::array();
+    for (auto& sk : h.skillSlots)
+        skillArr.push_back({{"d", sk.defId}, {"t", sk.tier}});
+
+    json artEqArr = json::array();
+    for (int a : h.artifactEquipped) artEqArr.push_back(a);
+
+    json artInvArr = json::array();
+    for (int a : h.artifactInventory) artInvArr.push_back(a);
+
     return {
         {"id", h.id}, {"name", h.name},
         {"faction", h.faction}, {"classId", h.classId},
@@ -73,6 +106,8 @@ static json heroToJson(const HeroSave& h)
         {"lightPower", h.lightPower}, {"bloodPower", h.bloodPower},
         {"deathPower", h.deathPower}, {"naturePower", h.naturePower},
         {"forgePower", h.forgePower}, {"fleshPower", h.fleshPower},
+        {"spells", spellArr}, {"skills", skillArr},
+        {"artEq", artEqArr}, {"artInv", artInvArr},
     };
 }
 static HeroSave heroFromJson(const json& j)
@@ -81,15 +116,15 @@ static HeroSave heroFromJson(const json& j)
     h.id          = j.at("id").get<uint32_t>();
     h.name        = j.at("name").get<std::string>();
     h.faction     = j.at("faction").get<int>();
-    h.classId     = j.at("classId").get<int>();
+    h.classId     = j.value("classId", 0);
     h.posQ        = j.at("posQ").get<int>();
     h.posR        = j.at("posR").get<int>();
     h.movePool    = j.at("movePool").get<int>();
     h.maxMove     = j.at("maxMove").get<int>();
-    h.level       = j.at("level").get<int>();
-    h.attack      = j.at("attack").get<int>();
-    h.defense     = j.at("defense").get<int>();
-    h.visionRange = j.at("visionRange").get<int>();
+    h.level       = j.value("level", 1);
+    h.attack      = j.value("attack", 1);
+    h.defense     = j.value("defense", 1);
+    h.visionRange = j.value("visionRange", 2);
     h.xp          = j.value("xp", 0);
     h.xpToNext    = j.value("xpToNext", 100);
     h.hp          = j.value("hp", 100);
@@ -102,6 +137,19 @@ static HeroSave heroFromJson(const json& j)
     h.naturePower = j.value("naturePower", 0);
     h.forgePower  = j.value("forgePower", 0);
     h.fleshPower  = j.value("fleshPower", 0);
+
+    if (j.contains("spells"))
+        for (auto& s : j.at("spells")) h.knownSpells.push_back(s.get<int>());
+    if (j.contains("skills"))
+        for (auto& s : j.at("skills"))
+            h.skillSlots.push_back({s.at("d").get<int>(), s.at("t").get<int>()});
+    h.artifactEquipped.fill(0);
+    if (j.contains("artEq")) {
+        int i = 0;
+        for (auto& a : j.at("artEq")) if (i < 8) h.artifactEquipped[i++] = a.get<int>();
+    }
+    if (j.contains("artInv"))
+        for (auto& a : j.at("artInv")) h.artifactInventory.push_back(a.get<int>());
     return h;
 }
 
@@ -173,10 +221,20 @@ bool SaveLoad::saveGame(const std::string& path, const GameSaveData& data)
         for (auto& h : data.heroes) heroArr.push_back(heroToJson(h));
         j["heroes"] = heroArr;
 
+        json eHeroArr = json::array();
+        for (auto& h : data.enemyHeroes) eHeroArr.push_back(heroToJson(h));
+        j["enemyHeroes"] = eHeroArr;
+
         // Towns
         json townArr = json::array();
         for (auto& t : data.towns) townArr.push_back(townToJson(t));
         j["towns"] = townArr;
+
+        // World objects
+        json objArr = json::array();
+        for (auto& o : data.worldObjects) objArr.push_back(worldObjToJson(o));
+        j["worldObjects"] = objArr;
+        j["nextObjId"] = data.nextObjId;
 
         // Tiles
         json tileArr = json::array();
@@ -233,9 +291,18 @@ bool SaveLoad::loadGame(const std::string& path, GameSaveData& out)
         if (j.contains("heroes"))
             for (auto& jh : j.at("heroes")) out.heroes.push_back(heroFromJson(jh));
 
+        out.enemyHeroes.clear();
+        if (j.contains("enemyHeroes"))
+            for (auto& jh : j.at("enemyHeroes")) out.enemyHeroes.push_back(heroFromJson(jh));
+
         out.towns.clear();
         if (j.contains("towns"))
             for (auto& jt : j.at("towns")) out.towns.push_back(townFromJson(jt));
+
+        out.worldObjects.clear();
+        if (j.contains("worldObjects"))
+            for (auto& jo : j.at("worldObjects")) out.worldObjects.push_back(worldObjFromJson(jo));
+        out.nextObjId = j.value("nextObjId", 1u);
 
         out.tiles.clear();
         if (j.contains("tiles"))
@@ -263,10 +330,90 @@ bool SaveLoad::loadGame(const std::string& path, GameSaveData& out)
     }
 }
 
+// ── Helper: pack one Hero into HeroSave ───────────────────────────────────────
+static HeroSave packHero(const Hero& h)
+{
+    HeroSave hs;
+    hs.id          = h.id;
+    hs.name        = h.name;
+    hs.faction     = static_cast<int>(h.faction);
+    hs.classId     = h.classId;
+    hs.posQ        = h.pos.q;
+    hs.posR        = h.pos.r;
+    hs.movePool    = h.movePool;
+    hs.maxMove     = h.maxMove;
+    hs.level       = h.level;
+    hs.attack      = h.attack;
+    hs.defense     = h.defense;
+    hs.visionRange = h.visionRange;
+    hs.xp          = h.xp;
+    hs.xpToNext    = h.xpToNext;
+    hs.hp          = h.heroHp;
+    hs.maxHp       = h.heroMaxHp;
+    hs.mana        = h.mana;
+    hs.maxMana     = h.maxMana;
+    hs.lightPower  = h.lightPower;
+    hs.bloodPower  = h.bloodPower;
+    hs.deathPower  = h.deathPower;
+    hs.naturePower = h.naturePower;
+    hs.forgePower  = h.forgePower;
+    hs.fleshPower  = h.fleshPower;
+    hs.knownSpells = h.knownSpells;
+    for (auto& s : h.skills.slots)
+        hs.skillSlots.push_back({s.defId, static_cast<int>(s.tier)});
+    hs.artifactEquipped = {};
+    for (int i = 0; i < 8; ++i) hs.artifactEquipped[i] = h.artifacts.equippedIds[i];
+    hs.artifactInventory = h.artifactInventory;
+    return hs;
+}
+
+// ── Helper: unpack HeroSave into Hero ─────────────────────────────────────────
+static Hero unpackHero(const HeroSave& hs)
+{
+    Hero h;
+    h.id          = hs.id;
+    h.name        = hs.name;
+    h.faction     = static_cast<FactionId>(hs.faction);
+    h.classId     = hs.classId;
+    h.pos         = {hs.posQ, hs.posR};
+    h.movePool    = hs.movePool;
+    h.maxMove     = hs.maxMove;
+    h.level       = hs.level;
+    h.attack      = hs.attack;
+    h.defense     = hs.defense;
+    h.visionRange = hs.visionRange;
+    h.xp          = hs.xp;
+    h.xpToNext    = hs.xpToNext;
+    h.heroHp      = hs.hp;
+    h.heroMaxHp   = hs.maxHp;
+    h.mana        = hs.mana;
+    h.maxMana     = hs.maxMana;
+    h.lightPower  = hs.lightPower;
+    h.bloodPower  = hs.bloodPower;
+    h.deathPower  = hs.deathPower;
+    h.naturePower = hs.naturePower;
+    h.forgePower  = hs.forgePower;
+    h.fleshPower  = hs.fleshPower;
+    h.knownSpells = hs.knownSpells;
+    for (auto& s : hs.skillSlots) {
+        SkillInstance si;
+        si.defId = s.defId;
+        si.tier  = static_cast<SkillTier>(s.tier);
+        if (h.skills.slots.size() < HeroSkills::MAX_SLOTS)
+            h.skills.slots.push_back(si);
+    }
+    for (int i = 0; i < 8; ++i) h.artifacts.equippedIds[i] = hs.artifactEquipped[i];
+    h.artifactInventory = hs.artifactInventory;
+    return h;
+}
+
 // ── Pack live game state into SaveData ────────────────────────────────────────
 GameSaveData SaveLoad::packState(const HexMap& map,
                                  const std::vector<Hero>& heroes,
+                                 const std::vector<Hero>& enemyHeroes,
                                  const std::vector<Town>& towns,
+                                 const std::vector<WorldObject>& worldObjects,
+                                 uint32_t nextObjId,
                                  const Resources& playerRes,
                                  int day, int week,
                                  MapSize mapSize)
@@ -277,31 +424,11 @@ GameSaveData SaveLoad::packState(const HexMap& map,
     save.mapRadius   = map.radius();
     save.mapSizeEnum = static_cast<int>(mapSize);
     save.resourceAmounts = playerRes.amounts;
+    save.nextObjId   = nextObjId;
 
     // Heroes
-    for (auto& h : heroes) {
-        HeroSave hs;
-        hs.id          = h.id;
-        hs.name        = h.name;
-        hs.faction     = static_cast<int>(h.faction);
-        hs.classId     = h.classId;
-        hs.posQ        = h.pos.q;
-        hs.posR        = h.pos.r;
-        hs.movePool    = h.movePool;
-        hs.maxMove     = h.maxMove;
-        hs.level       = h.level;
-        hs.attack      = h.attack;
-        hs.defense     = h.defense;
-        hs.visionRange = h.visionRange;
-        // Extended stats omitted from Hero base struct — defaults
-        hs.xp          = 0;
-        hs.xpToNext    = 100;
-        hs.hp          = 100;
-        hs.maxHp       = 100;
-        hs.mana        = 10;
-        hs.maxMana     = 10;
-        save.heroes.push_back(hs);
-    }
+    for (auto& h : heroes)      save.heroes.push_back(packHero(h));
+    for (auto& h : enemyHeroes) save.enemyHeroes.push_back(packHero(h));
 
     // Towns
     for (auto& t : towns) {
@@ -328,6 +455,19 @@ GameSaveData SaveLoad::packState(const HexMap& map,
         save.towns.push_back(ts);
     }
 
+    // World objects
+    for (auto& obj : worldObjects) {
+        WorldObjectSave os;
+        os.id        = obj.id;
+        os.type      = static_cast<int>(obj.type);
+        os.posQ      = obj.pos.q;
+        os.posR      = obj.pos.r;
+        os.value     = obj.value;
+        os.resType   = static_cast<int>(obj.resourceType);
+        os.collected = obj.collected;
+        save.worldObjects.push_back(os);
+    }
+
     // Tiles (fog of war + entity references)
     for (auto c : map.coords()) {
         const HexTile* tile = map.getTile(c);
@@ -351,12 +491,16 @@ GameSaveData SaveLoad::packState(const HexMap& map,
 void SaveLoad::unpackState(const GameSaveData& save,
                            HexMap& map,
                            std::vector<Hero>& heroes,
+                           std::vector<Hero>& enemyHeroes,
                            std::vector<Town>& towns,
+                           std::vector<WorldObject>& worldObjects,
+                           uint32_t& nextObjId,
                            Resources& playerRes,
                            int& day, int& week)
 {
-    day  = save.day;
-    week = save.week;
+    day       = save.day;
+    week      = save.week;
+    nextObjId = save.nextObjId;
     playerRes.amounts = save.resourceAmounts;
 
     // Restore tile fog/entity state (map must already be created with correct size)
@@ -373,20 +517,22 @@ void SaveLoad::unpackState(const GameSaveData& save,
 
     // Restore heroes
     heroes.clear();
-    for (auto& hs : save.heroes) {
-        Hero h;
-        h.id          = hs.id;
-        h.name        = hs.name;
-        h.faction     = static_cast<FactionId>(hs.faction);
-        h.classId     = hs.classId;
-        h.pos         = {hs.posQ, hs.posR};
-        h.movePool    = hs.movePool;
-        h.maxMove     = hs.maxMove;
-        h.level       = hs.level;
-        h.attack      = hs.attack;
-        h.defense     = hs.defense;
-        h.visionRange = hs.visionRange;
-        heroes.push_back(h);
+    for (auto& hs : save.heroes) heroes.push_back(unpackHero(hs));
+
+    enemyHeroes.clear();
+    for (auto& hs : save.enemyHeroes) enemyHeroes.push_back(unpackHero(hs));
+
+    // Restore world objects
+    worldObjects.clear();
+    for (auto& os : save.worldObjects) {
+        WorldObject obj;
+        obj.id           = os.id;
+        obj.type         = static_cast<WorldObjectType>(os.type);
+        obj.pos          = {os.posQ, os.posR};
+        obj.value        = os.value;
+        obj.resourceType = static_cast<ResourceType>(os.resType);
+        obj.collected    = os.collected;
+        worldObjects.push_back(obj);
     }
 
     // Restore towns
