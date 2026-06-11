@@ -143,7 +143,7 @@ bool Game::init(const std::string& title, int width, int height)
     m_camera.setPosition(hx, hy);
 
     m_moveT  = 1.0f;
-    m_state  = GameState::WorldMap;
+    m_state  = GameState::MainMenu;
 
     // Wire WorldMapHUD callbacks
     m_worldHUD.init(width, height);
@@ -258,6 +258,7 @@ void Game::update(float dt)
     }
 
     switch (m_state) {
+        case GameState::MainMenu: updateMainMenu(dt);  break;
         case GameState::WorldMap: updateWorldMap(dt);  break;
         case GameState::Combat:   updateCombat(dt);    break;
         case GameState::Town:     updateTown(dt);      break;
@@ -275,6 +276,7 @@ void Game::render()
     glClear(GL_COLOR_BUFFER_BIT);
 
     switch (m_state) {
+        case GameState::MainMenu: renderMainMenu();  break;
         case GameState::WorldMap: renderWorldMap();  break;
         case GameState::Combat:   renderCombat();    break;
         case GameState::Town:     renderTown();      break;

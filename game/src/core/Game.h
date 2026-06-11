@@ -64,6 +64,8 @@ private:
     void renderEditor();
     void updateCampaign(float dt);
     void renderCampaign();
+    void updateMainMenu(float dt);
+    void renderMainMenu();
     void enterCampaign();
     void exitCampaign();
 
