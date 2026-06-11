@@ -46,6 +46,11 @@ public:
                      const Hero& enemyHero,  const std::vector<CombatUnit>& enemyUnits,
                      bool isSiege = false);
 
+    // Apply equipped-artifact bonuses to stored hero copies and their units
+    // (call once after startBattle, before first turn)
+    void applyArtifactBonuses(const ArtifactBonus& playerBonus,
+                              const ArtifactBonus& enemyBonus);
+
     // Process one player action — returns true if action was valid
     bool submitAction(const CombatAction& action);
 

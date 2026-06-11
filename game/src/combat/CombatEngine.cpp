@@ -123,6 +123,34 @@ void CombatEngine::startBattle(
     addLog("Battle started! Round 1");
 }
 
+// ── Artifact bonuses ───────────────────────────────────────────────────────────
+void CombatEngine::applyArtifactBonuses(const ArtifactBonus& pb, const ArtifactBonus& eb)
+{
+    for (auto& u : m_grid.units()) {
+        const ArtifactBonus& b = u.isPlayer ? pb : eb;
+        u.attack  += b.attack;
+        u.defense += b.defense;
+        u.speed   += b.moveBonus;
+        if (b.hpBonus > 0) {
+            u.maxHp += b.hpBonus;
+            u.hp    += b.hpBonus;
+        }
+    }
+    // Hero-level bonuses affect spell casting inside the engine
+    auto applyHero = [](Hero& h, const ArtifactBonus& b) {
+        h.lightPower  += b.lightPower;
+        h.bloodPower  += b.bloodPower;
+        h.deathPower  += b.deathPower;
+        h.naturePower += b.naturePower;
+        h.forgePower  += b.forgePower;
+        h.fleshPower  += b.fleshPower;
+        h.mana        += b.manaBonus;
+        h.maxMana     += b.manaBonus;
+    };
+    applyHero(m_playerHero, pb);
+    applyHero(m_enemyHero,  eb);
+}
+
 // ── Turn order ─────────────────────────────────────────────────────────────────
 void CombatEngine::buildTurnOrder()
 {

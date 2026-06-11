@@ -287,6 +287,12 @@ void Game::enterCombat(Hero& playerHero,
 {
     m_state = GameState::Combat;
     m_combat.startBattle(playerHero, playerUnits, enemyHero, enemyUnits, false);
+
+    // Apply equipped artifact bonuses to the engine's internal hero/unit copies
+    ArtifactBonus pb = m_artifactRegistry.totalBonus(playerHero.artifacts);
+    ArtifactBonus eb = m_artifactRegistry.totalBonus(enemyHero.artifacts);
+    m_combat.applyArtifactBonuses(pb, eb);
+
     m_combat.setLogCallback([](const std::string& msg) {
         printf("[Combat] %s\n", msg.c_str());
     });

@@ -835,12 +835,45 @@ void Game::renderArtifactPanel()
     if (m_heroes.empty()) return;
     Hero& hero = m_heroes[m_activeHeroIdx];
 
-    ImGui::SetNextWindowSize(ImVec2(460, 500), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(480, 520), ImGuiCond_FirstUseEver);
     if (!ImGui::Begin("Artifacts  [F7]", &m_showArtifactPanel)) { ImGui::End(); return; }
 
     static const char* slotNames[] = {
         "Helm","Armor","Weapon","Shield","Ring","Boots","Cloak","Misc"
     };
+
+    // Helper: format non-zero bonus fields into a short string
+    auto bonusStr = [](const ArtifactBonus& b) -> std::string {
+        std::string s;
+        auto app = [&](const char* label, int v) {
+            if (v == 0) return;
+            if (!s.empty()) s += "  ";
+            if (v > 0) s += '+';
+            s += std::to_string(v);
+            s += ' ';
+            s += label;
+        };
+        app("ATK",    b.attack);
+        app("DEF",    b.defense);
+        app("SPD",    b.moveBonus);
+        app("HP",     b.hpBonus);
+        app("Mana",   b.manaBonus);
+        app("Light",  b.lightPower);
+        app("Blood",  b.bloodPower);
+        app("Death",  b.deathPower);
+        app("Nature", b.naturePower);
+        app("Forge",  b.forgePower);
+        app("Flesh",  b.fleshPower);
+        app("Vision", b.visionBonus);
+        return s.empty() ? "no bonus" : s;
+    };
+
+    // Total equipped bonus summary
+    ArtifactBonus total = m_artifactRegistry.totalBonus(hero.artifacts);
+    std::string totalStr = bonusStr(total);
+    if (!totalStr.empty() && totalStr != "no bonus")
+        ImGui::TextColored({0.8f,0.8f,0.3f,1.0f}, "Total: %s", totalStr.c_str());
+    ImGui::Separator();
 
     ImGui::Text("Equipped:");
     ImGui::Separator();
@@ -848,13 +881,17 @@ void Game::renderArtifactPanel()
         int aid = hero.artifacts.equippedIds[i];
         const ArtifactDef* def = aid ? m_artifactRegistry.getDef(aid) : nullptr;
         ImGui::PushID(i);
-        ImGui::Text("%-8s : %s", slotNames[i], def ? def->name.c_str() : "—");
         if (def) {
+            std::string bs = bonusStr(def->bonus);
+            ImGui::Text("%-8s : %-20s  %s", slotNames[i], def->name.c_str(), bs.c_str());
             ImGui::SameLine();
             if (ImGui::SmallButton("Unequip")) {
                 hero.artifactInventory.push_back(aid);
                 hero.artifacts.unequip(static_cast<ArtifactSlot>(i));
             }
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", def->description.c_str());
+        } else {
+            ImGui::TextDisabled("%-8s : —", slotNames[i]);
         }
         ImGui::PopID();
     }
@@ -868,14 +905,15 @@ void Game::renderArtifactPanel()
             const ArtifactDef* def = m_artifactRegistry.getDef(aid);
             if (!def) continue;
             ImGui::PushID(j + 1000);
-            ImGui::Text("%s", def->name.c_str());
-            ImGui::SameLine();
-            ImGui::TextDisabled("(%s)", def->description.c_str());
+            std::string bs = bonusStr(def->bonus);
+            ImGui::Text("%-20s  %s", def->name.c_str(), bs.c_str());
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("%s", def->description.c_str());
             ImGui::SameLine();
             if (ImGui::SmallButton("Equip")) {
-                auto slot = def->slot;
+                auto slot    = def->slot;
                 int  slotIdx = static_cast<int>(slot);
-                int  old = hero.artifacts.equippedIds[slotIdx];
+                int  old     = hero.artifacts.equippedIds[slotIdx];
                 if (old) hero.artifactInventory.push_back(old);
                 hero.artifacts.equip(aid, slot);
                 hero.artifactInventory.erase(hero.artifactInventory.begin() + j);
@@ -902,6 +940,7 @@ void Game::renderHeroInspect()
     ImGui::Text("ATK %d   DEF %d   Vision %d", hero.attack, hero.defense, hero.visionRange);
     ImGui::Text("Mana %d / %d   Move %d / %d",
                 hero.mana, hero.maxMana, hero.movePool, hero.maxMove);
+    ImGui::Text("HP   %d / %d", hero.heroHp, hero.heroMaxHp);
     ImGui::Spacing();
 
     ImGui::Text("Casting Power:");
