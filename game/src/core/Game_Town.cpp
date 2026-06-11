@@ -1,5 +1,7 @@
 #include "Game.h"
 #include "../magic/SpellRegistry.h"
+#include "../world/HexGrid.h"
+#include "../world/FogOfWar.h"
 #include <imgui.h>
 #include <stdio.h>
 #include <unordered_map>
@@ -27,6 +29,7 @@ void Game::renderTown()
 
     beginImGuiFrame();
     renderMageGuild();
+    renderTavern();
     if (m_showCapturePopup) renderCapturePopup();
     endImGuiFrame();
 }
@@ -101,6 +104,92 @@ void Game::renderMageGuild()
             ImGui::SetTooltip("%s", sp->desc);
         ImGui::PopID();
     }
+    ImGui::End();
+}
+
+// ── Tavern — hire a hero ──────────────────────────────────────────────────────
+void Game::renderTavern()
+{
+    const Town* town = m_townScreen.currentTown();
+    if (!town || town->ownerId != 1) return;  // only in owned towns
+
+    static constexpr int HIRE_COST = 2500;
+    static constexpr int MAX_HEROES = 3;
+
+    ImGui::SetNextWindowPos(ImVec2(310, 80), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(260, 0), ImGuiCond_Always);
+    if (!ImGui::Begin("Tavern", nullptr,
+                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                      ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End(); return;
+    }
+
+    ImGui::Text("Gold: %d", m_playerResources.get(ResourceType::Gold));
+    ImGui::Separator();
+
+    if (static_cast<int>(m_heroes.size()) >= MAX_HEROES) {
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f),
+                           "Hero roster full (%d/%d).", MAX_HEROES, MAX_HEROES);
+        ImGui::End(); return;
+    }
+
+    bool canAfford = m_playerResources.get(ResourceType::Gold) >= HIRE_COST;
+    if (!canAfford) ImGui::BeginDisabled();
+
+    char label[64];
+    std::snprintf(label, sizeof(label), "Hire Hero  (%dg)", HIRE_COST);
+    if (ImGui::Button(label, ImVec2(-1, 34))) {
+        m_playerResources.add(ResourceType::Gold, -HIRE_COST);
+
+        // Find a free adjacent tile to the town
+        HexCoord spawnPos = town->pos;
+        for (auto& nb : HexGrid::neighbors(town->pos)) {
+            const HexTile* t = m_map.getTile(nb);
+            if (t && t->terrain != Terrain::Water && t->heroId == 0) {
+                spawnPos = nb;
+                break;
+            }
+        }
+
+        // Name pool per faction
+        static const char* kNames[] = {
+            "Alara", "Dren", "Korvas", "Mira", "Seld", "Thayne",
+            "Vex", "Lyra", "Brant", "Cael", "Essen", "Fynn"
+        };
+        uint32_t nameIdx = static_cast<uint32_t>(m_heroes.size() + m_turns.day() * 7)
+                           % 12;
+
+        Hero hired;
+        hired.id       = 200u + static_cast<uint32_t>(m_heroes.size());
+        hired.name     = kNames[nameIdx];
+        hired.faction  = town->faction;
+        hired.pos      = spawnPos;
+        hired.movePool = hired.maxMove;
+
+        // Starting spell for faction
+        static const int kStartSpell[] = {
+            SPL::BLESS,        // HolyOrder
+            SPL::BLOOD_FRENZY, // CrimsonWardens
+            SPL::ENTANGLE,     // Thornkin
+            SPL::CURSE,        // EternalEmpire
+            SPL::BLOOD_FRENZY, // Bloodsworn
+            SPL::ENTANGLE,     // Voidkin
+            SPL::REINFORCE,    // IronAssembly
+            SPL::MEND_FLESH,   // Amalgamate
+            SPL::BLESS,        // Convergence
+        };
+        int fi = static_cast<int>(town->faction);
+        if (fi >= 0 && fi < 9) hired.knownSpells.push_back(kStartSpell[fi]);
+
+        m_heroes.push_back(hired);
+        if (HexTile* ht = m_map.getTile(spawnPos)) ht->heroId = hired.id;
+        FogOfWar::updateVision(m_map, hired);
+
+        printf("Hired hero: %s\n", hired.name.c_str());
+    }
+    if (!canAfford) ImGui::EndDisabled();
+
+    ImGui::TextDisabled("Roster: %d/%d heroes", (int)m_heroes.size(), MAX_HEROES);
     ImGui::End();
 }
 

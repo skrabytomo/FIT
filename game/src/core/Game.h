@@ -113,6 +113,7 @@ private:
     // ── Mage guild overlay in town (ImGui) ────────────────────────────────────
     void renderMageGuild();
     void renderCapturePopup();
+    void renderTavern();
 
     // ── Victory / defeat modals ────────────────────────────────────────────────
     void renderVictoryModal();
