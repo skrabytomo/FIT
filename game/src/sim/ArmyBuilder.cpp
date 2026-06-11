@@ -59,6 +59,18 @@ std::vector<CombatUnit> ArmyBuilder::buildArmy(FactionId faction, int weeks)
     return army;
 }
 
+int ArmyBuilder::armyGoldCost(FactionId faction, int weeks)
+{
+    int total = 0;
+    for (int tier = 1; tier <= 6; ++tier) {
+        const UnitSimData* d = getTierData(faction, tier);
+        if (!d || weeks < d->unlockWeek) continue;
+        int count = std::min((weeks - d->unlockWeek + 1) * d->weeklyGrowth, MAX_STACK);
+        if (count > 0) total += count * d->goldCost;
+    }
+    return total;
+}
+
 Hero ArmyBuilder::buildHero(FactionId faction, int weeks)
 {
     Hero h;

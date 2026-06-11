@@ -487,6 +487,21 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
     CombatUnit* target = enemies[static_cast<size_t>(rand()) % enemies.size()];
     int dist = HexGrid::distance(unit.pos, target->pos);
 
+    // Ranged: shoot if in range and have shots
+    if (unit.range > 0 && unit.shotsLeft > 0 && dist <= unit.range) {
+        unit.shotsLeft--;
+        auto result = DamageCalc::attack(unit, *target, m_grid);
+        std::ostringstream ss;
+        ss << unit.name << " shoots " << target->name << " for " << result.damage;
+        addLog(ss.str());
+        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (result.moraleTrigger) {
+            addLog(unit.name + " morale surge — bonus action!");
+            unit.hasActed = false; unit.hasMoved = false; return;
+        }
+        unit.hasActed = true; advanceTurn(); return;
+    }
+
     if (dist == 1) {
         auto result = DamageCalc::attack(unit, *target, m_grid);
         std::ostringstream ss;
@@ -519,6 +534,22 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
         if (d < bestDist) { bestDist = d; target = &u; }
     }
     if (!target) { skipUnit(); return; }
+
+    // Ranged: shoot nearest enemy if in range and have shots
+    if (unit.range > 0 && unit.shotsLeft > 0 && bestDist <= unit.range) {
+        unit.shotsLeft--;
+        auto result = DamageCalc::attack(unit, *target, m_grid);
+        std::ostringstream ss;
+        ss << unit.name << " shoots " << target->name << " for " << result.damage << " dmg";
+        if (result.killed) ss << " (" << result.killed << " killed)";
+        addLog(ss.str());
+        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (result.moraleTrigger) {
+            addLog(unit.name + " morale surge — bonus action!");
+            unit.hasActed = false; unit.hasMoved = false; return;
+        }
+        unit.hasActed = true; advanceTurn(); return;
+    }
 
     if (bestDist == 1) {
         auto result = DamageCalc::attack(unit, *target, m_grid);
@@ -584,6 +615,7 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
             if (u.totalHp() < lowestHp) { lowestHp = u.totalHp(); shtTarget = &u; }
         }
         if (shtTarget) {
+            unit.shotsLeft--;
             auto result = DamageCalc::attack(unit, *shtTarget, m_grid);
             std::ostringstream ss;
             ss << unit.name << " shoots " << shtTarget->name << " for " << result.damage;

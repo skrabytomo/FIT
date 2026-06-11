@@ -43,6 +43,8 @@ FactionMatchup Simulator::runMatchup(FactionId f1, FactionId f2,
     auto army2Base = ArmyBuilder::buildArmy(f2, weeks);
     Hero hero1     = ArmyBuilder::buildHero(f1, weeks);
     Hero hero2     = ArmyBuilder::buildHero(f2, weeks);
+    m.armyCostF1   = ArmyBuilder::armyGoldCost(f1, weeks);
+    m.armyCostF2   = ArmyBuilder::armyGoldCost(f2, weeks);
 
     CombatEngine engine;
     engine.setSilent(true);
@@ -122,6 +124,34 @@ std::string Simulator::buildReport(const SimResult& r)
     }
     if (!any) ss << "  None — all matchups within balance range.\n";
 
+    // Cost-efficiency: average gold per battle won (lower = more economical)
+    ss << "\nArmy cost vs win efficiency (gold spent per average battle):\n";
+    ss << std::setw(20) << " " << std::setw(10) << "Army Cost" << std::setw(12) << "Avg Wins%"
+       << std::setw(14) << "Gold/Win\n";
+    for (int i = 0; i < 9; ++i) {
+        FactionId fi = static_cast<FactionId>(i);
+        // Use the first matchup that involves this faction to get its army cost
+        int cost = 0;
+        float totalWr = 0.0f; int wrCount = 0;
+        for (int j = 0; j < 9; ++j) {
+            if (i == j) continue;
+            const auto& m = (i < j) ? r.matchups[i][j] : r.matchups[j][i];
+            if (i < j) {
+                if (cost == 0) cost = m.armyCostF1;
+                totalWr += m.winRate1; ++wrCount;
+            } else {
+                if (cost == 0) cost = m.armyCostF2;
+                totalWr += (1.0f - m.winRate1); ++wrCount;
+            }
+        }
+        float avgWr = wrCount > 0 ? totalWr / wrCount : 0.0f;
+        float goldPerWin = (avgWr > 0.001f) ? static_cast<float>(cost) / avgWr : 99999.0f;
+        ss << std::setw(20) << std::string(factionName(fi)).substr(0,18)
+           << std::setw(9) << cost << "g"
+           << std::setw(11) << std::fixed << std::setprecision(1) << (avgWr * 100.0f) << "%"
+           << std::setw(12) << std::setprecision(0) << goldPerWin << "g/win\n";
+    }
+
     ss << "\nWin Rate Matrix (row = attacker, % = row faction win rate):\n";
     ss << std::setw(18) << " ";
     for (int j = 0; j < 9; ++j)
@@ -179,6 +209,7 @@ SimResult Simulator::run(const SimConfig& cfg, ProgressCallback onProgress)
                 mirror.f2      = f1;
                 mirror.winRate1 = 1.0f - m.winRate1;
                 std::swap(mirror.avgF1Survival, mirror.avgF2Survival);
+                std::swap(mirror.armyCostF1, mirror.armyCostF2);
                 result.matchups[j][i] = mirror;
                 ++done;
                 if (onProgress) onProgress(done, total);

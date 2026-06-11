@@ -16,6 +16,9 @@ public:
     // Returns up to 6 CombatUnit stacks for the given faction + weeks
     static std::vector<CombatUnit> buildArmy(FactionId faction, int weeks);
 
+    // Returns total gold cost of the army produced by buildArmy()
+    static int armyGoldCost(FactionId faction, int weeks);
+
     // Returns a Hero with attack/defense scaled by hero level (derived from weeks)
     static Hero buildHero(FactionId faction, int weeks);
 
