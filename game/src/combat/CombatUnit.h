@@ -77,6 +77,10 @@ struct CombatUnit
     int         roundAttackBonus  = 0;
     int         roundDefenseBonus = 0;
 
+    // Defend buff — lasts up to 3 rounds, refreshed if Defend used again
+    int         defendRoundsLeft   = 0;
+    int         defendDefenseBonus = 0;
+
     // Faction-specific state
     int         desperationMeter  = 0;   // Holy Order
     bool        isLastOfType      = false;

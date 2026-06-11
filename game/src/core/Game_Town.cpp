@@ -28,6 +28,7 @@ void Game::renderTown()
     m_ui.endFrame();
 
     beginImGuiFrame();
+    m_ui.flushText(ImGui::GetBackgroundDrawList());
     renderMageGuild();
     renderTavern();
     if (m_showCapturePopup) renderCapturePopup();

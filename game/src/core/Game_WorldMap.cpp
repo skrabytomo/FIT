@@ -390,6 +390,7 @@ void Game::renderWorldMap()
     m_ui.endFrame();
 
     beginImGuiFrame();
+    m_ui.flushText(ImGui::GetBackgroundDrawList());
     renderWorldOverlay();
     if (m_showLevelUpModal)   renderLevelUpModal();
     if (m_showHideoutScreen)  renderHideoutScreen();
@@ -612,15 +613,10 @@ void Game::checkTileEvents()
 
 void Game::drawHero(const Hero& hero)
 {
-    float wx, wy;
-    if (!m_heroes.empty() && &hero == &m_heroes[m_activeHeroIdx] && m_moveT < 1.0f) {
-        wx = m_moveSrcX + (m_moveDstX - m_moveSrcX) * m_moveT;
-        wy = m_moveSrcY + (m_moveDstY - m_moveSrcY) * m_moveT;
-    } else {
-        m_hexRenderer.grid().hexToWorld(hero.pos, wx, wy);
-    }
-    // Placeholder — sprite rendering added when tileset exists
-    (void)wx; (void)wy;
+    // Hero markers (circles + name labels) are drawn in renderWorldOverlay()
+    // via ImGui's background DrawList, with animated position for the active hero.
+    // This function is reserved for sprite-batch rendering once a tileset exists.
+    (void)hero;
 }
 
 // ── World entity overlay (ImGui DrawList markers) ─────────────────────────────

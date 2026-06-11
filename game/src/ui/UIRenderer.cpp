@@ -1,4 +1,5 @@
 #include "UIRenderer.h"
+#include <imgui.h>
 #include <string.h>
 #include <stdio.h>
 #include <cmath>
@@ -88,6 +89,7 @@ void UIRenderer::beginFrame()
 void UIRenderer::endFrame()
 {
     flushQuads();
+    m_textQueue.clear(); // discard any text not flushed via ImGui (fallback safety)
     glEnable(GL_DEPTH_TEST);
 }
 
@@ -140,20 +142,22 @@ void UIRenderer::drawBar(const Rect& r, float fraction,
 void UIRenderer::drawText(const std::string& text, float x, float y,
                            UIColor color, float size)
 {
-    // Placeholder — draw a thin rect per character until font system exists
-    // Each char = small colored block, spaced by size*0.6
-    float cx = x;
-    float charW = size * 0.55f;
-    float charH = size * 0.75f;
-    for (char c : text) {
-        if (c == ' ') { cx += charW; continue; }
-        Rect cr{cx, y, charW - 1.0f, charH};
-        // Vary darkness slightly by character for readability
-        float v = 0.85f + (c % 7) * 0.02f;
-        UIColor cc = {color.r*v, color.g*v, color.b*v, color.a};
-        pushQuad(m_verts, m_quadCount, cr.x, cr.y, cr.w, cr.h, cc);
-        cx += charW;
+    m_textQueue.push_back({x, y, size, color, text});
+}
+
+void UIRenderer::flushText(ImDrawList* dl)
+{
+    if (!dl || m_textQueue.empty()) return;
+    ImFont* font = ImGui::GetFont();
+    for (const auto& cmd : m_textQueue) {
+        ImU32 col = IM_COL32(
+            static_cast<int>(std::min(cmd.color.r, 1.0f) * 255.0f),
+            static_cast<int>(std::min(cmd.color.g, 1.0f) * 255.0f),
+            static_cast<int>(std::min(cmd.color.b, 1.0f) * 255.0f),
+            static_cast<int>(std::min(cmd.color.a, 1.0f) * 255.0f));
+        dl->AddText(font, cmd.size, {cmd.x, cmd.y}, col, cmd.text.c_str());
     }
+    m_textQueue.clear();
 }
 
 void UIRenderer::drawTooltip(const Rect& r)

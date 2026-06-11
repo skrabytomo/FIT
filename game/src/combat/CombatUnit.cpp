@@ -44,4 +44,13 @@ void CombatUnit::newRound()
     canRetaliate      = true;
     roundAttackBonus  = 0;
     roundDefenseBonus = 0;
+
+    // Tick defend buff down; remove it when it expires
+    if (defendRoundsLeft > 0) {
+        --defendRoundsLeft;
+        if (defendRoundsLeft == 0) {
+            defense -= defendDefenseBonus;
+            defendDefenseBonus = 0;
+        }
+    }
 }

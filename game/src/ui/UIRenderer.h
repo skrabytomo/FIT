@@ -3,8 +3,11 @@
 #include <GL/gl.h>
 #include <GL/glext.h>
 #include <string>
+#include <vector>
 #include "UITypes.h"
 #include "../renderer/Shader.h"
+
+struct ImDrawList;
 
 // UIRenderer — immediate-mode style, called each frame
 // Draws filled rects, borders, simple text (text = placeholder until font system added)
@@ -27,10 +30,13 @@ public:
     void drawBar(const Rect& r, float fraction,
                  UIColor fill, UIColor bg, UIColor border);
 
-    // Text — placeholder colored rect until font system built
-    // Will be replaced by font renderer in polish phase
+    // Queue a text draw; call flushText() during an active ImGui frame to render.
     void drawText(const std::string& text, float x, float y,
                   UIColor color, float size = 14.0f);
+
+    // Flush queued text draws using ImGui's font — must be called between
+    // ImGui::NewFrame() and ImGui::EndFrame() (i.e. inside beginImGuiFrame/end).
+    void flushText(ImDrawList* dl);
 
     // Tooltip background
     void drawTooltip(const Rect& r);
@@ -49,6 +55,9 @@ private:
     static constexpr int MAX_QUADS = 2048;
     QuadVert m_verts[MAX_QUADS * 4];
     int      m_quadCount = 0;
+
+    struct TextCmd { float x, y, size; UIColor color; std::string text; };
+    std::vector<TextCmd> m_textQueue;
 
     float m_proj[16] = {};
     int   m_screenW  = 1280;

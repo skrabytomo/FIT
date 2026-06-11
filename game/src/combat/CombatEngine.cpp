@@ -252,9 +252,17 @@ bool CombatEngine::submitAction(const CombatAction& action)
         return true;
     }
     case ActionType::Defend: {
-        unit->defense += 3; // temporary defense bonus
+        if (unit->defendRoundsLeft > 0) {
+            // Already defending: refresh duration without stacking
+            unit->defendRoundsLeft = 3;
+            addLog(unit->name + " holds the line! (defend refreshed, 3 rounds)");
+        } else {
+            unit->defense           += 3;
+            unit->defendDefenseBonus = 3;
+            unit->defendRoundsLeft   = 3;
+            addLog(unit->name + " defends (+3 Defense for 3 rounds)");
+        }
         unit->hasActed = true;
-        addLog(unit->name + " defends (+3 Defense this round)");
         advanceTurn();
         return true;
     }

@@ -35,6 +35,7 @@ void Game::renderCombat()
     m_ui.endFrame();
 
     beginImGuiFrame();
+    m_ui.flushText(ImGui::GetBackgroundDrawList());
     if (m_showSpellPanel) renderSpellPanel();
     endImGuiFrame();
 }
