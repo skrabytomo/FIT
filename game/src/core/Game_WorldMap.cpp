@@ -627,6 +627,11 @@ void Game::checkTileEvents()
                 for (int sid : hero.knownSpells) if (sid == obj.value) { already = true; break; }
                 if (!already) {
                     hero.knownSpells.push_back(obj.value);
+                    const SpellDef* sp = findSpell(obj.value);
+                    char sBuf[64];
+                    std::snprintf(sBuf, sizeof(sBuf), "Learned: %s!", sp ? sp->name : "Spell");
+                    pushPickupEffect(obj.pos, sBuf, IM_COL32(180, 120, 255, 255));
+                    m_audio.playSound("spell");
                     printf("Hero learned spell %d from scroll\n", obj.value);
                 }
             }
@@ -635,12 +640,17 @@ void Game::checkTileEvents()
             if (!obj.collected) {
                 obj.collected = true;
                 hero.artifactInventory.push_back(obj.value);
+                pushPickupEffect(obj.pos, "Artifact found!", IM_COL32(255, 200, 80, 255));
+                m_audio.playSound("pickup");
                 printf("Hero picked up artifact %d\n", obj.value);
             }
             break;
         case WorldObjectType::XPShrine:
             if (!obj.collected) {
                 obj.collected = true;
+                char xpBuf[32]; std::snprintf(xpBuf, sizeof(xpBuf), "+%d XP", obj.value);
+                pushPickupEffect(obj.pos, xpBuf, IM_COL32(160, 255, 160, 255));
+                m_audio.playSound("pickup");
                 if (hero.addXp(obj.value)) {
                     const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
                     if (cls) {
@@ -651,6 +661,7 @@ void Game::checkTileEvents()
                     if (m_levelUpOffers.empty())
                         m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
                     m_showLevelUpModal = true;
+                    m_audio.playSound("levelup");
                 }
                 printf("Hero gained %d XP from shrine\n", obj.value);
             }
@@ -659,6 +670,10 @@ void Game::checkTileEvents()
             if (!obj.collected) {
                 obj.collected = true;
                 m_playerResources.add(obj.resourceType, obj.value);
+                char resBuf[48]; std::snprintf(resBuf, sizeof(resBuf), "+%d %s",
+                    obj.value, resourceName(obj.resourceType));
+                pushPickupEffect(obj.pos, resBuf, IM_COL32(255, 215, 80, 255));
+                m_audio.playSound("pickup");
                 printf("Hero found resource cache: %d %s\n", obj.value, resourceName(obj.resourceType));
             }
             break;
@@ -673,6 +688,8 @@ void Game::checkTileEvents()
                         t->visible  = true;
                     }
                 }
+                pushPickupEffect(obj.pos, "Map revealed!", IM_COL32(220, 200, 120, 255));
+                m_audio.playSound("pickup");
                 printf("Observatory: revealed %d tiles in radius %d\n",
                        static_cast<int>(cells.size()), obj.value);
             }
@@ -735,6 +752,8 @@ void Game::checkTileEvents()
                         const_cast<WorldObject&>(obj).questState = 2;
                         int reward = 500;
                         m_playerResources.add(ResourceType::Gold, reward);
+                        pushPickupEffect(obj.pos, "+500g Quest!", IM_COL32(255, 215, 50, 255));
+                        m_audio.playSound("levelup");
                         printf("Quest complete! Rewarded %d gold\n", reward);
                         break;
                     }
@@ -744,6 +763,7 @@ void Game::checkTileEvents()
         case WorldObjectType::QuestTarget:
             if (!obj.collected) {
                 obj.collected = true;
+                pushPickupEffect(obj.pos, "Target reached!", IM_COL32(180, 255, 140, 255));
                 for (auto& other : m_worldObjects) {
                     if (other.id == obj.linkedId) {
                         if (other.questState == 1)
@@ -758,6 +778,7 @@ void Game::checkTileEvents()
                 obj.collected = true;
                 char buf[32]; std::snprintf(buf, sizeof(buf), "+%d XP", obj.value);
                 pushPickupEffect(obj.pos, buf, IM_COL32(120, 220, 120, 255));
+                m_audio.playSound("pickup");
                 if (hero.addXp(obj.value)) {
                     const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
                     if (cls) {
@@ -786,6 +807,7 @@ void Game::checkTileEvents()
                 obj.collected = true;
                 hero.mana = hero.maxMana;
                 pushPickupEffect(obj.pos, "Mana restored!", IM_COL32(100, 180, 255, 255));
+                m_audio.playSound("spell");
             }
             break;
         case WorldObjectType::Oasis:
@@ -793,6 +815,7 @@ void Game::checkTileEvents()
                 obj.collected = true;
                 hero.movePool = hero.maxMove;
                 pushPickupEffect(obj.pos, "Movement!", IM_COL32(160, 220, 100, 255));
+                m_audio.playSound("pickup");
             }
             break;
         case WorldObjectType::Campfire:
@@ -801,13 +824,17 @@ void Game::checkTileEvents()
                 m_playerResources.add(ResourceType::Gold, obj.value);
                 char buf[32]; std::snprintf(buf, sizeof(buf), "+%d Gold", obj.value);
                 pushPickupEffect(obj.pos, buf, IM_COL32(255, 215, 0, 255));
+                m_audio.playSound("pickup");
             }
             break;
         case WorldObjectType::LavaCrystal:
             if (!obj.collected) {
                 obj.collected = true;
                 m_playerResources.add(obj.resourceType, obj.value);
-                pushPickupEffect(obj.pos, "+Mercury", IM_COL32(200, 80, 80, 255));
+                char resBuf2[32]; std::snprintf(resBuf2, sizeof(resBuf2), "+%d %s",
+                    obj.value, resourceName(obj.resourceType));
+                pushPickupEffect(obj.pos, resBuf2, IM_COL32(200, 80, 80, 255));
+                m_audio.playSound("pickup");
             }
             break;
         case WorldObjectType::SwampAltar:
@@ -817,6 +844,7 @@ void Game::checkTileEvents()
                 for (int sid : hero.knownSpells) if (sid == obj.value) { already = true; break; }
                 if (!already) hero.knownSpells.push_back(obj.value);
                 pushPickupEffect(obj.pos, "Spell learned!", IM_COL32(180, 100, 255, 255));
+                m_audio.playSound("spell");
             }
             break;
         }
@@ -1848,7 +1876,20 @@ void Game::renderQuestPopup()
 
     ImGui::TextColored({1.0f, 0.85f, 0.1f, 1.0f}, "Quest Available!");
     ImGui::Separator();
-    ImGui::TextWrapped("A mysterious stranger offers you a quest: travel to the marked location and discover what lies there. Reward: 500 gold.");
+
+    // Varied quest descriptions keyed by id
+    static const char* kQuestDesc[] = {
+        "A hooded traveller speaks in hushed tones: \"There is a relic hidden beyond these hills — I dare not retrieve it myself. Bring it back and I will reward you handsomely.\"",
+        "An elder points toward the horizon: \"Something stirs in that forsaken place. Venture forth and confirm our fears. I shall compensate your bravery well.\"",
+        "A wounded scout gasps: \"My companions fell near that cursed site. Find what drove them off and return with proof — gold awaits you.\"",
+        "A merchant clutches his pack nervously: \"I lost my ledger at a strange landmark east of here. Retrieve it and five-hundred gold pieces are yours.\"",
+        "A hermit emerges from shadows: \"The spirits show me a sign at a place I cannot name. You, traveller — find it and return to me. Your effort will not go unrewarded.\"",
+        "A garrison captain frowns: \"We've had reports of unusual activity at a location I've marked. Scout it and report back; there's coin in it for you.\"",
+        "A scholar waves a parchment: \"Ancient writings speak of an artifact at these coordinates. Recover it for study and I'll pay you fairly.\"",
+        "A cloaked figure steps forward: \"Call it fate that brings you here. Travel to the marked spot, survive what you find, and claim your gold.\"",
+    };
+    int descIdx = static_cast<int>(obj->id) % (int)(sizeof(kQuestDesc) / sizeof(kQuestDesc[0]));
+    ImGui::TextWrapped("%s\n\nReward: 500 gold.", kQuestDesc[descIdx]);
     ImGui::Spacing();
 
     if (ImGui::Button("Accept", {100, 28})) {
