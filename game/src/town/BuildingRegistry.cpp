@@ -28,10 +28,11 @@ void BuildingRegistry::init()
     {
         BuildingDef b;
         b.id = BID::MARKET; b.name = "Market";
-        b.description = "Converts resources — +500 Gold weekly";
+        b.description = "Converts resources — +500 Gold weekly, +1 unit growth";
         b.category = BuildingCategory::Economy;
         b.cost = gold(1000);
         b.weeklyIncome = gold(500);
+        b.growthBonus = 1;
         m_buildings.push_back(b);
     }
     {
@@ -65,11 +66,12 @@ void BuildingRegistry::init()
     {
         BuildingDef b;
         b.id = BID::HO_HALL; b.name = "Cathedral Hall";
-        b.description = "Town Hall — +1000 Gold weekly";
+        b.description = "Town Hall — +1000 Gold weekly, +2 unit growth";
         b.category = BuildingCategory::Economy;
         b.faction = FactionId::HolyOrder;
         b.cost = gold(500);
         b.weeklyIncome = gold(1000);
+        b.growthBonus = 2;
         m_buildings.push_back(b);
     }
 
@@ -297,8 +299,8 @@ void BuildingRegistry::init()
 
     // ── CRIMSON WARDENS ───────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::CW_HALL; b.name="Catacombs Throne";
-      b.description="Town Hall — +1000 Gold weekly"; b.category=BuildingCategory::Economy;
-      b.faction=F::CrimsonWardens; b.cost=gold(500); b.weeklyIncome=gold(1000);
+      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.faction=F::CrimsonWardens; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::CW_T1; b.name="Ossuary"; b.tier=1; b.weeklyGrowth=15;
       b.description="Produces Skeletons"; b.category=BuildingCategory::UnitDwelling;
@@ -343,8 +345,8 @@ void BuildingRegistry::init()
 
     // ── THORNKIN ─────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::TK_GROVE_HEART; b.name="Grove Heart";
-      b.description="Town Hall — +1000 Gold weekly"; b.category=BuildingCategory::Economy;
-      b.faction=F::Thornkin; b.cost=gold(500); b.weeklyIncome=gold(1000);
+      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.faction=F::Thornkin; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::TK_T1; b.name="Sprout Hollow"; b.tier=1; b.weeklyGrowth=14;
       b.description="Produces Sproutlings"; b.category=BuildingCategory::UnitDwelling;
@@ -389,8 +391,8 @@ void BuildingRegistry::init()
 
     // ── ETERNAL EMPIRE ────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::EE_THRONE; b.name="Imperial Throne";
-      b.description="Town Hall — +1000 Gold weekly"; b.category=BuildingCategory::Economy;
-      b.faction=F::EternalEmpire; b.cost=gold(500); b.weeklyIncome=gold(1000);
+      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.faction=F::EternalEmpire; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::EE_T1; b.name="Conscript Pen"; b.tier=1; b.weeklyGrowth=13;
       b.description="Produces Conscripts"; b.category=BuildingCategory::UnitDwelling;
@@ -435,8 +437,8 @@ void BuildingRegistry::init()
 
     // ── BLOODSWORN ────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::BS_WAR_HALL; b.name="War Hall";
-      b.description="Town Hall — +1000 Gold weekly"; b.category=BuildingCategory::Economy;
-      b.faction=F::Bloodsworn; b.cost=gold(500); b.weeklyIncome=gold(1000);
+      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.faction=F::Bloodsworn; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::BS_T1; b.name="Bloodling Pen"; b.tier=1; b.weeklyGrowth=14;
       b.description="Produces Bloodlings"; b.category=BuildingCategory::UnitDwelling;
@@ -481,8 +483,8 @@ void BuildingRegistry::init()
 
     // ── VOIDKIN ───────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::VK_NEXUS; b.name="Void Nexus";
-      b.description="Town Hall — +1000 Gold weekly"; b.category=BuildingCategory::Economy;
-      b.faction=F::Voidkin; b.cost=gold(500); b.weeklyIncome=gold(1000);
+      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.faction=F::Voidkin; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::VK_T1; b.name="Wisp Hollow"; b.tier=1; b.weeklyGrowth=13;
       b.description="Produces Void Wisps"; b.category=BuildingCategory::UnitDwelling;
@@ -527,8 +529,8 @@ void BuildingRegistry::init()
 
     // ── IRON ASSEMBLY ─────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::IA_FORGE_HALL; b.name="Forge Hall";
-      b.description="Town Hall — +1000 Gold weekly"; b.category=BuildingCategory::Economy;
-      b.faction=F::IronAssembly; b.cost=gold(500); b.weeklyIncome=gold(1000);
+      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.faction=F::IronAssembly; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::IA_T1; b.name="Automaton Works"; b.tier=1; b.weeklyGrowth=12;
       b.description="Produces Automatons"; b.category=BuildingCategory::UnitDwelling;
@@ -573,8 +575,8 @@ void BuildingRegistry::init()
 
     // ── AMALGAMATE ────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::AM_GRAFTING_HALL; b.name="Grafting Hall";
-      b.description="Town Hall — +1000 Gold weekly"; b.category=BuildingCategory::Economy;
-      b.faction=F::Amalgamate; b.cost=gold(500); b.weeklyIncome=gold(1000);
+      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.faction=F::Amalgamate; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::AM_T1; b.name="Flesh Crawler Vat"; b.tier=1; b.weeklyGrowth=13;
       b.description="Produces Flesh Crawlers"; b.category=BuildingCategory::UnitDwelling;
@@ -619,8 +621,8 @@ void BuildingRegistry::init()
 
     // ── CONVERGENCE ───────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::CV_SYNTHESIS_HUB; b.name="Synthesis Hub";
-      b.description="Town Hall — +1000 Gold weekly"; b.category=BuildingCategory::Economy;
-      b.faction=F::Convergence; b.cost=gold(500); b.weeklyIncome=gold(1000);
+      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.faction=F::Convergence; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::CV_T1; b.name="Awakening Chamber"; b.tier=1; b.weeklyGrowth=11;
       b.description="Produces Awakened"; b.category=BuildingCategory::UnitDwelling;

@@ -81,6 +81,14 @@ bool Town::build(int buildingId, const std::vector<BuildingDef>& defs, Resources
 
 void Town::onWeekStart(const std::vector<BuildingDef>& defs)
 {
+    // Sum growth bonuses from all built non-dwelling buildings
+    int globalBonus = 0;
+    for (int bid : builtBuildings) {
+        for (const auto& d : defs) {
+            if (d.id == bid && d.growthBonus > 0) { globalBonus += d.growthBonus; break; }
+        }
+    }
+
     // Add weekly growth to each dwelling
     for (auto& dwelling : dwellings) {
         const BuildingDef* def = nullptr;
@@ -93,7 +101,7 @@ void Town::onWeekStart(const std::vector<BuildingDef>& defs)
         else if (dwelling.path == UpgradePath::PathB && def->growthB > 0)
             growth = def->growthB;
 
-        dwelling.available   += growth;
+        dwelling.available   += growth + globalBonus;
         dwelling.accumulated  = dwelling.available;
     }
 }
