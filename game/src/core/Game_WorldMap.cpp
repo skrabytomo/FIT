@@ -1218,23 +1218,76 @@ void Game::renderWorldOverlay()
         dl->AddText({sx - static_cast<float>(e.text.size()) * 3.5f, sy}, col, e.text.c_str());
     }
 
+    // ── Planned path visualization ────────────────────────────────────────────
+    if (!m_heroes.empty()) {
+        const Hero& activeHero = m_heroes[m_activeHeroIdx];
+        if (!activeHero.path.empty() && activeHero.pathStep < static_cast<int>(activeHero.path.size())) {
+            // Draw remaining path steps as small dots
+            for (int pi = activeHero.pathStep; pi < static_cast<int>(activeHero.path.size()); ++pi) {
+                float sx, sy;
+                project(activeHero.path[pi], sx, sy);
+                float alpha = 1.0f - static_cast<float>(pi - activeHero.pathStep)
+                                     / static_cast<float>(activeHero.path.size() - activeHero.pathStep + 1);
+                ImU32 dotCol = IM_COL32(255, 230, 80, static_cast<int>(alpha * 180));
+                dl->AddCircleFilled({sx, sy}, 3.5f, dotCol);
+                // Connector line to previous dot
+                if (pi > activeHero.pathStep) {
+                    float px, py;
+                    project(activeHero.path[pi - 1], px, py);
+                    dl->AddLine({px, py}, {sx, sy}, IM_COL32(255, 230, 80, static_cast<int>(alpha * 100)), 1.5f);
+                } else {
+                    // First dot: connect from hero position
+                    float hx, hy;
+                    m_hexRenderer.grid().hexToWorld(activeHero.pos, hx, hy);
+                    float hsx, hsy;
+                    m_camera.worldToScreen(hx, hy, hsx, hsy);
+                    dl->AddLine({hsx, hsy}, {sx, sy}, IM_COL32(255, 230, 80, 80), 1.5f);
+                }
+            }
+        }
+    }
+
     // ── Hover tooltip: days to reach or Fight ─────────────────────────────────
     if (m_map.inBounds(m_hovered) && !m_heroes.empty()) {
         const HexTile* ht = m_map.getTile(m_hovered);
         const Hero& activeHero = m_heroes[m_activeHeroIdx];
         if (ht && ht->explored && m_hovered != activeHero.pos) {
-            bool isFight = false;
-            if (ht->heroId != 0)
+            // Check if hovering over an enemy hero
+            const Hero* enemyHovered = nullptr;
+            if (ht->heroId != 0 && ht->visible) {
                 for (const auto& e : m_enemyHeroes)
-                    if (e.id == ht->heroId) { isFight = true; break; }
+                    if (e.id == ht->heroId) { enemyHovered = &e; break; }
+            }
+
+            bool isFight = (enemyHovered != nullptr);
             if (!isFight && ht->townId != 0)
                 for (const auto& t : m_towns)
                     if (t.id == ht->townId && t.ownerId > 1) { isFight = true; break; }
 
             ImGui::BeginTooltip();
-            if (isFight) {
+            if (enemyHovered) {
+                // Show enemy hero details
+                ImGui::TextColored({1.0f, 0.4f, 0.4f, 1.0f}, "%s", enemyHovered->name.c_str());
+                ImGui::TextColored({1.0f, 0.3f, 0.3f, 1.0f}, "Fight!");
+                ImGui::Separator();
+                ImGui::Text("Lvl %d  ATK:%d  DEF:%d", enemyHovered->level,
+                            enemyHovered->attack, enemyHovered->defense);
+                if (!enemyHovered->army.empty()) {
+                    ImGui::Spacing();
+                    ImGui::TextDisabled("Army:");
+                    const auto& unitDefs = m_registry.units();
+                    for (const auto& stack : enemyHovered->army) {
+                        if (stack.count <= 0) continue;
+                        const char* uname = "?";
+                        for (const auto& ud : unitDefs)
+                            if (ud.id == stack.defId) { uname = ud.name.c_str(); break; }
+                        ImGui::Text("  %-22s x%d", uname, stack.count);
+                    }
+                }
+            } else if (isFight) {
                 ImGui::TextColored({1.0f, 0.3f, 0.3f, 1.0f}, "Fight!");
             } else {
+                // Movement cost tooltip
                 auto costFn = [this, &activeHero](HexCoord c) -> int {
                     const HexTile* t = m_map.getTile(c);
                     if (!t || !activeHero.canEnter(t->terrain)) return 999;
@@ -1252,11 +1305,20 @@ void Game::renderWorldOverlay()
                     int days      = (remaining > 0)
                                     ? (remaining + activeHero.maxMove - 1) / activeHero.maxMove
                                     : 0;
-                    if (days == 0) ImGui::Text("Reachable today");
-                    else          ImGui::Text("%d day%s", days, days == 1 ? "" : "s");
+                    if (days == 0) ImGui::Text("Reachable today  (%d MP)", totalCost);
+                    else          ImGui::Text("%d day%s  (%d MP)", days, days == 1 ? "" : "s", totalCost);
                 } else {
                     ImGui::TextDisabled("Unreachable");
                 }
+                // Also show terrain type
+                static const char* kTerrainNames[] = {
+                    "Plains","Forest","Highland","Corrupted","Toxic","Sacred",
+                    "Industrial","Rocky","Swamp","Water","Volcanic","Barren",
+                    "Wasteland","Corrupted Forest","Flesh Zone"
+                };
+                int tidx = static_cast<int>(ht->terrain);
+                if (tidx >= 0 && tidx < 15)
+                    ImGui::TextDisabled("%s", kTerrainNames[tidx]);
             }
             ImGui::EndTooltip();
         }
