@@ -230,7 +230,7 @@ void Game::update(float dt)
 void Game::render()
 {
     glViewport(0, 0, m_width, m_height);
-    glClearColor(0.05f, 0.05f, 0.08f, 1.0f);
+    glClearColor(0.04f, 0.03f, 0.03f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     switch (m_state) {
@@ -504,7 +504,77 @@ bool Game::initImGui()
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::StyleColorsDark();
-    ImGui::GetStyle().WindowRounding = 4.0f;
+
+    // ── Medieval dark-stone / gold / crimson theme ────────────────────────────────────────
+    ImGuiStyle& sty = ImGui::GetStyle();
+    sty.WindowRounding    = 2.0f;
+    sty.ChildRounding     = 2.0f;
+    sty.PopupRounding     = 2.0f;
+    sty.FrameRounding     = 2.0f;
+    sty.ScrollbarRounding = 2.0f;
+    sty.GrabRounding      = 2.0f;
+    sty.TabRounding       = 2.0f;
+    sty.WindowBorderSize  = 1.0f;
+    sty.FrameBorderSize   = 0.0f;
+    sty.FramePadding      = {6.0f, 4.0f};
+    sty.ItemSpacing       = {8.0f, 6.0f};
+    sty.WindowPadding     = {10.0f, 10.0f};
+    sty.ScrollbarSize     = 12.0f;
+
+    ImVec4* C = sty.Colors;
+    C[ImGuiCol_Text]                  = {0.92f, 0.86f, 0.70f, 1.00f}; // parchment
+    C[ImGuiCol_TextDisabled]          = {0.52f, 0.46f, 0.34f, 1.00f};
+    C[ImGuiCol_WindowBg]              = {0.10f, 0.08f, 0.06f, 0.96f}; // dark stone
+    C[ImGuiCol_ChildBg]               = {0.08f, 0.06f, 0.05f, 0.90f};
+    C[ImGuiCol_PopupBg]               = {0.10f, 0.08f, 0.06f, 0.97f};
+    C[ImGuiCol_Border]                = {0.42f, 0.32f, 0.10f, 0.72f}; // dark gold
+    C[ImGuiCol_BorderShadow]          = {0.00f, 0.00f, 0.00f, 0.50f};
+    C[ImGuiCol_FrameBg]               = {0.18f, 0.14f, 0.10f, 0.90f}; // dark iron
+    C[ImGuiCol_FrameBgHovered]        = {0.28f, 0.22f, 0.12f, 0.90f};
+    C[ImGuiCol_FrameBgActive]         = {0.38f, 0.28f, 0.12f, 0.90f};
+    C[ImGuiCol_TitleBg]               = {0.20f, 0.08f, 0.06f, 1.00f}; // deep burgundy
+    C[ImGuiCol_TitleBgActive]         = {0.38f, 0.14f, 0.08f, 1.00f};
+    C[ImGuiCol_TitleBgCollapsed]      = {0.12f, 0.05f, 0.04f, 1.00f};
+    C[ImGuiCol_MenuBarBg]             = {0.14f, 0.11f, 0.08f, 1.00f};
+    C[ImGuiCol_ScrollbarBg]           = {0.06f, 0.05f, 0.04f, 0.90f};
+    C[ImGuiCol_ScrollbarGrab]         = {0.38f, 0.28f, 0.10f, 0.80f};
+    C[ImGuiCol_ScrollbarGrabHovered]  = {0.52f, 0.40f, 0.14f, 0.90f};
+    C[ImGuiCol_ScrollbarGrabActive]   = {0.65f, 0.50f, 0.18f, 1.00f};
+    C[ImGuiCol_CheckMark]             = {0.85f, 0.65f, 0.20f, 1.00f}; // gold
+    C[ImGuiCol_SliderGrab]            = {0.58f, 0.44f, 0.14f, 0.90f};
+    C[ImGuiCol_SliderGrabActive]      = {0.78f, 0.58f, 0.18f, 1.00f};
+    C[ImGuiCol_Button]                = {0.22f, 0.18f, 0.12f, 0.90f}; // dark iron
+    C[ImGuiCol_ButtonHovered]         = {0.48f, 0.35f, 0.12f, 1.00f}; // burnished bronze
+    C[ImGuiCol_ButtonActive]          = {0.68f, 0.50f, 0.16f, 1.00f}; // bright gold
+    C[ImGuiCol_Header]                = {0.38f, 0.13f, 0.08f, 0.85f}; // deep crimson
+    C[ImGuiCol_HeaderHovered]         = {0.52f, 0.19f, 0.10f, 0.90f};
+    C[ImGuiCol_HeaderActive]          = {0.64f, 0.24f, 0.12f, 1.00f};
+    C[ImGuiCol_Separator]             = {0.38f, 0.28f, 0.08f, 0.80f};
+    C[ImGuiCol_SeparatorHovered]      = {0.55f, 0.40f, 0.12f, 0.90f};
+    C[ImGuiCol_SeparatorActive]       = {0.70f, 0.52f, 0.15f, 1.00f};
+    C[ImGuiCol_ResizeGrip]            = {0.35f, 0.25f, 0.08f, 0.40f};
+    C[ImGuiCol_ResizeGripHovered]     = {0.52f, 0.38f, 0.12f, 0.70f};
+    C[ImGuiCol_ResizeGripActive]      = {0.70f, 0.52f, 0.16f, 0.90f};
+    C[ImGuiCol_Tab]                   = {0.18f, 0.14f, 0.10f, 0.85f};
+    C[ImGuiCol_TabHovered]            = {0.48f, 0.35f, 0.12f, 0.90f};
+    C[ImGuiCol_TabActive]             = {0.36f, 0.25f, 0.10f, 1.00f};
+    C[ImGuiCol_TabUnfocused]          = {0.14f, 0.10f, 0.07f, 0.85f};
+    C[ImGuiCol_TabUnfocusedActive]    = {0.28f, 0.20f, 0.10f, 1.00f};
+    C[ImGuiCol_PlotLines]             = {0.80f, 0.60f, 0.20f, 1.00f};
+    C[ImGuiCol_PlotLinesHovered]      = {1.00f, 0.80f, 0.30f, 1.00f};
+    C[ImGuiCol_PlotHistogram]         = {0.65f, 0.48f, 0.15f, 1.00f};
+    C[ImGuiCol_PlotHistogramHovered]  = {0.85f, 0.65f, 0.20f, 1.00f};
+    C[ImGuiCol_TableHeaderBg]         = {0.22f, 0.10f, 0.06f, 1.00f};
+    C[ImGuiCol_TableBorderStrong]     = {0.38f, 0.28f, 0.10f, 1.00f};
+    C[ImGuiCol_TableBorderLight]      = {0.28f, 0.20f, 0.08f, 0.70f};
+    C[ImGuiCol_TableRowBg]            = {0.00f, 0.00f, 0.00f, 0.00f};
+    C[ImGuiCol_TableRowBgAlt]         = {0.12f, 0.10f, 0.07f, 0.30f};
+    C[ImGuiCol_TextSelectedBg]        = {0.55f, 0.40f, 0.10f, 0.40f};
+    C[ImGuiCol_DragDropTarget]        = {0.85f, 0.65f, 0.20f, 0.90f};
+    C[ImGuiCol_NavHighlight]          = {0.80f, 0.60f, 0.20f, 0.90f};
+    C[ImGuiCol_NavWindowingHighlight] = {0.85f, 0.65f, 0.20f, 0.70f};
+    C[ImGuiCol_NavWindowingDimBg]     = {0.00f, 0.00f, 0.00f, 0.50f};
+    C[ImGuiCol_ModalWindowDimBg]      = {0.00f, 0.00f, 0.00f, 0.72f};
 
     if (!ImGui_ImplSDL2_InitForOpenGL(m_window, m_glCtx)) {
         fprintf(stderr, "ImGui SDL2 backend init failed\n");

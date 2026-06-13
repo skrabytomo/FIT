@@ -120,21 +120,21 @@ void main() {
 
 // Terrain colors
 static const float s_colors[][3] = {
-    {0.71f, 0.78f, 0.45f}, // Plains
-    {0.13f, 0.45f, 0.13f}, // Forest
-    {0.55f, 0.50f, 0.35f}, // Highland
-    {0.40f, 0.15f, 0.40f}, // Corrupted
-    {0.30f, 0.45f, 0.20f}, // Toxic
-    {0.95f, 0.95f, 0.70f}, // Sacred
-    {0.45f, 0.45f, 0.50f}, // Industrial
-    {0.60f, 0.55f, 0.45f}, // Rocky
-    {0.25f, 0.35f, 0.20f}, // Swamp
-    {0.20f, 0.40f, 0.70f}, // Water
-    {0.70f, 0.25f, 0.10f}, // Volcanic
-    {0.65f, 0.60f, 0.50f}, // Barren
-    {0.35f, 0.30f, 0.25f}, // Wasteland
-    {0.15f, 0.30f, 0.15f}, // CorruptedForest
-    {0.60f, 0.30f, 0.30f}, // FleshZone
+    {0.38f, 0.43f, 0.22f}, // Plains       — dark olive (weathered fields)
+    {0.08f, 0.28f, 0.10f}, // Forest       — deep hunter green
+    {0.44f, 0.39f, 0.28f}, // Highland     — rocky slate-tan
+    {0.28f, 0.10f, 0.30f}, // Corrupted    — deep violet
+    {0.28f, 0.38f, 0.08f}, // Toxic        — sickly yellow-green
+    {0.72f, 0.68f, 0.42f}, // Sacred       — antique gold
+    {0.30f, 0.30f, 0.36f}, // Industrial   — cold iron
+    {0.48f, 0.43f, 0.34f}, // Rocky        — warm slate
+    {0.17f, 0.24f, 0.11f}, // Swamp        — dark murk
+    {0.07f, 0.20f, 0.52f}, // Water        — deep sapphire
+    {0.52f, 0.11f, 0.04f}, // Volcanic     — smoldering crimson
+    {0.50f, 0.40f, 0.25f}, // Barren       — dusty umber
+    {0.28f, 0.25f, 0.20f}, // Wasteland    — dead ash
+    {0.10f, 0.20f, 0.09f}, // CorruptedForest — very dark dead green
+    {0.52f, 0.26f, 0.26f}, // FleshZone    — flesh pink
 };
 
 HexMapRenderer::~HexMapRenderer()
