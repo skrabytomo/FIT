@@ -80,6 +80,9 @@ struct Hero
     // Army — up to 7 unit stacks (indexed by slot)
     std::vector<UnitStack> army;
 
+    // Garrison: hero digs in at current tile, blocks enemy passage, +2 def in combat
+    bool isGarrisoned = false;
+
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
     // Returns true if the hero leveled up

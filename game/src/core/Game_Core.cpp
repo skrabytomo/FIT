@@ -64,6 +64,10 @@ bool Game::init(const std::string& title, int width, int height)
         m_spriteAtlas[i].load(path, false, false); // pixel-art=false, flipV=false
     }
 
+    // SDL cursors
+    m_cursorArrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+    m_cursorFight = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_CROSSHAIR);
+
     // Building registry
     m_registry.init();
 
@@ -588,6 +592,8 @@ void Game::bindLuaAPI()
 // ── Shutdown ──────────────────────────────────────────────────────────────────
 void Game::shutdown()
 {
+    SDL_FreeCursor(m_cursorArrow);
+    SDL_FreeCursor(m_cursorFight);
     m_audio.shutdown();
     m_lua.shutdown();
     shutdownImGui();

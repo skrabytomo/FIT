@@ -15,6 +15,14 @@ enum class WorldObjectType : uint8_t
     UnitDwelling,   // weekly recruitable pool; value=tier(1-6), faction field = faction
     QuestGiver,     // gives a quest; linkedId = QuestTarget obj id
     QuestTarget,    // destination; linkedId = QuestGiver obj id
+    // Terrain-specific objects
+    ForestShrine,   // Forest: +75 XP (value=75)
+    HighlandRuin,   // Highland/Rocky: reveals radius (value=4), permanent
+    HolyFountain,   // Sacred: restores hero mana; resets weekly
+    Oasis,          // Barren/Wasteland: restores hero movePool; resets weekly
+    Campfire,       // Plains: +150 gold (value=150)
+    LavaCrystal,    // Volcanic: gives Mercury (value=3, resourceType=Mercury)
+    SwampAltar,     // Swamp: teaches a spell (value=spellId)
 };
 
 struct WorldObject

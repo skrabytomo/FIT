@@ -462,4 +462,59 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         result.worldObjects.push_back(giver);
         result.worldObjects.push_back(target);
     }
+
+    // Terrain-specific ambient objects
+    struct TerrainObjSpec {
+        Terrain         terrain;
+        WorldObjectType type;
+        int             value;
+        ResourceType    rtype;
+        int             count;   // how many to place
+    };
+    static const TerrainObjSpec kTerrainSpecs[] = {
+        { Terrain::Forest,    WorldObjectType::ForestShrine,  75,  ResourceType::Gold,    3 },
+        { Terrain::Highland,  WorldObjectType::HighlandRuin,   4,  ResourceType::Gold,    2 },
+        { Terrain::Rocky,     WorldObjectType::HighlandRuin,   3,  ResourceType::Gold,    2 },
+        { Terrain::Sacred,    WorldObjectType::HolyFountain,   0,  ResourceType::Gold,    2 },
+        { Terrain::Barren,    WorldObjectType::Oasis,          0,  ResourceType::Gold,    2 },
+        { Terrain::Wasteland, WorldObjectType::Oasis,          0,  ResourceType::Gold,    1 },
+        { Terrain::Plains,    WorldObjectType::Campfire,      150, ResourceType::Gold,    4 },
+        { Terrain::Volcanic,  WorldObjectType::LavaCrystal,    3,  ResourceType::Mercury, 2 },
+        { Terrain::Swamp,     WorldObjectType::SwampAltar,     5,  ResourceType::Gold,    2 }, // value=5 = CURSE spell
+    };
+
+    auto tryPlaceOnTerrain = [&](WorldObject& obj, Terrain terrain, int minDist) -> bool {
+        auto allCoords = map.coords();
+        for (size_t i = allCoords.size() - 1; i > 0; --i) {
+            uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+            std::swap(allCoords[i], allCoords[j]);
+        }
+        for (auto& c : allCoords) {
+            const HexTile* t = map.getTile(c);
+            if (!t || t->terrain != terrain) continue;
+            if (!isSuitable(map, c, minDist, occupied)) continue;
+            bool used = false;
+            for (const auto& wo : result.worldObjects)
+                if (wo.pos == c) { used = true; break; }
+            if (used) continue;
+            obj.pos = c;
+            occupied.push_back(c);
+            return true;
+        }
+        return false;
+    };
+
+    for (const auto& spec : kTerrainSpecs) {
+        for (int n = 0; n < spec.count; ++n) {
+            WorldObject obj;
+            obj.id           = nextId++;
+            obj.type         = spec.type;
+            obj.value        = spec.value;
+            obj.resourceType = spec.rtype;
+            if (tryPlaceOnTerrain(obj, spec.terrain, 3))
+                result.worldObjects.push_back(obj);
+            else
+                --nextId; // rollback unused id
+        }
+    }
 }

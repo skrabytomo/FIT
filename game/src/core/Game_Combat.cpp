@@ -375,7 +375,13 @@ void Game::enterCombat(Hero& playerHero,
                        const std::vector<CombatUnit>& enemyUnits)
 {
     m_state = GameState::Combat;
-    m_combat.startBattle(playerHero, playerUnits, enemyHero, enemyUnits, false);
+
+    // Garrison bonus: garrisoned hero grants +2 defense to all their units
+    std::vector<CombatUnit> pUnitsGarr = playerUnits;
+    if (playerHero.isGarrisoned)
+        for (auto& u : pUnitsGarr) u.defense += 2;
+
+    m_combat.startBattle(playerHero, pUnitsGarr, enemyHero, enemyUnits, false);
 
     // Apply equipped artifact bonuses to the engine's internal hero/unit copies
     ArtifactBonus pb = m_artifactRegistry.totalBonus(playerHero.artifacts);

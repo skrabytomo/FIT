@@ -138,6 +138,7 @@ static int heroStrength(const Hero& hero, const std::vector<UnitDef>& defs)
 // ── World map update ──────────────────────────────────────────────────────────
 void Game::updateWorldMap(float dt)
 {
+    m_mapTime += dt;
     m_hexRenderer.update(dt);
 
     const auto& mouse = m_input.mouse();
@@ -162,6 +163,22 @@ void Game::updateWorldMap(float dt)
         m_hovered = m_map.inBounds(h) ? h : HexCoord{-999,-999};
     }
 
+    // Cursor: fight if enemy hovered, otherwise arrow
+    if (m_cursorArrow && m_cursorFight) {
+        bool fight = false;
+        if (m_map.inBounds(m_hovered)) {
+            const HexTile* ht = m_map.getTile(m_hovered);
+            if (ht && ht->visible) {
+                for (const auto& e : m_enemyHeroes)
+                    if (e.id == ht->heroId) { fight = true; break; }
+                if (!fight && ht->townId != 0)
+                    for (const auto& t : m_towns)
+                        if (t.id == ht->townId && t.ownerId > 1) { fight = true; break; }
+            }
+        }
+        SDL_SetCursor(fight ? m_cursorFight : m_cursorArrow);
+    }
+
     if (mouse.leftDown) {
         bool uiHandled = m_worldHUD.onMouseDown(
             static_cast<float>(mouse.x), static_cast<float>(mouse.y));
@@ -176,9 +193,46 @@ void Game::updateWorldMap(float dt)
 
     updateHeroMovement(dt);
 
+    // Advance pickup effects (float upward, fade out)
+    for (auto& e : m_pickupEffects) e.t -= dt;
+    m_pickupEffects.erase(
+        std::remove_if(m_pickupEffects.begin(), m_pickupEffects.end(),
+            [](const PickupEffect& ef){ return ef.t <= 0.0f; }),
+        m_pickupEffects.end());
+
+    // Update world-map hero animators (lazy-init on first seen)
+    for (const auto& h : m_heroes) {
+        if (m_heroMapAnimators.find(h.id) == m_heroMapAnimators.end()) {
+            SpriteAnimator a;
+            a.faction = std::min(static_cast<int>(h.faction), NUM_FACTIONS - 1);
+            a.tier = 1;
+            a.setState(AnimState::Idle);
+            m_heroMapAnimators[h.id] = a;
+        }
+        m_heroMapAnimators[h.id].update(dt);
+    }
+    for (const auto& h : m_enemyHeroes) {
+        if (m_heroMapAnimators.find(h.id) == m_heroMapAnimators.end()) {
+            SpriteAnimator a;
+            a.faction = std::min(static_cast<int>(h.faction), NUM_FACTIONS - 1);
+            a.tier = 1; a.mirror = true;
+            a.setState(AnimState::Idle);
+            m_heroMapAnimators[h.id] = a;
+        }
+        m_heroMapAnimators[h.id].update(dt);
+    }
+
     if (m_input.keyDown(SDLK_F6)) m_showHideoutScreen   = !m_showHideoutScreen;
     if (m_input.keyDown(SDLK_F7)) m_showArtifactPanel   = !m_showArtifactPanel;
     if (m_input.keyDown(SDLK_F8)) m_showHeroInspect     = !m_showHeroInspect;
+
+    // G — toggle garrison (hero digs in, blocks passage until defeated)
+    if (m_input.keyDown(SDLK_g) && !m_heroes.empty()) {
+        Hero& h = m_heroes[m_activeHeroIdx];
+        h.isGarrisoned = !h.isGarrisoned;
+        printf("Hero %s %s garrison\n", h.name.c_str(),
+               h.isGarrisoned ? "dug in at" : "left");
+    }
 
     // Tab — cycle to next player hero
     if (m_input.keyDown(SDLK_TAB) && !m_heroes.empty()) {
@@ -378,6 +432,10 @@ void Game::updateWorldMap(float dt)
                 }
                 // Observatory resets (allow re-use each week)
                 if (obj.type == WorldObjectType::Observatory)
+                    obj.collected = false;
+                // HolyFountain / Oasis reset weekly
+                if (obj.type == WorldObjectType::HolyFountain ||
+                    obj.type == WorldObjectType::Oasis)
                     obj.collected = false;
             }
         }
@@ -651,15 +709,79 @@ void Game::checkTileEvents()
         case WorldObjectType::QuestTarget:
             if (!obj.collected) {
                 obj.collected = true;
-                // Mark linked QuestGiver as ready-to-complete
                 for (auto& other : m_worldObjects) {
                     if (other.id == obj.linkedId) {
-                        if (other.questState == 1) {
+                        if (other.questState == 1)
                             printf("Quest target reached! Return to quest giver.\n");
-                        }
                         break;
                     }
                 }
+            }
+            break;
+        case WorldObjectType::ForestShrine:
+            if (!obj.collected) {
+                obj.collected = true;
+                char buf[32]; std::snprintf(buf, sizeof(buf), "+%d XP", obj.value);
+                pushPickupEffect(obj.pos, buf, IM_COL32(120, 220, 120, 255));
+                if (hero.addXp(obj.value)) {
+                    const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                    if (cls) {
+                        std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                        m_levelUpOffers = LevelUpSystem::generateOffers(
+                            *cls, hero.skills, hero.level, allSkills, hero.faction);
+                    }
+                    if (m_levelUpOffers.empty())
+                        m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                    m_showLevelUpModal = true;
+                }
+            }
+            break;
+        case WorldObjectType::HighlandRuin:
+            if (!obj.collected) {
+                obj.collected = true;
+                auto cells = HexGrid::range(hero.pos, obj.value);
+                for (auto& c : cells) {
+                    if (HexTile* t = m_map.getTile(c)) { t->explored = true; t->visible = true; }
+                }
+                pushPickupEffect(obj.pos, "Revealed!", IM_COL32(200, 180, 120, 255));
+            }
+            break;
+        case WorldObjectType::HolyFountain:
+            if (!obj.collected) {
+                obj.collected = true;
+                hero.mana = hero.maxMana;
+                pushPickupEffect(obj.pos, "Mana restored!", IM_COL32(100, 180, 255, 255));
+            }
+            break;
+        case WorldObjectType::Oasis:
+            if (!obj.collected) {
+                obj.collected = true;
+                hero.movePool = hero.maxMove;
+                pushPickupEffect(obj.pos, "Movement!", IM_COL32(160, 220, 100, 255));
+            }
+            break;
+        case WorldObjectType::Campfire:
+            if (!obj.collected) {
+                obj.collected = true;
+                m_playerResources.add(ResourceType::Gold, obj.value);
+                char buf[32]; std::snprintf(buf, sizeof(buf), "+%d Gold", obj.value);
+                pushPickupEffect(obj.pos, buf, IM_COL32(255, 215, 0, 255));
+            }
+            break;
+        case WorldObjectType::LavaCrystal:
+            if (!obj.collected) {
+                obj.collected = true;
+                m_playerResources.add(obj.resourceType, obj.value);
+                pushPickupEffect(obj.pos, "+Mercury", IM_COL32(200, 80, 80, 255));
+            }
+            break;
+        case WorldObjectType::SwampAltar:
+            if (!obj.collected) {
+                obj.collected = true;
+                bool already = false;
+                for (int sid : hero.knownSpells) if (sid == obj.value) { already = true; break; }
+                if (!already) hero.knownSpells.push_back(obj.value);
+                pushPickupEffect(obj.pos, "Spell learned!", IM_COL32(180, 100, 255, 255));
             }
             break;
         }
@@ -766,8 +888,8 @@ void Game::renderWorldOverlay()
         if (!hasIcons) return;
         float col = static_cast<float>(idx % 8);
         float row = static_cast<float>(idx / 8);
-        ImVec2 uv0 = { col / 8.0f,          row / 3.0f };
-        ImVec2 uv1 = { (col + 1.0f) / 8.0f, (row + 1.0f) / 3.0f };
+        ImVec2 uv0 = { col / 8.0f,          row / 4.0f };
+        ImVec2 uv1 = { (col + 1.0f) / 8.0f, (row + 1.0f) / 4.0f };
         dl->AddImage(iconTex, {sx - hs, sy - hs}, {sx + hs, sy + hs}, uv0, uv1);
     };
 
@@ -781,6 +903,9 @@ void Game::renderWorldOverlay()
         ICO_RES_MERCURY  = 14,
         ICO_OBSERVATORY  = 16, ICO_STAT_SHRINE = 17, ICO_BANDIT_CAMP = 18,
         ICO_DWELLING     = 19, ICO_QUEST_GIVER = 20, ICO_QUEST_TARGET = 21,
+        ICO_FOREST_SHRINE = 22, ICO_HIGHLAND_RUIN = 23,
+        ICO_HOLY_FOUNTAIN = 24, ICO_OASIS         = 25,
+        ICO_CAMPFIRE      = 26, ICO_LAVA_CRYSTAL  = 27, ICO_SWAMP_ALTAR = 28,
     };
 
     // ── Towns ──────────────────────────────────────────────────────────────────
@@ -806,26 +931,40 @@ void Game::renderWorldOverlay()
     }
 
     // ── World objects ──────────────────────────────────────────────────────────
-    for (const auto& obj : m_worldObjects) {
+    for (int oi = 0; oi < static_cast<int>(m_worldObjects.size()); ++oi) {
+        const auto& obj = m_worldObjects[oi];
         if (obj.collected) continue;
+        const HexTile* otile = m_map.getTile(obj.pos);
+        if (!otile || !otile->explored) continue;
         float sx, sy;
         project(obj.pos, sx, sy);
         int ico;
         switch (obj.type) {
-        case WorldObjectType::SpellScroll:   ico = ICO_SCROLL;        break;
-        case WorldObjectType::ArtifactChest: ico = ICO_ARTIFACT;     break;
-        case WorldObjectType::XPShrine:      ico = ICO_XP;           break;
-        case WorldObjectType::ResourceCache: ico = ICO_CACHE;        break;
-        case WorldObjectType::Observatory:   ico = ICO_OBSERVATORY;  break;
-        case WorldObjectType::StatShrine:    ico = ICO_STAT_SHRINE;  break;
-        case WorldObjectType::BanditCamp:    ico = ICO_BANDIT_CAMP;  break;
-        case WorldObjectType::UnitDwelling:  ico = ICO_DWELLING;     break;
-        case WorldObjectType::QuestGiver:    ico = ICO_QUEST_GIVER;  break;
-        case WorldObjectType::QuestTarget:   ico = ICO_QUEST_TARGET; break;
-        default:                             ico = 15;               break;
+        case WorldObjectType::SpellScroll:   ico = ICO_SCROLL;          break;
+        case WorldObjectType::ArtifactChest: ico = ICO_ARTIFACT;        break;
+        case WorldObjectType::XPShrine:      ico = ICO_XP;              break;
+        case WorldObjectType::ResourceCache: ico = ICO_CACHE;           break;
+        case WorldObjectType::Observatory:   ico = ICO_OBSERVATORY;     break;
+        case WorldObjectType::StatShrine:    ico = ICO_STAT_SHRINE;     break;
+        case WorldObjectType::BanditCamp:    ico = ICO_BANDIT_CAMP;     break;
+        case WorldObjectType::UnitDwelling:  ico = ICO_DWELLING;        break;
+        case WorldObjectType::QuestGiver:    ico = ICO_QUEST_GIVER;     break;
+        case WorldObjectType::QuestTarget:   ico = ICO_QUEST_TARGET;    break;
+        case WorldObjectType::ForestShrine:  ico = ICO_FOREST_SHRINE;   break;
+        case WorldObjectType::HighlandRuin:  ico = ICO_HIGHLAND_RUIN;   break;
+        case WorldObjectType::HolyFountain:  ico = ICO_HOLY_FOUNTAIN;   break;
+        case WorldObjectType::Oasis:         ico = ICO_OASIS;           break;
+        case WorldObjectType::Campfire:      ico = ICO_CAMPFIRE;        break;
+        case WorldObjectType::LavaCrystal:   ico = ICO_LAVA_CRYSTAL;    break;
+        case WorldObjectType::SwampAltar:    ico = ICO_SWAMP_ALTAR;     break;
+        default:                             ico = 15;                   break;
         }
+        // Idle glow pulse (each object offset slightly for variety)
+        float pulse = 0.5f + 0.5f * sinf(m_mapTime * 2.0f + oi * 1.1f);
+        float gR    = 10.0f + pulse * 3.0f;
+        ImU32 glow  = IM_COL32(255, 240, 180, static_cast<int>(pulse * 90 + 40));
         addIcon(ico, sx, sy, 10.0f);
-        dl->AddCircle({sx, sy}, 10.0f, IM_COL32(255, 255, 255, 100), 0, 1.0f);
+        dl->AddCircle({sx, sy}, gR, glow, 0, 1.2f);
     }
 
     // ── Resource nodes (mines) ────────────────────────────────────────────────
@@ -858,10 +997,22 @@ void Game::renderWorldOverlay()
         if (!etile || !etile->visible) continue;
         float sx, sy;
         project(hero.pos, sx, sy);
-        addIcon(ICO_HERO_ENEMY, sx, sy, 13.0f);
-        dl->AddCircle({sx, sy}, 13.0f, IM_COL32(255, 140, 140, 200), 0, 1.5f);
+
+        int fac = std::min(static_cast<int>(hero.faction), NUM_FACTIONS - 1);
+        auto ait = m_heroMapAnimators.find(hero.id);
+        if (ait != m_heroMapAnimators.end() && m_spriteAtlas[fac].ok()) {
+            float u0, v0, u1, v1;
+            ait->second.getUV(u0, v0, u1, v1);
+            ImTextureID tex = (ImTextureID)(uintptr_t)m_spriteAtlas[fac].id();
+            dl->AddImage(tex, {sx - 16, sy - 20}, {sx + 16, sy + 12}, {u0,v0}, {u1,v1});
+        } else {
+            addIcon(ICO_HERO_ENEMY, sx, sy, 13.0f);
+        }
+        dl->AddCircle({sx, sy}, 14.0f, IM_COL32(255, 140, 140, 180), 0, 1.5f);
         dl->AddText({sx - (float)hero.name.size() * 3.0f, sy + 15},
                     IM_COL32(255, 160, 160, 200), hero.name.c_str());
+        if (hero.isGarrisoned)
+            dl->AddText({sx - 10.0f, sy - 30.0f}, IM_COL32(255, 80, 80, 255), "[G]");
     }
 
     // ── Player heroes ─────────────────────────────────────────────────────────
@@ -879,11 +1030,80 @@ void Game::renderWorldOverlay()
 
         bool  active = (i == m_activeHeroIdx);
         ImU32 ring   = active ? IM_COL32(255, 255, 160, 255) : IM_COL32(200, 200, 80, 200);
-        addIcon(ICO_HERO_PLAYER, sx, sy, 13.0f);
-        dl->AddCircle({sx, sy}, 13.0f, ring, 0, active ? 2.0f : 1.2f);
-        if (active)
-            dl->AddText({sx - (float)hero.name.size() * 3.0f, sy + 15},
-                        IM_COL32(255, 230, 100, 220), hero.name.c_str());
+
+        int fac = std::min(static_cast<int>(hero.faction), NUM_FACTIONS - 1);
+        auto ait = m_heroMapAnimators.find(hero.id);
+        if (ait != m_heroMapAnimators.end() && m_spriteAtlas[fac].ok()) {
+            float u0, v0, u1, v1;
+            ait->second.getUV(u0, v0, u1, v1);
+            ImTextureID tex = (ImTextureID)(uintptr_t)m_spriteAtlas[fac].id();
+            dl->AddImage(tex, {sx - 16, sy - 20}, {sx + 16, sy + 12}, {u0,v0}, {u1,v1});
+        } else {
+            addIcon(ICO_HERO_PLAYER, sx, sy, 13.0f);
+        }
+        dl->AddCircle({sx, sy}, 14.0f, ring, 0, active ? 2.0f : 1.2f);
+        dl->AddText({sx - (float)hero.name.size() * 3.0f, sy + 15},
+                    active ? IM_COL32(255, 230, 100, 220) : IM_COL32(200, 200, 100, 160),
+                    hero.name.c_str());
+        if (hero.isGarrisoned)
+            dl->AddText({sx - 10.0f, sy - 30.0f}, IM_COL32(255, 200, 60, 255), "[G]");
+    }
+
+    // ── Pickup effects (floating text) ────────────────────────────────────────
+    for (const auto& e : m_pickupEffects) {
+        float alpha = std::min(1.0f, e.t);
+        if (alpha <= 0.0f) continue;
+        float rise = (2.0f - e.t) * 30.0f;
+        float sx, sy;
+        m_camera.worldToScreen(e.wx, e.wy, sx, sy);
+        sy -= rise;
+        int   a   = static_cast<int>(alpha * 255);
+        ImU32 col = (e.col & 0x00FFFFFFu) | (static_cast<ImU32>(a) << 24);
+        dl->AddText({sx - static_cast<float>(e.text.size()) * 3.5f, sy}, col, e.text.c_str());
+    }
+
+    // ── Hover tooltip: days to reach or Fight ─────────────────────────────────
+    if (m_map.inBounds(m_hovered) && !m_heroes.empty()) {
+        const HexTile* ht = m_map.getTile(m_hovered);
+        const Hero& activeHero = m_heroes[m_activeHeroIdx];
+        if (ht && ht->explored && m_hovered != activeHero.pos) {
+            bool isFight = false;
+            if (ht->heroId != 0)
+                for (const auto& e : m_enemyHeroes)
+                    if (e.id == ht->heroId) { isFight = true; break; }
+            if (!isFight && ht->townId != 0)
+                for (const auto& t : m_towns)
+                    if (t.id == ht->townId && t.ownerId > 1) { isFight = true; break; }
+
+            ImGui::BeginTooltip();
+            if (isFight) {
+                ImGui::TextColored({1.0f, 0.3f, 0.3f, 1.0f}, "Fight!");
+            } else {
+                auto costFn = [this, &activeHero](HexCoord c) -> int {
+                    const HexTile* t = m_map.getTile(c);
+                    if (!t || !activeHero.canEnter(t->terrain)) return 999;
+                    return activeHero.moveCost(t->terrain);
+                };
+                auto path = Pathfinder::find(m_map, activeHero.pos, m_hovered, costFn);
+                if (!path.empty()) {
+                    int totalCost = 0;
+                    for (auto& c : path) {
+                        const HexTile* t = m_map.getTile(c);
+                        if (t) totalCost += activeHero.moveCost(t->terrain);
+                    }
+                    int spent     = std::min(totalCost, activeHero.movePool);
+                    int remaining = totalCost - spent;
+                    int days      = (remaining > 0)
+                                    ? (remaining + activeHero.maxMove - 1) / activeHero.maxMove
+                                    : 0;
+                    if (days == 0) ImGui::Text("Reachable today");
+                    else          ImGui::Text("%d day%s", days, days == 1 ? "" : "s");
+                } else {
+                    ImGui::TextDisabled("Unreachable");
+                }
+            }
+            ImGui::EndTooltip();
+        }
     }
 }
 
@@ -1444,6 +1664,14 @@ void Game::renderStatShrinePopup()
         m_showStatShrinePopup = false;
 
     ImGui::End();
+}
+
+// ── Pickup effect helper ──────────────────────────────────────────────────────
+void Game::pushPickupEffect(HexCoord pos, const char* text, ImU32 col)
+{
+    float wx, wy;
+    m_hexRenderer.grid().hexToWorld(pos, wx, wy);
+    m_pickupEffects.push_back({wx, wy, 2.0f, text, col});
 }
 
 // ── Quest popup ───────────────────────────────────────────────────────────────

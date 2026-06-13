@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <imgui.h>
 
 #include "GameState.h"
 #include "InputState.h"
@@ -284,4 +285,19 @@ private:
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     AudioManager m_audio;
+
+    // ── World map time (for object idle animations) ───────────────────────────
+    float m_mapTime = 0.0f;
+
+    // ── Floating pickup text effects ──────────────────────────────────────────
+    struct PickupEffect { float wx, wy, t; std::string text; ImU32 col; };
+    std::vector<PickupEffect> m_pickupEffects;
+    void pushPickupEffect(HexCoord pos, const char* text, ImU32 col);
+
+    // ── World-map hero animators ──────────────────────────────────────────────
+    std::unordered_map<uint32_t, SpriteAnimator> m_heroMapAnimators;
+
+    // ── SDL cursors ───────────────────────────────────────────────────────────
+    SDL_Cursor* m_cursorArrow = nullptr;
+    SDL_Cursor* m_cursorFight = nullptr;
 };

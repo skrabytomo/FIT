@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
-"""Generate build/assets/icons.png — 256x96 icon atlas (8x3 grid of 32x32 cells).
+"""Generate build/assets/icons.png — 256x128 icon atlas (8x4 grid of 32x32 cells).
 
 Layout:
   Row 0: HeroPlayer HeroEnemy TownPlayer TownEnemy TownNeutral Scroll Artifact XPShrine
   Row 1: Cache      Gold      Iron       Faith     Blood       Sap    Mercury  (blank)
-  Row 2: Observatory StatShrine BanditCamp Dwelling QuestGiver QuestTarget (blank) (blank)
+  Row 2: Observatory StatShrine BanditCamp Dwelling QuestGiver QuestTarget ForestShrine HighlandRuin
+  Row 3: HolyFountain Oasis Campfire LavaCrystal SwampAltar (blank) (blank) (blank)
 """
 
 import struct, zlib, os, math
 
-W, H, CELL = 256, 96, 32
+W, H, CELL = 256, 128, 32
 pixels = [(0, 0, 0, 0)] * (W * H)
 
 # ── Primitives ────────────────────────────────────────────────────────────────
@@ -246,7 +247,78 @@ rect(ccx(i)-1,ccy(i)-10,2,20,GRAYBR)
 # Flag
 poly([(ccx(i),oy(i)+6),(ox(i)+22,oy(i)+10),(ccx(i),oy(i)+14)],REDBR)
 
-# ─── 22-23: blank ────────────────────────────────────────────────────────────
+# ─── 22: ForestShrine (green circle, tree silhouette) ────────────────────────
+i=22; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,GREENDK); circ(ccx(i),ccy(i),11,GREEN)
+# Trunk
+rect(ccx(i)-1,ccy(i)+2,3,7,BROWNDK)
+# Canopy triangles
+poly([(ccx(i),by+6),(bx+8,by+16),(bx+24,by+16)],(20,100,30,255))
+poly([(ccx(i),by+10),(bx+9,by+18),(bx+23,by+18)],GREENBR)
+
+# ─── 23: HighlandRuin (gray, crumbled tower) ─────────────────────────────────
+i=23; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,GRAYDK); circ(ccx(i),ccy(i),11,(80,85,90,255))
+# Tower base
+rect(bx+9,by+16,14,14,GRAYBR)
+# Broken top — offset stones
+rect(bx+9, by+10,5,7,GRAYBR); rect(bx+18,by+12,5,5,GRAYBR)
+# Crack
+rect(ccx(i),by+16,1,10,GRAYDK)
+
+# ─── 24: HolyFountain (blue with arc sprays) ─────────────────────────────────
+i=24; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,BLUEDK); circ(ccx(i),ccy(i),11,BLUE)
+# Basin
+rect(bx+7,by+21,18,5,(60,130,220,255))
+# Pillar
+rect(ccx(i)-1,by+15,3,7,BLUEBR)
+# Spray arcs (dots)
+for ox2,oy2,r in [(ccx(i)-5,by+12,2),(ccx(i)+5,by+11,2),(ccx(i),by+9,3)]:
+    circ(ox2,oy2,r,(160,220,255,255))
+
+# ─── 25: Oasis (sandy with palm) ─────────────────────────────────────────────
+i=25; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,(140,100,30,255)); circ(ccx(i),ccy(i),11,(190,150,60,255))
+# Water pool
+circ(ccx(i),ccy(i)+3,5,(30,120,200,180))
+# Palm trunk
+rect(ccx(i)-1,ccy(i)-7,2,10,(110,70,20,255))
+# Fronds
+for dx,dy in [(-6,-8),(-3,-10),(0,-11),(3,-10),(6,-8)]:
+    rect(ccx(i)+dx,ccy(i)+dy-7,2,2,GREEN)
+
+# ─── 26: Campfire (orange with flames) ───────────────────────────────────────
+i=26; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,(100,40,5,255)); circ(ccx(i),ccy(i),11,(160,70,15,255))
+# Log base
+rect(bx+9,by+21,14,3,(100,55,15,255))
+# Flames
+poly([(ccx(i),by+8),(bx+11,by+21),(bx+21,by+21)],(255,130,20,255))
+poly([(ccx(i),by+11),(bx+12,by+21),(bx+20,by+21)],(255,200,40,255))
+circ(ccx(i),ccy(i)-1,4,(255,240,100,200))
+
+# ─── 27: LavaCrystal (red with spikes) ───────────────────────────────────────
+i=27; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,(100,10,5,255)); circ(ccx(i),ccy(i),11,(180,40,20,255))
+# Crystal spikes
+for dx,dy,h2 in [(-4,0,10),(0,-2,13),(4,0,10),(-2,2,7),(2,2,7)]:
+    poly([(ccx(i)+dx,by+h2),(ccx(i)+dx-2,by+20),(ccx(i)+dx+2,by+20)],(220,80,40,255))
+circ(ccx(i),ccy(i),4,(255,140,80,255))
+
+# ─── 28: SwampAltar (dark with drips) ────────────────────────────────────────
+i=28; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,(20,50,20,255)); circ(ccx(i),ccy(i),11,(40,80,35,255))
+# Stone block
+rect(bx+7,by+18,18,10,(70,70,50,255))
+rect(bx+7,by+13,18,6,(90,90,65,255))
+# Drips
+for dx2 in [-4,0,4]:
+    rect(ccx(i)+dx2,by+23,2,4,(60,140,40,200))
+# Symbol
+rect(ccx(i)-2,by+15,5,2,PURPBR); rect(ccx(i),by+13,2,5,PURPBR)
+
+# ─── 29-31: blank ─────────────────────────────────────────────────────────────
 
 # ── Write PNG ─────────────────────────────────────────────────────────────────
 def write_png(path, w, h, pxls):
