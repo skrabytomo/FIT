@@ -10,15 +10,21 @@
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
+#include <nlohmann/json.hpp>
 #include <stdio.h>
+#include <fstream>
 #include <cmath>
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
 }
 
-static constexpr const char* SAVE_PATH    = "saves/save0.json";
 static constexpr const char* HIDEOUT_PATH = "saves/hideout.db";
+
+static std::string slotPath(int slot)
+{
+    return "saves/save" + std::to_string(slot) + ".json";
+}
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 bool Game::init(const std::string& title, int width, int height)
@@ -77,164 +83,8 @@ bool Game::init(const std::string& title, int width, int height)
     // Artifact registry
     m_artifactRegistry.init();
 
-    // Generate world procedurally
-    m_mapSize = MapSize::Small;
-    m_map.create(m_mapSize);
-
-    WorldGenParams wgp;
-    wgp.seed        = static_cast<uint32_t>(SDL_GetTicks()) ^ 0x5A5A5A5Au;
-    wgp.size        = MapSize::Small;
-    wgp.playerCount = 4;   // player + 3 AI
-    wgp.waterRatio  = 0.18f;
-    auto wgResult   = WorldGen::generate(m_map, wgp);
-
-    // Resource nodes from generator
-    m_resources  = std::move(wgResult.resources);
-    m_nextObjId  = static_cast<uint32_t>(m_resources.size()) + 1;
-
-    // Player resources
-    m_playerResources.set(ResourceType::Gold, 5000);
-    m_playerResources.set(ResourceType::Iron, 20);
-
-    // Player hero
-    Hero hero;
-    hero.id        = 1;
-    hero.name      = "Player Hero";
-    hero.faction   = FactionId::HolyOrder;
-    hero.pos       = wgResult.startPositions.empty() ? HexCoord{0,0}
-                                                     : wgResult.startPositions[0];
-    hero.movePool  = hero.maxMove;
-    hero.lightPower = 3;
-    hero.knownSpells = {SPL::BLESS, SPL::SMITE, SPL::DIVINE_SHIELD};
-    m_heroes.push_back(hero);
-    m_activeHeroIdx = 0;
-    if (HexTile* ht = m_map.getTile(hero.pos)) ht->heroId = hero.id;
-
-    // Give a hero starting army: 20 tier-1 + 10 tier-2 units of their faction
-    auto giveStartingArmy = [&](Hero& h) {
-        for (int tier : {1, 2}) {
-            for (const auto& ud : m_registry.units()) {
-                if (ud.faction == h.faction && ud.tier == tier
-                    && ud.path == UpgradePath::None) {
-                    int cnt = (tier == 1) ? 20 : 8;
-                    h.army.push_back({ud.id, cnt});
-                    break;
-                }
-            }
-        }
-    };
-    giveStartingArmy(m_heroes[0]);
-
-    // Enemy heroes at the other spawn positions
-    static const char* kEnemyNames[] = {
-        "Dark Warlord", "Blood Raider", "Thornkin Shaman", "Void Stalker"
-    };
-    for (int i = 1; i < static_cast<int>(wgResult.startPositions.size())
-                    && i <= 3; ++i) {
-        FactionId ef = (i < static_cast<int>(wgResult.towns.size()))
-                       ? wgResult.towns[i].faction : FactionId::EternalEmpire;
-        Hero eHero;
-        eHero.id       = 99u + static_cast<uint32_t>(i);
-        eHero.name     = kEnemyNames[i - 1];
-        eHero.faction  = ef;
-        eHero.pos      = wgResult.startPositions[i];
-        eHero.movePool = eHero.maxMove;
-        giveStartingArmy(eHero);
-        m_enemyHeroes.push_back(eHero);
-        if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;
-    }
-
-    // Towns: first is player's, rest are neutral with a small garrison
-    for (int i = 0; i < static_cast<int>(wgResult.towns.size()); ++i) {
-        Town& wt = wgResult.towns[i];
-        if (i == 0) {
-            wt.ownerId = 1;
-            wt.builtBuildings.push_back(BID::MAGE_GUILD);
-        } else {
-            wt.ownerId = 0;
-            // Give neutral towns a tier-1 garrison (15 units) as defenders
-            for (const auto& ud : m_registry.units()) {
-                if (ud.faction == wt.faction && ud.tier == 1
-                    && ud.path == UpgradePath::None) {
-                    wt.garrison.push_back({ud.id, 15});
-                    break;
-                }
-            }
-        }
-        if (HexTile* ht = m_map.getTile(wt.pos)) ht->townId = wt.id;
-        m_towns.push_back(wt);
-    }
-
-    // Scatter world objects on random land tiles away from entities
-    m_worldObjects.clear();
-    {
-        uint32_t rng = wgp.seed ^ 0xF00DBABE;
-        auto lcg = [&]() { return (rng = rng * 1664525u + 1013904223u); };
-
-        auto allCoords = m_map.coords();
-        for (size_t ci = allCoords.size() - 1; ci > 0; --ci)
-            std::swap(allCoords[ci], allCoords[lcg() % (ci + 1)]);
-
-        auto pickTile = [&]() -> HexCoord {
-            for (auto& c : allCoords) {
-                const HexTile* t = m_map.getTile(c);
-                if (!t || t->terrain == Terrain::Water) continue;
-                if (t->heroId || t->townId || t->resourceId) continue;
-                // check no world object already here
-                bool used = false;
-                for (auto& o : m_worldObjects) if (o.pos == c) { used = true; break; }
-                if (!used) return c;
-            }
-            return {0, 0};
-        };
-
-        static const int kScrollSpells[] = {
-            SPL::SMITE, SPL::REGROWTH, SPL::CURSE, SPL::BLESS, SPL::CALL_LIGHTNING
-        };
-        for (int s = 0; s < 4; ++s) {
-            HexCoord p = pickTile();
-            int sid = kScrollSpells[lcg() % 5];
-            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::SpellScroll, p, sid, ResourceType::Gold, false});
-        }
-        for (int a = 0; a < 3; ++a) {
-            HexCoord p = pickTile();
-            int aid = 1 + static_cast<int>(lcg() % 8);   // artifact ids 1-8
-            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ArtifactChest, p, aid, ResourceType::Gold, false});
-        }
-        for (int x = 0; x < 3; ++x) {
-            HexCoord p = pickTile();
-            int xp = 50 + static_cast<int>(lcg() % 80);
-            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::XPShrine, p, xp, ResourceType::Gold, false});
-        }
-        for (int rc = 0; rc < 3; ++rc) {
-            HexCoord p = pickTile();
-            bool isGold = (lcg() & 1);
-            ResourceType rtype = isGold ? ResourceType::Gold : ResourceType::Iron;
-            int rval  = isGold ? 300 + static_cast<int>(lcg() % 400)
-                               : 5   + static_cast<int>(lcg() % 10);
-            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ResourceCache, p, rval, rtype, false});
-        }
-    }
-
-    // Merge WorldGen-placed world objects
-    for (auto& wo : wgResult.worldObjects)
-        m_worldObjects.push_back(wo);
-
-    // Fix m_nextObjId to avoid collisions
-    for (const auto& wo : m_worldObjects)
-        if (wo.id >= m_nextObjId) m_nextObjId = wo.id + 1;
-
-    // Fog of war
-    FogOfWar::hideAll(m_map);
-    FogOfWar::updateVision(m_map, m_heroes[0]);
-
-    // Snap camera to hero
-    float hx, hy;
-    m_hexRenderer.grid().hexToWorld(m_heroes[0].pos, hx, hy);
-    m_camera.setPosition(hx, hy);
-
-    m_moveT  = 1.0f;
-    m_state  = GameState::MainMenu;
+    startNewGame();
+    m_state = GameState::MainMenu;
 
     // Wire WorldMapHUD callbacks
     m_worldHUD.init(width, height);
@@ -295,6 +145,8 @@ bool Game::init(const std::string& title, int width, int height)
         m_audio.playMusic("worldmap_music");
     }
 
+    loadSettings();   // apply persisted volume / fullscreen settings
+
     m_running = true;
     printf("Game initialized: %dx%d\n", width, height);
     return true;
@@ -352,8 +204,8 @@ void Game::processEvents()
 void Game::update(float dt)
 {
     m_audio.update();
-    if (m_input.keyDown(SDLK_F5)) saveGame(SAVE_PATH);
-    if (m_input.keyDown(SDLK_F9)) loadGame(SAVE_PATH);
+    if (m_input.keyDown(SDLK_F5)) saveGame(slotPath(m_activeSlot));
+    if (m_input.keyDown(SDLK_F9)) loadGame(slotPath(m_activeSlot));
     if (m_input.keyDown(SDLK_F2)) {
         if (m_state == GameState::Editor) exitEditor();
         else enterEditor();
@@ -454,6 +306,196 @@ bool Game::loadGame(const std::string& path)
 
     printf("Game loaded from %s (day %d week %d)\n", path.c_str(), day, week);
     return true;
+}
+
+// ── New game (reset + world gen) ──────────────────────────────────────────────
+void Game::startNewGame()
+{
+    // Clear all runtime state
+    m_heroes.clear();
+    m_enemyHeroes.clear();
+    m_towns.clear();
+    m_resources.clear();
+    m_worldObjects.clear();
+    m_heroMapAnimators.clear();
+    m_pickupEffects.clear();
+    m_reachable.clear();
+    m_activeHeroIdx   = 0;
+    m_moveT           = 1.0f;
+    m_selected        = {-999, -999};
+    m_hovered         = {-999, -999};
+    m_nextObjId       = 1;
+    m_turns           = TurnManager{};
+    m_playerResources = Resources{};
+    m_showVictory     = false;
+    m_showDefeat      = false;
+    m_showCapturePopup = false;
+    m_showTownLostPopup = false;
+
+    // Generate world procedurally
+    m_mapSize = MapSize::Small;
+    m_map.create(m_mapSize);
+
+    WorldGenParams wgp;
+    wgp.seed        = static_cast<uint32_t>(SDL_GetTicks()) ^ 0x5A5A5A5Au;
+    wgp.size        = MapSize::Small;
+    wgp.playerCount = 4;
+    wgp.waterRatio  = 0.18f;
+    auto wgResult   = WorldGen::generate(m_map, wgp);
+
+    m_resources = std::move(wgResult.resources);
+    m_nextObjId = static_cast<uint32_t>(m_resources.size()) + 1;
+
+    m_playerResources.set(ResourceType::Gold, 5000);
+    m_playerResources.set(ResourceType::Iron, 20);
+
+    Hero hero;
+    hero.id       = 1;
+    hero.name     = "Player Hero";
+    hero.faction  = FactionId::HolyOrder;
+    hero.pos      = wgResult.startPositions.empty() ? HexCoord{0,0}
+                                                    : wgResult.startPositions[0];
+    hero.movePool = hero.maxMove;
+    hero.lightPower = 3;
+    hero.knownSpells = {SPL::BLESS, SPL::SMITE, SPL::DIVINE_SHIELD};
+    m_heroes.push_back(hero);
+    if (HexTile* ht = m_map.getTile(hero.pos)) ht->heroId = hero.id;
+
+    auto giveStartingArmy = [&](Hero& h) {
+        for (int tier : {1, 2}) {
+            for (const auto& ud : m_registry.units()) {
+                if (ud.faction == h.faction && ud.tier == tier
+                    && ud.path == UpgradePath::None) {
+                    h.army.push_back({ud.id, (tier == 1) ? 20 : 8});
+                    break;
+                }
+            }
+        }
+    };
+    giveStartingArmy(m_heroes[0]);
+
+    static const char* kEnemyNames[] = {
+        "Dark Warlord", "Blood Raider", "Thornkin Shaman", "Void Stalker"
+    };
+    for (int i = 1; i < static_cast<int>(wgResult.startPositions.size()) && i <= 3; ++i) {
+        FactionId ef = (i < static_cast<int>(wgResult.towns.size()))
+                       ? wgResult.towns[i].faction : FactionId::EternalEmpire;
+        Hero eHero;
+        eHero.id       = 99u + static_cast<uint32_t>(i);
+        eHero.name     = kEnemyNames[i - 1];
+        eHero.faction  = ef;
+        eHero.pos      = wgResult.startPositions[i];
+        eHero.movePool = eHero.maxMove;
+        giveStartingArmy(eHero);
+        m_enemyHeroes.push_back(eHero);
+        if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;
+    }
+
+    for (int i = 0; i < static_cast<int>(wgResult.towns.size()); ++i) {
+        Town& wt = wgResult.towns[i];
+        if (i == 0) {
+            wt.ownerId = 1;
+            wt.builtBuildings.push_back(BID::MAGE_GUILD);
+        } else {
+            wt.ownerId = 0;
+            for (const auto& ud : m_registry.units()) {
+                if (ud.faction == wt.faction && ud.tier == 1
+                    && ud.path == UpgradePath::None) {
+                    wt.garrison.push_back({ud.id, 15});
+                    break;
+                }
+            }
+        }
+        if (HexTile* ht = m_map.getTile(wt.pos)) ht->townId = wt.id;
+        m_towns.push_back(wt);
+    }
+
+    m_worldObjects.clear();
+    {
+        uint32_t rng = wgp.seed ^ 0xF00DBABE;
+        auto lcg = [&]() { return (rng = rng * 1664525u + 1013904223u); };
+
+        auto allCoords = m_map.coords();
+        for (size_t ci = allCoords.size() - 1; ci > 0; --ci)
+            std::swap(allCoords[ci], allCoords[lcg() % (ci + 1)]);
+
+        auto pickTile = [&]() -> HexCoord {
+            for (auto& c : allCoords) {
+                const HexTile* t = m_map.getTile(c);
+                if (!t || t->terrain == Terrain::Water) continue;
+                if (t->heroId || t->townId || t->resourceId) continue;
+                bool used = false;
+                for (auto& o : m_worldObjects) if (o.pos == c) { used = true; break; }
+                if (!used) return c;
+            }
+            return {0, 0};
+        };
+
+        static const int kScrollSpells[] = {
+            SPL::SMITE, SPL::REGROWTH, SPL::CURSE, SPL::BLESS, SPL::CALL_LIGHTNING
+        };
+        for (int s = 0; s < 4; ++s) {
+            HexCoord p = pickTile();
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::SpellScroll, p,
+                kScrollSpells[lcg() % 5], ResourceType::Gold, false});
+        }
+        for (int a = 0; a < 3; ++a) {
+            HexCoord p = pickTile();
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ArtifactChest, p,
+                1 + static_cast<int>(lcg() % 8), ResourceType::Gold, false});
+        }
+        for (int x = 0; x < 3; ++x) {
+            HexCoord p = pickTile();
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::XPShrine, p,
+                50 + static_cast<int>(lcg() % 80), ResourceType::Gold, false});
+        }
+        for (int rc = 0; rc < 3; ++rc) {
+            HexCoord p = pickTile();
+            bool isGold = (lcg() & 1);
+            ResourceType rtype = isGold ? ResourceType::Gold : ResourceType::Iron;
+            int rval = isGold ? 300 + static_cast<int>(lcg() % 400)
+                              : 5   + static_cast<int>(lcg() % 10);
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ResourceCache, p, rval, rtype, false});
+        }
+    }
+
+    for (auto& wo : wgResult.worldObjects) m_worldObjects.push_back(wo);
+    for (const auto& wo : m_worldObjects)
+        if (wo.id >= m_nextObjId) m_nextObjId = wo.id + 1;
+
+    FogOfWar::hideAll(m_map);
+    FogOfWar::updateVision(m_map, m_heroes[0]);
+
+    float hx, hy;
+    m_hexRenderer.grid().hexToWorld(m_heroes[0].pos, hx, hy);
+    m_camera.setPosition(hx, hy);
+}
+
+// ── Settings persistence ──────────────────────────────────────────────────────
+void Game::saveSettings()
+{
+    nlohmann::json j;
+    j["sfxVol"]    = m_settingsSfxVol;
+    j["musVol"]    = m_settingsMasVol;
+    j["fullscreen"] = m_settingsFullscreen;
+    std::ofstream f("settings.json");
+    if (f) f << j.dump(2);
+}
+
+void Game::loadSettings()
+{
+    std::ifstream f("settings.json");
+    if (!f) return;
+    try {
+        nlohmann::json j = nlohmann::json::parse(f);
+        m_settingsSfxVol     = j.value("sfxVol",     0.7f);
+        m_settingsMasVol     = j.value("musVol",      0.35f);
+        m_settingsFullscreen = j.value("fullscreen",  false);
+        m_audio.setSfxVolume(m_settingsSfxVol);
+        m_audio.setMusicVolume(m_settingsMasVol);
+        if (m_settingsFullscreen)
+            SDL_SetWindowFullscreen(m_window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+    } catch (...) {}
 }
 
 // ── ImGui integration ─────────────────────────────────────────────────────────

@@ -85,6 +85,11 @@ private:
     void exitTown();
     void exitEditor();
 
+    // ── New game / settings ───────────────────────────────────────────────────
+    void startNewGame();       // reset all state and generate a fresh world
+    void saveSettings();       // persist settings.json
+    void loadSettings();       // read settings.json and apply to audio/display
+
     // ── World map helpers ──────────────────────────────────────────────────────
     void updateHeroMovement(float dt);
     void drawHero(const Hero& hero);
@@ -300,4 +305,13 @@ private:
     // ── SDL cursors ───────────────────────────────────────────────────────────
     SDL_Cursor* m_cursorArrow = nullptr;
     SDL_Cursor* m_cursorFight = nullptr;
+
+    // ── Main menu sub-state & save slots ─────────────────────────────────────
+    int  m_menuMode   = 0;   // 0=main, 1=newgame, 2=loadgame, 3=settings
+    int  m_activeSlot = 0;   // which save slot (0-2) is currently in use
+
+    // ── Persisted display / audio settings ───────────────────────────────────
+    float m_settingsSfxVol     = 0.7f;
+    float m_settingsMasVol     = 0.35f;
+    bool  m_settingsFullscreen = false;
 };
