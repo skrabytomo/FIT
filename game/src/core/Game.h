@@ -255,7 +255,8 @@ private:
     bool m_showHeroInspect   = false;
 
     // ── Combat tracking ───────────────────────────────────────────────────────
-    uint32_t m_lastCombatEnemyId = 0;
+    uint32_t                m_lastCombatEnemyId    = 0;
+    std::vector<UnitStack>  m_battleStartArmy;     // hero army snapshot before combat (for FIRST_AID)
 
     // ── Persistent meta layer ──────────────────────────────────────────────────
     HideoutDB    m_hideout;

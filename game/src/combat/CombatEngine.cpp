@@ -83,6 +83,19 @@ void CombatEngine::startBattle(
 
     buildTurnOrder();
 
+    // Apply TACTICS skill: bonus to hero copies before transferring to units
+    auto applyTactics = [](Hero& hero) {
+        if (const SkillInstance* s = hero.skills.getSkill(SID::TACTICS)) {
+            if (const SkillDef* def = findSkillDef(SID::TACTICS)) {
+                int v = def->values[static_cast<int>(s->tier)];
+                hero.attack  += v;
+                hero.defense += v;
+            }
+        }
+    };
+    applyTactics(m_playerHero);
+    applyTactics(m_enemyHero);
+
     // Apply hero attack/defense bonuses to their unit stacks
     for (auto& u : m_grid.units()) {
         if (u.isPlayer) {

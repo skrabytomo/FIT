@@ -431,6 +431,9 @@ void Game::enterCombat(Hero& playerHero,
 {
     m_state = GameState::Combat;
 
+    // Snapshot hero army for FIRST_AID post-combat calculation
+    m_battleStartArmy = playerHero.army;
+
     // Garrison bonus: garrisoned hero grants +2 defense to all their units
     std::vector<CombatUnit> pUnitsGarr = playerUnits;
     if (playerHero.isGarrisoned)
@@ -489,6 +492,25 @@ void Game::exitCombat(bool playerWon)
             if (!merged) hero.army.push_back({cu.defId, cu.count});
         }
         printf("Hero survivors: %zu stacks\n", hero.army.size());
+
+        // Apply FIRST_AID: restore % of casualties from each stack
+        if (playerWon) {
+            if (const SkillInstance* s = hero.skills.getSkill(SID::FIRST_AID)) {
+                if (const SkillDef* def = findSkillDef(SID::FIRST_AID)) {
+                    int healPct = def->values[static_cast<int>(s->tier)];
+                    for (auto& stack : hero.army) {
+                        int startCount = 0;
+                        for (const auto& bs : m_battleStartArmy)
+                            if (bs.defId == stack.defId) { startCount = bs.count; break; }
+                        int lost   = std::max(0, startCount - stack.count);
+                        int healed = lost * healPct / 100;
+                        stack.count += healed;
+                        if (healed > 0)
+                            printf("First Aid: restored %d %s\n", healed, "units");
+                    }
+                }
+            }
+        }
     }
 
     if (playerWon) {
