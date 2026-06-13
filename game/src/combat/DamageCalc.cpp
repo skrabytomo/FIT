@@ -47,24 +47,86 @@ float DamageCalc::weaknessBonus(UnitTag attackerTags, UnitTag defenderTags,
 {
     float bonus = 1.0f;
 
-    // Holy units deal bonus damage to Undead and BloodBound
+    // Holy units deal bonus damage to Undead, BloodBound, and Mechanical
     if (hasTag(attackerTags, UnitTag::Holy)) {
-        if (hasTag(defenderTags, UnitTag::Undead))     bonus *= 1.30f;
-        if (hasTag(defenderTags, UnitTag::BloodBound)) bonus *= 1.20f;
+        if (hasTag(defenderTags, UnitTag::Undead))      bonus *= 1.07f;
+        if (hasTag(defenderTags, UnitTag::BloodBound))  bonus *= 1.04f;
+        if (hasTag(defenderTags, UnitTag::Mechanical))  bonus *= 1.08f;
     }
 
-    // Holy faction bonus vs Undead faction (Light Power bonus — represented here)
-    if (attackerIsHoly && defenderIsUndead) bonus *= 1.15f;
+    // Humanoid units deal bonus damage to Holy (numbers vs faith)
+    if (hasTag(attackerTags, UnitTag::Humanoid)) {
+        if (hasTag(defenderTags, UnitTag::Holy)) bonus *= 1.08f;
+    }
 
-    // Constructs resist BloodBound abilities but are weak to Void
+    // BloodBound deal bonus damage to Holy (primal blood magic corrupts divine light)
+    if (hasTag(attackerTags, UnitTag::BloodBound)) {
+        if (hasTag(defenderTags, UnitTag::Holy)) bonus *= 1.09f;
+    }
+
+    // Void units deal bonus damage to Holy, Undead, Mechanical, Humanoid, and OrganicMech
     if (hasTag(attackerTags, UnitTag::Void)) {
-        if (hasTag(defenderTags, UnitTag::Humanoid))  bonus *= 1.20f;
-        if (hasTag(defenderTags, UnitTag::Holy))       bonus *= 1.40f;
+        if (hasTag(defenderTags, UnitTag::Holy))
+            bonus *= 1.08f;
+        else if (hasTag(defenderTags, UnitTag::Undead))
+            bonus *= 1.08f;
+        else if (hasTag(defenderTags, UnitTag::Mechanical))
+            bonus *= 1.05f;
+        else if (hasTag(defenderTags, UnitTag::Humanoid))
+            bonus *= 1.08f;
+        else if (hasTag(defenderTags, UnitTag::OrganicMech))
+            bonus *= 1.05f;
     }
 
-    // Mechanical units take bonus from Organic-Mech (Amalgamate)
+    // Organic-Mech (Amalgamate) deals bonus damage to Mechanical, Humanoid, Beast, and Void
     if (hasTag(attackerTags, UnitTag::OrganicMech)) {
-        if (hasTag(defenderTags, UnitTag::Mechanical)) bonus *= 1.25f;
+        if (hasTag(defenderTags, UnitTag::Mechanical))    bonus *= 1.12f;
+        else if (hasTag(defenderTags, UnitTag::Humanoid)) bonus *= 1.04f;
+        else if (hasTag(defenderTags, UnitTag::Beast))    bonus *= 1.06f;
+        else if (hasTag(defenderTags, UnitTag::Void))     bonus *= 1.08f;
+    }
+
+    // Undead deal bonus damage to Beast (undead hunger/blight vs living creatures)
+    if (hasTag(attackerTags, UnitTag::Undead)) {
+        if (hasTag(defenderTags, UnitTag::Beast)) bonus *= 1.06f;
+    }
+
+    // BloodBound deal bonus damage to Beast and Undead (primal hunger consumes both)
+    if (hasTag(attackerTags, UnitTag::BloodBound)) {
+        if (hasTag(defenderTags, UnitTag::Beast))  bonus *= 1.08f;
+        if (hasTag(defenderTags, UnitTag::Undead)) bonus *= 1.05f;
+    }
+
+    // Humanoid numbers and tactics overcome Undead resilience
+    if (hasTag(attackerTags, UnitTag::Humanoid)) {
+        if (hasTag(defenderTags, UnitTag::Undead)) bonus *= 1.10f;
+    }
+
+    // Beast deals bonus damage to Void and Undead (primal life-force disrupts both)
+    if (hasTag(attackerTags, UnitTag::Beast)) {
+        if (hasTag(defenderTags, UnitTag::Void))  bonus *= 1.08f;
+        if (hasTag(defenderTags, UnitTag::Undead)) bonus *= 1.08f;
+    }
+
+    // Void units deal bonus damage to BloodBound (entropic void unravels blood-bonds)
+    if (hasTag(attackerTags, UnitTag::Void)) {
+        if (hasTag(defenderTags, UnitTag::BloodBound)) bonus *= 1.08f;
+    }
+
+    // Holy light sears Void energy — counters VO's widespread advantage
+    if (hasTag(attackerTags, UnitTag::Holy)) {
+        if (hasTag(defenderTags, UnitTag::Void)) bonus *= 1.13f;
+    }
+
+    // Humanoid ingenuity overcomes Mechanical brute-force
+    if (hasTag(attackerTags, UnitTag::Humanoid)) {
+        if (hasTag(defenderTags, UnitTag::Mechanical)) bonus *= 1.06f;
+    }
+
+    // Mechanical and Holy have a mutual rivalry — precision disrupts void, faith resists steel
+    if (hasTag(attackerTags, UnitTag::Mechanical)) {
+        if (hasTag(defenderTags, UnitTag::Holy)) bonus *= 0.95f;
+        if (hasTag(defenderTags, UnitTag::Void)) bonus *= 1.04f;
     }
 
     return bonus;
@@ -103,7 +165,7 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
     modifier *= weaknessBonus(attacker.tags, defender.tags, attackerHoly, defenderUndead);
 
     // Retaliation is weaker
-    if (isRetaliation) modifier *= 0.85f;
+    if (isRetaliation) modifier *= 0.50f;
 
     int finalDmg = static_cast<int>(baseDmg * modifier);
     finalDmg = std::max(1, finalDmg);
@@ -111,12 +173,14 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
     result.damage = finalDmg;
     result.killed = defender.applyDamage(finalDmg);
 
-    // Morale update — attacker gains morale on kill
-    if (result.killed > 0 && !attacker.moraleImmune) {
-        attacker.morale += 10 * result.killed;
+    // Morale update — attacker gains morale on kill (not during retaliation; at most one surge/round)
+    if (result.killed > 0 && !isRetaliation && !attacker.moraleImmune
+        && !attacker.moraleSurgedThisRound) {
+        attacker.morale += std::min(10 * result.killed, 60);
         if (attacker.morale >= MORALE_THRESHOLD) {
-            attacker.morale -= MORALE_THRESHOLD;
-            result.moraleTrigger = true; // bonus action granted
+            attacker.morale = 0;  // full reset — prevents cascade on bonus action
+            result.moraleTrigger = true;
+            attacker.moraleSurgedThisRound = true;
         }
     }
 
@@ -125,7 +189,7 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
         defender.morale = std::max(0, defender.morale - 8);
     }
 
-    // Retaliation — defender hits back if alive and hasn't retaliated yet
+    // Retaliation — defender hits back if it hasn't acted yet this round
     if (!isRetaliation && defender.alive && defender.canRetaliate && !defender.hasActed) {
         DamageResult ret = attack(defender, attacker, grid, true);
         defender.canRetaliate = false;
