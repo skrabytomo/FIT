@@ -40,13 +40,17 @@ struct ResourceNodeSave
 // ── World object save ──────────────────────────────────────────────────────────
 struct WorldObjectSave
 {
-    uint32_t id        = 0;
-    int      type      = 0;  // WorldObjectType as int
-    int      posQ      = 0;
-    int      posR      = 0;
-    int      value     = 0;
-    int      resType   = 0;  // ResourceType as int
-    bool     collected = false;
+    uint32_t id         = 0;
+    int      type       = 0;  // WorldObjectType as int
+    int      posQ       = 0;
+    int      posR       = 0;
+    int      value      = 0;
+    int      resType    = 0;  // ResourceType as int
+    bool     collected  = false;
+    int      questState = 0;  // quest progress
+    uint32_t linkedId   = 0;  // linked quest-target id
+    int      available  = 0;  // dwelling units available
+    int      faction    = 0;  // dwelling faction
 };
 
 // ── Hero save data ─────────────────────────────────────────────────────────────

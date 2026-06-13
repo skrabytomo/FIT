@@ -81,18 +81,23 @@ static ResourceNodeSave resNodeFromJson(const json& j)
 static json worldObjToJson(const WorldObjectSave& o)
 {
     return {{"id",o.id},{"type",o.type},{"q",o.posQ},{"r",o.posR},
-            {"val",o.value},{"res",o.resType},{"col",o.collected}};
+            {"val",o.value},{"res",o.resType},{"col",o.collected},
+            {"qs",o.questState},{"lid",o.linkedId},{"avail",o.available},{"fac",o.faction}};
 }
 static WorldObjectSave worldObjFromJson(const json& j)
 {
     WorldObjectSave o;
-    o.id        = j.at("id").get<uint32_t>();
-    o.type      = j.at("type").get<int>();
-    o.posQ      = j.at("q").get<int>();
-    o.posR      = j.at("r").get<int>();
-    o.value     = j.at("val").get<int>();
-    o.resType   = j.value("res", 0);
-    o.collected = j.value("col", false);
+    o.id         = j.at("id").get<uint32_t>();
+    o.type       = j.at("type").get<int>();
+    o.posQ       = j.at("q").get<int>();
+    o.posR       = j.at("r").get<int>();
+    o.value      = j.at("val").get<int>();
+    o.resType    = j.value("res", 0);
+    o.collected  = j.value("col", false);
+    o.questState = j.value("qs", 0);
+    o.linkedId   = j.value("lid", 0u);
+    o.available  = j.value("avail", 0);
+    o.faction    = j.value("fac", 0);
     return o;
 }
 
@@ -504,13 +509,17 @@ GameSaveData SaveLoad::packState(const HexMap& map,
     // World objects
     for (auto& obj : worldObjects) {
         WorldObjectSave os;
-        os.id        = obj.id;
-        os.type      = static_cast<int>(obj.type);
-        os.posQ      = obj.pos.q;
-        os.posR      = obj.pos.r;
-        os.value     = obj.value;
-        os.resType   = static_cast<int>(obj.resourceType);
-        os.collected = obj.collected;
+        os.id         = obj.id;
+        os.type       = static_cast<int>(obj.type);
+        os.posQ       = obj.pos.q;
+        os.posR       = obj.pos.r;
+        os.value      = obj.value;
+        os.resType    = static_cast<int>(obj.resourceType);
+        os.collected  = obj.collected;
+        os.questState = obj.questState;
+        os.linkedId   = obj.linkedId;
+        os.available  = obj.available;
+        os.faction    = obj.faction;
         save.worldObjects.push_back(os);
     }
 
@@ -592,6 +601,10 @@ void SaveLoad::unpackState(const GameSaveData& save,
         obj.value        = os.value;
         obj.resourceType = static_cast<ResourceType>(os.resType);
         obj.collected    = os.collected;
+        obj.questState   = os.questState;
+        obj.linkedId     = os.linkedId;
+        obj.available    = os.available;
+        obj.faction      = os.faction;
         worldObjects.push_back(obj);
     }
 
