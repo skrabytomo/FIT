@@ -1318,8 +1318,9 @@ void Game::renderLevelUpModal()
 
         for (int i = 0; i < static_cast<int>(m_levelUpOffers.size()); ++i) {
             const auto& offer = m_levelUpOffers[i];
+            const SkillDef* offerSd = findSkillDef(offer.skillId);
             ImGui::PushID(i);
-            if (ImGui::Button(offer.label.c_str(), ImVec2(-1, 0))) {
+            if (ImGui::Button(offer.label.c_str(), ImVec2(-1, 36))) {
                 LevelUpSystem::applyOffer(offer, hero.skills);
 
                 // Apply immediate passive bonuses from the newly learned skill
@@ -1363,7 +1364,15 @@ void Game::renderLevelUpModal()
                 m_showLevelUpModal = false;
                 ImGui::CloseCurrentPopup();
             }
+            // Show description below button
+            if (offerSd) {
+                ImGui::SameLine(0, 4);
+                ImGui::TextDisabled("  %s", offerSd->description.c_str());
+            }
+            if (ImGui::IsItemHovered() && offerSd)
+                ImGui::SetTooltip("%s", offerSd->description.c_str());
             ImGui::PopID();
+            ImGui::Spacing();
         }
 
         ImGui::Spacing();
@@ -1517,8 +1526,30 @@ void Game::renderHeroInspect()
         ImGui::Text("Spells:");
         for (int sid : hero.knownSpells) {
             const SpellDef* sp = findSpell(sid);
-            if (sp) ImGui::Text("  %s  (%d mana)", sp->name, sp->manaCost);
+            if (sp) {
+                ImGui::Text("  %s  (%d mana)", sp->name, sp->manaCost);
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", sp->desc);
+            }
         }
+    }
+
+    if (!hero.army.empty()) {
+        ImGui::Spacing();
+        ImGui::Text("Army:");
+        ImGui::Separator();
+        const auto& unitDefs = m_registry.units();
+        int totalStrength = 0;
+        for (const auto& stack : hero.army) {
+            if (stack.count <= 0) continue;
+            const char* uname = "Unknown";
+            for (const auto& ud : unitDefs)
+                if (ud.id == stack.defId) { uname = ud.name.c_str(); break; }
+            ImGui::Text("  %-24s x%d", uname, stack.count);
+            totalStrength += stack.count;
+        }
+        ImGui::Spacing();
+        ImGui::TextDisabled("  Total units: %d", totalStrength);
     }
     ImGui::End();
 }
