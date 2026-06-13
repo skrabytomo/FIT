@@ -1354,6 +1354,7 @@ void Game::renderVictoryModal()
         float bw = ImGui::GetWindowWidth() - 32.0f;
         if (ImGui::Button("Continue Exploring", ImVec2(bw * 0.55f, 36))) {
             m_showVictory = false;
+            m_audio.playMusic("worldmap_music");
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
@@ -1385,12 +1386,14 @@ void Game::renderDefeatModal()
         float bw = ImGui::GetWindowWidth() - 32.0f;
         if (ImGui::Button("Continue (retreat)", ImVec2(bw * 0.55f, 36))) {
             m_showDefeat = false;
+            m_audio.playMusic("worldmap_music");
             ImGui::CloseCurrentPopup();
         }
         ImGui::SameLine();
         if (ImGui::Button("Load Last Save", ImVec2(-1, 36))) {
             m_showDefeat = false;
-            loadGame("saves/save0.json");
+            loadGame("saves/save" + std::to_string(m_activeSlot) + ".json");
+            m_audio.playMusic("worldmap_music");
             ImGui::CloseCurrentPopup();
         }
         ImGui::EndPopup();

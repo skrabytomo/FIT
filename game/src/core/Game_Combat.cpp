@@ -474,7 +474,10 @@ void Game::exitCombat(bool playerWon)
 
         m_hideout.addXP(50);
         m_triggers.fire(TriggerType::BattleWon, ctx);
-        if (m_enemyHeroes.empty()) m_showVictory = true;
+        if (m_enemyHeroes.empty()) {
+            m_showVictory = true;
+            m_audio.playSound("victory");
+        }
 
         // Award hero XP
         if (!m_heroes.empty()) {
@@ -518,6 +521,7 @@ void Game::exitCombat(bool playerWon)
         m_lastBanditCampId = 0;
         m_triggers.fire(TriggerType::BattleLost, ctx);
         m_showDefeat = true;
+        m_audio.playSound("hit");   // thud indicates loss
     }
     m_audio.playMusic("worldmap_music");
     enterWorldMap();
