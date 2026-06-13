@@ -42,8 +42,9 @@ void CombatUnit::newRound()
     hasActed          = false;
     waitUsed          = false;
     canRetaliate      = true;
-    roundAttackBonus  = 0;
-    roundDefenseBonus = 0;
+    roundAttackBonus      = 0;
+    roundDefenseBonus     = 0;
+    moraleSurgedThisRound = false;
 
     // Tick defend buff down; remove it when it expires
     if (defendRoundsLeft > 0) {

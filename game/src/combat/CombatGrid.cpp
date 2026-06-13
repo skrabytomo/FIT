@@ -1,9 +1,8 @@
 #include "CombatGrid.h"
 #include <algorithm>
 #include <queue>
+#include <random>
 #include <unordered_map>
-#include <cstdlib>
-#include <ctime>
 
 void CombatGrid::init(float hexSize)
 {
@@ -227,14 +226,20 @@ void CombatGrid::setTileType(HexCoord h, CombatTileType type)
     if (tile) tile->type = type;
 }
 
-void CombatGrid::placeRandomSpecialTiles(int count)
+void CombatGrid::placeRandomSpecialTiles(int count, uint32_t seed)
 {
-    srand(static_cast<unsigned>(time(nullptr)));
+    std::mt19937 rng{seed};
+    static const CombatTileType types[] = {
+        CombatTileType::Attack,
+        CombatTileType::Defense,
+        CombatTileType::Speed,
+        CombatTileType::SpeedPenalty,
+    };
     int placed = 0;
     int attempts = 0;
     while (placed < count && attempts < 100) {
         ++attempts;
-        int idx = rand() % static_cast<int>(m_coords.size());
+        int idx = static_cast<int>(rng() % static_cast<uint32_t>(m_coords.size()));
         HexCoord h = m_coords[idx];
         auto* tile = getTile(h);
         if (!tile || tile->type != CombatTileType::Normal) continue;
@@ -242,13 +247,7 @@ void CombatGrid::placeRandomSpecialTiles(int count)
         // Don't place on far left or right columns (spawn zones)
         if (h.q < 1 || h.q > COLS - 2) continue;
 
-        static const CombatTileType types[] = {
-            CombatTileType::Attack,
-            CombatTileType::Defense,
-            CombatTileType::Speed,
-            CombatTileType::SpeedPenalty,
-        };
-        tile->type = types[rand() % 4];
+        tile->type = types[rng() % 4];
         ++placed;
     }
 }

@@ -28,7 +28,7 @@ public:
                                 bool attackerIsHolyFaction, bool defenderIsUndeadFaction);
 
     // Morale bonus action threshold
-    static constexpr int MORALE_THRESHOLD = 100;
+    static constexpr int MORALE_THRESHOLD = 160;
 
     static void seedRng(uint32_t seed);
 

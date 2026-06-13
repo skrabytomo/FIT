@@ -73,9 +73,10 @@ struct CombatUnit
     bool        hasSecondLife  = false;
     bool        secondLifeUsed = false;
 
-    // Per-round temporary bonuses (cleared by newRound())
+    // Per-round temporary bonuses and flags (cleared by newRound())
     int         roundAttackBonus  = 0;
     int         roundDefenseBonus = 0;
+    bool        moraleSurgedThisRound = false;
 
     // Defend buff — lasts up to 3 rounds, refreshed if Defend used again
     int         defendRoundsLeft   = 0;

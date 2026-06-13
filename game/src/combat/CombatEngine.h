@@ -86,6 +86,9 @@ public:
     void setSilent(bool s) { m_silent = s; }
     CombatPhase runHeadless(int maxRounds = 60);
 
+    // Seed the per-battle turn-order RNG (call alongside DamageCalc::seedRng)
+    static void seedTurnRng(uint32_t seed);
+
     // AI difficulty — affects both processAITurn() and the player side in runHeadless()
     void setPlayerAI(AIDifficulty d) { m_playerAI = d; }
     void setEnemyAI(AIDifficulty d)  { m_enemyAI  = d; }

@@ -2,8 +2,13 @@
 #include "../hero/SkillRegistry.h"
 #include "../magic/SpellRegistry.h"
 #include <algorithm>
+#include <random>
 #include <stdio.h>
 #include <sstream>
+
+static thread_local std::mt19937 s_turnRng{42};
+
+void CombatEngine::seedTurnRng(uint32_t seed) { s_turnRng.seed(seed); }
 
 void CombatEngine::addLog(const std::string& msg)
 {
@@ -27,7 +32,7 @@ void CombatEngine::startBattle(
     m_waitQueue.clear();
 
     m_grid.init(48.0f);
-    if (!isSiege) m_grid.placeRandomSpecialTiles(4);
+    if (!isSiege) m_grid.placeRandomSpecialTiles(4, s_turnRng());
 
     // Place player units on left side (columns 0-1)
     int playerRow = 1;
@@ -160,15 +165,29 @@ void CombatEngine::buildTurnOrder()
     for (auto& u : m_grid.units())
         if (u.alive) m_turnOrder.push_back(u.id);
 
-    // Sort by speed descending, player units win ties
-    std::sort(m_turnOrder.begin(), m_turnOrder.end(),
+    // Sort by speed descending
+    std::stable_sort(m_turnOrder.begin(), m_turnOrder.end(),
         [this](uint32_t a, uint32_t b) {
             auto* ua = m_grid.getUnit(a);
             auto* ub = m_grid.getUnit(b);
             if (!ua || !ub) return false;
-            if (ua->speed != ub->speed) return ua->speed > ub->speed;
-            return ua->isPlayer > ub->isPlayer; // player wins ties
+            return ua->speed > ub->speed;
         });
+
+    // Shuffle within each equal-speed group to remove player-side turn bias
+    for (size_t i = 0; i < m_turnOrder.size(); ) {
+        auto* ua = m_grid.getUnit(m_turnOrder[i]);
+        int   spd = ua ? ua->speed : 0;
+        size_t j = i + 1;
+        while (j < m_turnOrder.size()) {
+            auto* ub = m_grid.getUnit(m_turnOrder[j]);
+            if (!ub || ub->speed != spd) break;
+            ++j;
+        }
+        if (j - i > 1)
+            std::shuffle(m_turnOrder.begin() + i, m_turnOrder.begin() + j, s_turnRng);
+        i = j;
+    }
 
     m_turnIndex = 0;
     m_waitQueue.clear();
@@ -183,6 +202,9 @@ CombatUnit* CombatEngine::activeUnit()
 // ── Advance to next unit ───────────────────────────────────────────────────────
 void CombatEngine::advanceTurn()
 {
+    // Free tiles and purge units killed since last advance (safe point — no live unit refs held)
+    m_grid.removeDeadUnits();
+
     m_turnIndex++;
 
     // Skip dead units
@@ -494,7 +516,7 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
         std::ostringstream ss;
         ss << unit.name << " shoots " << target->name << " for " << result.damage;
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -507,7 +529,7 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
         std::ostringstream ss;
         ss << unit.name << " attacks " << target->name << " for " << result.damage;
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -518,7 +540,24 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
     auto melee = m_grid.meleePositions(target->pos);
     if (!melee.empty()) {
         auto path = m_grid.findPath(unit.pos, melee[0], unit.flying);
-        if (!path.empty()) { m_grid.moveUnit(unit.id, path[0]); unit.hasMoved = true; }
+        if (!path.empty()) {
+            int steps = std::min(unit.speed, static_cast<int>(path.size()));
+            m_grid.moveUnit(unit.id, path[steps - 1]);
+            unit.hasMoved = true;
+            // Attack immediately if movement reached melee range
+            if (target->alive && HexGrid::distance(unit.pos, target->pos) == 1) {
+                auto result = DamageCalc::attack(unit, *target, m_grid);
+                std::ostringstream ss;
+                ss << unit.name << " attacks " << target->name << " for " << result.damage;
+                addLog(ss.str());
+                if (!target->alive) { addLog(target->name + " destroyed!"); }
+                if (result.moraleTrigger) {
+                    addLog(unit.name + " morale surge — bonus action!");
+                    unit.hasActed = false; unit.hasMoved = false; return;
+                }
+                unit.hasActed = true; advanceTurn(); return;
+            }
+        }
     }
     unit.hasActed = true; advanceTurn();
 }
@@ -543,7 +582,7 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
         ss << unit.name << " shoots " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -557,7 +596,7 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
         ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -570,7 +609,26 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
         HexCoord best = melee[0]; int d = HexGrid::distance(unit.pos, best);
         for (auto& h : melee) { int nd = HexGrid::distance(unit.pos, h); if (nd < d) { d = nd; best = h; } }
         auto path = m_grid.findPath(unit.pos, best, unit.flying);
-        if (!path.empty()) { m_grid.moveUnit(unit.id, path[0]); unit.hasMoved = true; addLog(unit.name + " moves toward " + target->name); }
+        if (!path.empty()) {
+            int steps = std::min(unit.speed, static_cast<int>(path.size()));
+            m_grid.moveUnit(unit.id, path[steps - 1]);
+            unit.hasMoved = true;
+            addLog(unit.name + " moves toward " + target->name);
+            // Attack immediately if movement reached melee range
+            if (target->alive && HexGrid::distance(unit.pos, target->pos) == 1) {
+                auto result = DamageCalc::attack(unit, *target, m_grid);
+                std::ostringstream ss;
+                ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
+                if (result.killed) ss << " (" << result.killed << " killed)";
+                addLog(ss.str());
+                if (!target->alive) { addLog(target->name + " destroyed!"); }
+                if (result.moraleTrigger) {
+                    addLog(unit.name + " morale surge — bonus action!");
+                    unit.hasActed = false; unit.hasMoved = false; return;
+                }
+                unit.hasActed = true; advanceTurn(); return;
+            }
+        }
     }
     unit.hasActed = true; advanceTurn();
 }
@@ -607,11 +665,12 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
             }
         }
 
-        // Shoot enemy with lowest total HP
+        // Shoot enemy with lowest total HP that is within range
         CombatUnit* shtTarget = nullptr;
         int lowestHp = INT32_MAX;
         for (auto& u : m_grid.units()) {
             if (!u.alive || u.isPlayer == unit.isPlayer) continue;
+            if (HexGrid::distance(unit.pos, u.pos) > unit.range) continue;
             if (u.totalHp() < lowestHp) { lowestHp = u.totalHp(); shtTarget = &u; }
         }
         if (shtTarget) {
@@ -620,7 +679,7 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
             std::ostringstream ss;
             ss << unit.name << " shoots " << shtTarget->name << " for " << result.damage;
             addLog(ss.str());
-            if (!shtTarget->alive) { addLog(shtTarget->name + " destroyed!"); m_grid.removeDeadUnits(); }
+            if (!shtTarget->alive) { addLog(shtTarget->name + " destroyed!"); }
             if (result.moraleTrigger) {
                 addLog(unit.name + " morale surge — bonus action!");
                 unit.hasActed = false; unit.hasMoved = false; return;
@@ -649,7 +708,7 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
         ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); m_grid.removeDeadUnits(); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -662,7 +721,47 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
         HexCoord best = melee[0]; int d = HexGrid::distance(unit.pos, best);
         for (auto& h : melee) { int nd = HexGrid::distance(unit.pos, h); if (nd < d) { d = nd; best = h; } }
         auto path = m_grid.findPath(unit.pos, best, unit.flying);
-        if (!path.empty()) { m_grid.moveUnit(unit.id, path[0]); unit.hasMoved = true; }
+        if (!path.empty()) {
+            int steps = std::min(unit.speed, static_cast<int>(path.size()));
+            // Ranged: stop advancing as soon as we enter effective range of target
+            if (unit.range > 0 && unit.shotsLeft > 0) {
+                for (int s = 0; s < steps; ++s) {
+                    if (HexGrid::distance(path[s], target->pos) <= unit.range) {
+                        steps = s + 1; break;
+                    }
+                }
+            }
+            m_grid.moveUnit(unit.id, path[steps - 1]);
+            unit.hasMoved = true;
+            // If now in range: shoot immediately (ranged) or attack (melee)
+            int nowDist = HexGrid::distance(unit.pos, target->pos);
+            if (unit.range > 0 && unit.shotsLeft > 0 && nowDist <= unit.range && target->alive) {
+                unit.shotsLeft--;
+                auto result = DamageCalc::attack(unit, *target, m_grid);
+                std::ostringstream ss;
+                ss << unit.name << " moves+shoots " << target->name << " for " << result.damage;
+                addLog(ss.str());
+                if (!target->alive) { addLog(target->name + " destroyed!"); }
+                if (result.moraleTrigger) {
+                    addLog(unit.name + " morale surge — bonus action!");
+                    unit.hasActed = false; unit.hasMoved = false; return;
+                }
+                unit.hasActed = true; advanceTurn(); return;
+            }
+            if (target->alive && nowDist == 1) {
+                auto result = DamageCalc::attack(unit, *target, m_grid);
+                std::ostringstream ss;
+                ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
+                if (result.killed) ss << " (" << result.killed << " killed)";
+                addLog(ss.str());
+                if (!target->alive) { addLog(target->name + " destroyed!"); }
+                if (result.moraleTrigger) {
+                    addLog(unit.name + " morale surge — bonus action!");
+                    unit.hasActed = false; unit.hasMoved = false; return;
+                }
+                unit.hasActed = true; advanceTurn(); return;
+            }
+        }
     }
     unit.hasActed = true; advanceTurn();
 }
@@ -742,8 +841,10 @@ void CombatEngine::applySymbiosisRound()
         }
 
         if (hasBond) {
-            unit.roundAttackBonus  += val;
-            unit.roundDefenseBonus += val;
+            constexpr int SYMBIOSIS_CAP = 1;
+            int gain = std::min(val, std::max(0, SYMBIOSIS_CAP - unit.roundAttackBonus));
+            unit.roundAttackBonus  += gain;
+            unit.roundDefenseBonus += gain;
         }
     }
 }

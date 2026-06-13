@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 #include <vector>
 #include <unordered_map>
 #include "CombatUnit.h"
@@ -62,7 +63,7 @@ public:
 
     // Special tile setup
     void setTileType(HexCoord h, CombatTileType type);
-    void placeRandomSpecialTiles(int count = 4);
+    void placeRandomSpecialTiles(int count, uint32_t seed);
 
 private:
     HexGrid m_hexGrid{ 48.0f };

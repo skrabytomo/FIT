@@ -53,6 +53,7 @@ FactionMatchup Simulator::runMatchup(FactionId f1, FactionId f2,
 
     for (int b = 0; b < numBattles; ++b) {
         DamageCalc::seedRng(baseSeed + static_cast<uint32_t>(b));
+        CombatEngine::seedTurnRng(baseSeed + static_cast<uint32_t>(b) + 0x9e3779b9u);
 
         engine.startBattle(hero1, army1Base, hero2, army2Base);
         CombatPhase result = engine.runHeadless(MAX_ROUNDS);
