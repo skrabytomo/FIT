@@ -189,6 +189,8 @@ void Game::processEvents()
                 exitTown();
             else if (m_state == GameState::Combat)
                 exitCombat(false);
+            else if (m_state == GameState::WorldMap || m_state == GameState::Campaign)
+                m_showPauseMenu = !m_showPauseMenu;
             else
                 m_running = false;
         }

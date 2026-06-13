@@ -262,6 +262,48 @@ void Game::renderTownLostPopup()
     }
 }
 
+// ── Pause menu (Escape on world map) ─────────────────────────────────────────
+void Game::renderPauseMenu()
+{
+    ImGui::OpenPopup("Paused");
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(220, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal("Paused", nullptr, ImGuiWindowFlags_AlwaysAutoResize |
+                               ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+        ImGui::TextColored(ImVec4(0.9f, 0.85f, 0.6f, 1.0f), "Game Paused");
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (ImGui::Button("Resume  [Esc]", ImVec2(-1, 32))) {
+            m_showPauseMenu = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::Spacing();
+
+        if (ImGui::Button("Save Game  [F5]", ImVec2(-1, 32))) {
+            saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
+            m_showPauseMenu = false;
+            ImGui::CloseCurrentPopup();
+        }
+
+        if (ImGui::Button("Main Menu", ImVec2(-1, 32))) {
+            m_showPauseMenu = false;
+            m_state = GameState::MainMenu;
+            ImGui::CloseCurrentPopup();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        if (ImGui::Button("Quit to Desktop", ImVec2(-1, 28))) {
+            m_running = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
 // ── Week summary popup ────────────────────────────────────────────────────────
 void Game::renderWeekSummary()
 {

@@ -289,6 +289,10 @@ private:
     bool     m_showQuestPopup      = false;
     uint32_t m_lastBanditCampId    = 0;
 
+    // ── Pause menu (Escape on world map) ─────────────────────────────────────
+    bool m_showPauseMenu = false;
+    void renderPauseMenu();
+
     // ── Week summary popup ────────────────────────────────────────────────────
     bool      m_showWeekSummary   = false;
     int       m_weekSummaryWeek   = 0;

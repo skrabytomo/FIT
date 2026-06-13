@@ -509,6 +509,7 @@ void Game::renderWorldMap()
     if (m_showQuestPopup)       renderQuestPopup();
     if (m_showTownLostPopup)  renderTownLostPopup();
     if (m_showWeekSummary)    renderWeekSummary();
+    if (m_showPauseMenu)      renderPauseMenu();
     if (m_showVictory)        renderVictoryModal();
     if (m_showDefeat)         renderDefeatModal();
     endImGuiFrame();
@@ -856,6 +857,11 @@ void Game::checkTileEvents()
             if (r.id == tile->resourceId && r.ownedBy != 1) {
                 r.ownedBy = 1;
                 m_playerResources.add(r.type, r.amount); // first-capture payout
+                char mineBuf[48];
+                std::snprintf(mineBuf, sizeof(mineBuf), "+%d %s/week",
+                              r.amount, resourceName(r.type));
+                pushPickupEffect(hero.pos, mineBuf, IM_COL32(255, 220, 80, 255));
+                m_audio.playSound("buy");
                 printf("Claimed mine: +%d %s/week\n", r.amount, resourceName(r.type));
                 break;
             }
