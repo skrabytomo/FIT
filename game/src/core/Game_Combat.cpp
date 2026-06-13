@@ -305,6 +305,14 @@ void Game::renderCombatBoard()
             dotX += 10.0f;
         } else if (u.roundDefenseBonus < 0) {
             dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(160, 60, 200, 220));  // purple = def debuff
+            dotX += 10.0f;
+        }
+        if (u.poisonRounds > 0) {
+            dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(80, 220, 80, 220));   // green = poisoned
+            dotX += 10.0f;
+        }
+        if (u.burnRounds > 0) {
+            dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(255, 120, 40, 220));  // orange = burning
         }
 
         // Stack count label (bottom-center)

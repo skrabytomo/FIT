@@ -161,6 +161,7 @@ void CombatEngine::applyArtifactBonuses(const ArtifactBonus& pb, const ArtifactB
 // ── Turn order ─────────────────────────────────────────────────────────────────
 void CombatEngine::buildTurnOrder()
 {
+    m_enemyHeroSpellUsed = false;   // hero gets one cast per round
     m_turnOrder.clear();
     for (auto& u : m_grid.units())
         if (u.alive) m_turnOrder.push_back(u.id);
@@ -224,8 +225,12 @@ void CombatEngine::advanceTurn()
         } else {
             // New round
             m_round++;
+            // Mana regenerates 3 per round for both heroes
+            m_playerHero.mana = std::min(m_playerHero.maxMana, m_playerHero.mana + 3);
+            m_enemyHero.mana  = std::min(m_enemyHero.maxMana,  m_enemyHero.mana  + 3);
             for (auto& u : m_grid.units()) u.newRound();
             buildTurnOrder();
+            processRoundStartEffects();
             applySymbiosisRound();
             addLog("=== Round " + std::to_string(m_round) + " ===");
         }
@@ -458,6 +463,17 @@ bool CombatEngine::submitAction(const CombatAction& action)
                         t->morale = std::max(0, t->morale - potency);
                     ss << " → " << t->name << " morale -" << potency;
                     break;
+                case SpellEffect::Poison:
+                    // Stack with existing poison (keep higher damage, max duration)
+                    if (potency > t->poisonDamage) t->poisonDamage = potency;
+                    t->poisonRounds = std::max(t->poisonRounds, 3);
+                    ss << " → " << t->name << " poisoned (" << potency << " dmg/round, 3 rounds)";
+                    break;
+                case SpellEffect::Burn:
+                    if (potency > t->burnDamage) t->burnDamage = potency;
+                    t->burnRounds = std::max(t->burnRounds, 2);
+                    ss << " → " << t->name << " burned (" << potency << " dmg/round, 2 rounds)";
+                    break;
             }
         }
         addLog(ss.str());
@@ -493,6 +509,9 @@ void CombatEngine::skipUnit()
 // ── Simple AI ──────────────────────────────────────────────────────────────────
 void CombatEngine::processAITurn()
 {
+    // Hero casts one spell at the start of each AI phase (before units move)
+    tryEnemyHeroSpell();
+
     while (m_phase == CombatPhase::EnemyTurn) {
         CombatUnit* unit = activeUnit();
         if (!unit || unit->isPlayer) break;
@@ -859,6 +878,221 @@ void CombatEngine::applySymbiosisRound()
             unit.roundDefenseBonus += gain;
         }
     }
+}
+
+// ── DoT tick + round-start effects ────────────────────────────────────────────
+void CombatEngine::processRoundStartEffects()
+{
+    for (auto& u : m_grid.units()) {
+        if (!u.alive) continue;
+        if (u.poisonRounds > 0) {
+            int dmg = u.poisonDamage;
+            u.applyDamage(dmg);
+            std::ostringstream ss;
+            ss << u.name << " takes " << dmg << " poison damage";
+            if (!u.alive) ss << " and perishes!";
+            addLog(ss.str());
+            --u.poisonRounds;
+            if (u.poisonRounds == 0) u.poisonDamage = 0;
+        }
+        if (u.burnRounds > 0) {
+            int dmg = u.burnDamage;
+            u.applyDamage(dmg);
+            std::ostringstream ss;
+            ss << u.name << " takes " << dmg << " burn damage";
+            if (!u.alive) ss << " and is incinerated!";
+            addLog(ss.str());
+            --u.burnRounds;
+            if (u.burnRounds == 0) u.burnDamage = 0;
+        }
+    }
+    m_grid.removeDeadUnits();
+    checkVictory();
+}
+
+// ── Enemy hero AI spell casting (one spell per round) ─────────────────────────
+void CombatEngine::tryEnemyHeroSpell()
+{
+    if (m_enemyHeroSpellUsed) return;
+    if (m_phase != CombatPhase::EnemyTurn) return;
+
+    Hero& hero = m_enemyHero;
+    if (hero.knownSpells.empty() || hero.mana <= 0) return;
+
+    const SpellDef* bestSpell    = nullptr;
+    uint32_t        bestTargetId = 0;
+    float           bestScore    = 0.0f;
+
+    for (int sid : hero.knownSpells) {
+        const SpellDef* spell = findSpell(sid);
+        if (!spell || hero.mana < spell->manaCost) continue;
+
+        int schoolPow = 0;
+        switch (spell->school) {
+            case SpellSchool::Light:  schoolPow = hero.lightPower;  break;
+            case SpellSchool::Blood:  schoolPow = hero.bloodPower;  break;
+            case SpellSchool::Death:  schoolPow = hero.deathPower;  break;
+            case SpellSchool::Nature: schoolPow = hero.naturePower; break;
+            case SpellSchool::Forge:  schoolPow = hero.forgePower;  break;
+            case SpellSchool::Flesh:  schoolPow = hero.fleshPower;  break;
+        }
+        int potency = spell->power + schoolPow;
+
+        // Score offensive spells against player units
+        switch (spell->effect) {
+            case SpellEffect::Damage: {
+                if (spell->target == SpellTarget::SingleEnemy) {
+                    // Prefer the unit most killable for damage cost
+                    for (auto& u : m_grid.units()) {
+                        if (!u.alive || !u.isPlayer) continue;
+                        float s = (float)potency * 2.0f / std::max(1, u.totalHp());
+                        if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = u.id; }
+                    }
+                } else if (spell->target == SpellTarget::AllEnemies) {
+                    int n = 0;
+                    for (auto& u : m_grid.units()) if (u.alive && u.isPlayer) ++n;
+                    float s = (float)potency * n * 0.4f;
+                    if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
+                }
+                break;
+            }
+            case SpellEffect::Poison: {
+                if (spell->target == SpellTarget::SingleEnemy) {
+                    for (auto& u : m_grid.units()) {
+                        if (!u.alive || !u.isPlayer || u.poisonRounds > 0) continue;
+                        float s = (float)potency * 3.0f; // 3 rounds of value
+                        if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = u.id; }
+                    }
+                } else if (spell->target == SpellTarget::AllEnemies) {
+                    int n = 0;
+                    for (auto& u : m_grid.units()) if (u.alive && u.isPlayer && u.poisonRounds == 0) ++n;
+                    float s = (float)potency * n * 2.0f;
+                    if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
+                }
+                break;
+            }
+            case SpellEffect::Burn: {
+                if (spell->target == SpellTarget::SingleEnemy) {
+                    for (auto& u : m_grid.units()) {
+                        if (!u.alive || !u.isPlayer || u.burnRounds > 0) continue;
+                        float s = (float)potency * 2.0f; // 2 rounds of value
+                        if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = u.id; }
+                    }
+                } else if (spell->target == SpellTarget::AllEnemies) {
+                    int n = 0;
+                    for (auto& u : m_grid.units()) if (u.alive && u.isPlayer && u.burnRounds == 0) ++n;
+                    float s = (float)potency * n * 1.5f;
+                    if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
+                }
+                break;
+            }
+            case SpellEffect::AttackDebuff:
+            case SpellEffect::DefenseDebuff: {
+                if (spell->target == SpellTarget::SingleEnemy) {
+                    // Debuff the strongest player unit (highest attack)
+                    for (auto& u : m_grid.units()) {
+                        if (!u.alive || !u.isPlayer) continue;
+                        if (u.buffAttackRounds > 0 || u.buffDefenseRounds > 0) continue;
+                        float s = (float)potency * 1.5f + u.attack * 0.5f;
+                        if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = u.id; }
+                    }
+                } else if (spell->target == SpellTarget::AllEnemies) {
+                    int n = 0;
+                    for (auto& u : m_grid.units()) if (u.alive && u.isPlayer) ++n;
+                    float s = (float)potency * n * 1.0f;
+                    if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
+                }
+                break;
+            }
+            case SpellEffect::MoraleDrain: {
+                int n = 0;
+                for (auto& u : m_grid.units()) if (u.alive && u.isPlayer && !u.moraleImmune) ++n;
+                float s = (float)potency * n * 0.6f;
+                if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
+                break;
+            }
+            default: break;  // skip buffs/heals for AI (don't benefit enemy hero)
+        }
+    }
+
+    if (!bestSpell || bestScore <= 0.0f) return;
+
+    // Deduct mana and mark as used
+    hero.mana -= bestSpell->manaCost;
+    m_enemyHeroSpellUsed = true;
+
+    int schoolPow = 0;
+    switch (bestSpell->school) {
+        case SpellSchool::Light:  schoolPow = hero.lightPower;  break;
+        case SpellSchool::Blood:  schoolPow = hero.bloodPower;  break;
+        case SpellSchool::Death:  schoolPow = hero.deathPower;  break;
+        case SpellSchool::Nature: schoolPow = hero.naturePower; break;
+        case SpellSchool::Forge:  schoolPow = hero.forgePower;  break;
+        case SpellSchool::Flesh:  schoolPow = hero.fleshPower;  break;
+    }
+    int potency = bestSpell->power + schoolPow;
+
+    // Gather targets
+    std::vector<CombatUnit*> targets;
+    switch (bestSpell->target) {
+        case SpellTarget::SingleEnemy: {
+            auto* t = m_grid.getUnit(bestTargetId);
+            if (t && t->alive && t->isPlayer) targets.push_back(t);
+            break;
+        }
+        case SpellTarget::AllEnemies:
+            for (auto& u : m_grid.units())
+                if (u.alive && u.isPlayer) targets.push_back(&u);
+            break;
+        default: break;
+    }
+    if (targets.empty()) return;
+
+    std::ostringstream ss;
+    ss << "[Enemy Hero] casts " << bestSpell->name;
+
+    for (CombatUnit* t : targets) {
+        switch (bestSpell->effect) {
+            case SpellEffect::Damage: {
+                int dmg = std::max(1, potency);
+                HexCoord tp = t->pos; uint32_t tid = t->id;
+                t->applyDamage(dmg);
+                ss << " → " << t->name << " -" << dmg << " HP";
+                if (m_dmgCb) m_dmgCb(tid, dmg, tp);
+                if (!t->alive) ss << " (destroyed)";
+                break;
+            }
+            case SpellEffect::Poison:
+                if (potency > t->poisonDamage) t->poisonDamage = potency;
+                t->poisonRounds = std::max(t->poisonRounds, 3);
+                ss << " → " << t->name << " poisoned (" << potency << "/round)";
+                break;
+            case SpellEffect::Burn:
+                if (potency > t->burnDamage) t->burnDamage = potency;
+                t->burnRounds = std::max(t->burnRounds, 2);
+                ss << " → " << t->name << " burned (" << potency << "/round)";
+                break;
+            case SpellEffect::AttackDebuff:
+                t->roundAttackBonus  -= bestSpell->power;
+                t->buffAttackRounds   = 2;
+                ss << " → " << t->name << " -" << bestSpell->power << " atk";
+                break;
+            case SpellEffect::DefenseDebuff:
+                t->roundDefenseBonus -= bestSpell->power;
+                t->buffDefenseRounds  = 2;
+                ss << " → " << t->name << " -" << bestSpell->power << " def";
+                break;
+            case SpellEffect::MoraleDrain:
+                if (!t->moraleImmune) t->morale = std::max(0, t->morale - potency);
+                ss << " → " << t->name << " morale -" << potency;
+                break;
+            default: break;
+        }
+    }
+
+    addLog(ss.str());
+    m_grid.removeDeadUnits();
+    checkVictory();
 }
 
 // ── Victory check ──────────────────────────────────────────────────────────────

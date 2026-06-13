@@ -422,6 +422,35 @@ void Game::startNewGame()
         // Give enemy heroes a starting attack/defense boost scaled by difficulty
         eHero.attack  += 1;
         eHero.defense += 1;
+        // Faction-specific spells and school power for the enemy hero
+        // Two spells: one offensive/debuff + one DoT or heavy hitter
+        static const int kEnemySpells[9][2] = {
+            {SPL::SMITE,         SPL::RADIANCE},         // HolyOrder
+            {SPL::WITHER,        SPL::VENOMOUS_CLOUD},   // CrimsonWardens
+            {SPL::ENTANGLE,      SPL::SERPENT_VENOM},    // Thornkin
+            {SPL::CURSE,         SPL::WITHER},            // EternalEmpire
+            {SPL::DRAIN_LIFE,    SPL::ENERVATE},          // Bloodsworn
+            {SPL::CURSE,         SPL::PLAGUE},            // Voidkin
+            {SPL::SHRAPNEL,      SPL::NAPALM},            // IronAssembly
+            {SPL::FESTER,        SPL::ACID_SPRAY},        // Amalgamate
+            {SPL::SMITE,         SPL::SHRAPNEL},          // Convergence
+        };
+        eHero.knownSpells = { kEnemySpells[efi][0], kEnemySpells[efi][1] };
+        eHero.mana    = 20;
+        eHero.maxMana = 20;
+        // School power scales enemy hero spells (roughly half player's starting tier)
+        switch (ef) {
+            case FactionId::HolyOrder:      eHero.lightPower  = 2; break;
+            case FactionId::CrimsonWardens: eHero.deathPower  = 2; break;
+            case FactionId::Thornkin:       eHero.naturePower = 2; break;
+            case FactionId::EternalEmpire:  eHero.deathPower  = 2; break;
+            case FactionId::Bloodsworn:     eHero.bloodPower  = 2; break;
+            case FactionId::Voidkin:        eHero.deathPower  = 2; break;
+            case FactionId::IronAssembly:   eHero.forgePower  = 2; break;
+            case FactionId::Amalgamate:     eHero.fleshPower  = 2; break;
+            case FactionId::Convergence:    eHero.lightPower  = 1; eHero.forgePower = 1; break;
+            default: break;
+        }
         giveStartingArmy(eHero);
         m_enemyHeroes.push_back(eHero);
         if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;

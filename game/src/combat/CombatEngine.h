@@ -104,12 +104,14 @@ private:
     void applyTileEffect(CombatUnit& unit);
     void addLog(const std::string& msg);
     void applySymbiosisRound(); // Thornkin bond bonus — called at round start
+    void processRoundStartEffects(); // DoT tick, mana regen — called at round start
 
     // AI dispatch — delegates to difficulty-specific implementation
     void aiActUnit(CombatUnit& unit);
     void aiActPassive(CombatUnit& unit);   // random target, no priority
     void aiActStandard(CombatUnit& unit);  // nearest enemy (current behaviour)
     void aiActTactical(CombatUnit& unit);  // weakest stack first, protect ranged
+    void tryEnemyHeroSpell();              // enemy hero casts one spell per round
 
     CombatGrid  m_grid;
     CombatPhase m_phase     = CombatPhase::Setup;
@@ -119,6 +121,7 @@ private:
     std::vector<uint32_t>  m_turnOrder;   // unit IDs in speed order
     std::vector<uint32_t>  m_waitQueue;   // units that used Wait
     int                    m_enemyStartCount = 0; // total enemy units at battle start
+    bool                   m_enemyHeroSpellUsed = false; // one cast per round
 
     std::vector<CombatLog> m_log;
     LogCallback            m_logCb;

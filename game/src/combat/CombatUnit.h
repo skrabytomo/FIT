@@ -80,6 +80,12 @@ struct CombatUnit
     int         buffDefenseRounds = 0;   // rounds remaining for roundDefenseBonus
     bool        moraleSurgedThisRound = false;
 
+    // Damage-over-time effects
+    int         poisonDamage = 0;   // HP damage per round
+    int         poisonRounds = 0;   // rounds remaining
+    int         burnDamage   = 0;   // HP damage per round
+    int         burnRounds   = 0;   // rounds remaining
+
     // Defend buff — lasts up to 3 rounds, refreshed if Defend used again
     int         defendRoundsLeft   = 0;
     int         defendDefenseBonus = 0;

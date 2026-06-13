@@ -24,6 +24,8 @@ enum class SpellEffect : uint8_t
     DefenseDebuff, // -power roundDefenseBonus for 1 round
     MoraleBoost,   // +power to morale of target
     MoraleDrain,   // -power from morale of target
+    Poison,        // apply poison DoT: power damage/round for 3 rounds
+    Burn,          // apply burn DoT:   power damage/round for 2 rounds
 };
 
 struct SpellDef
@@ -76,4 +78,14 @@ namespace SPL
     static constexpr int MEND_FLESH    = 51;
     static constexpr int TOXIN         = 52;
     static constexpr int GROWTH        = 53;
+    static constexpr int ACID_SPRAY    = 54;  // Burn DoT, single enemy
+
+    // Death (new)
+    static constexpr int VENOMOUS_CLOUD = 24;  // Poison DoT, all enemies
+
+    // Nature (new)
+    static constexpr int SERPENT_VENOM  = 34;  // Poison DoT, single enemy
+
+    // Forge (new)
+    static constexpr int NAPALM         = 44;  // Burn DoT, all enemies
 }

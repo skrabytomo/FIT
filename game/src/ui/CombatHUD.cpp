@@ -151,6 +151,20 @@ void CombatHUD::drawUnitInfo(UIRenderer& rdr, const CombatUnit* unit, bool isAct
         y += 13.0f;
     }
 
+    // DoT status
+    if (unit->poisonRounds > 0) {
+        std::string ps = "Poison: " + std::to_string(unit->poisonDamage)
+                       + "/rnd (" + std::to_string(unit->poisonRounds) + ")";
+        rdr.drawText(ps, x, y, UIColor::rgba(0.31f, 0.86f, 0.31f), 11.0f);
+        y += 13.0f;
+    }
+    if (unit->burnRounds > 0) {
+        std::string bs = "Burn: " + std::to_string(unit->burnDamage)
+                       + "/rnd (" + std::to_string(unit->burnRounds) + ")";
+        rdr.drawText(bs, x, y, UIColor::rgba(1.0f, 0.47f, 0.16f), 11.0f);
+        y += 13.0f;
+    }
+
     // Shots remaining
     if (unit->range > 0) {
         rdr.drawText("Shots: " + std::to_string(unit->shotsLeft),
