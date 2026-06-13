@@ -89,15 +89,7 @@ bool Game::init(const std::string& title, int width, int height)
 
     // Wire WorldMapHUD callbacks
     m_worldHUD.init(width, height);
-    m_worldHUD.onEndTurn = [this]() {
-        bool newWeek = m_turns.endTurn(m_towns, m_heroes,
-                                       m_playerResources, m_registry);
-        if (newWeek) {
-            printf("New week %d — income applied\n", m_turns.week());
-            ScriptContext ctx; ctx.heroId = 0;
-            m_triggers.fire(TriggerType::WeekStart, ctx);
-        }
-    };
+    m_worldHUD.onEndTurn = [this]() { doEndTurn(); };
     m_worldHUD.onHeroClicked = [this](int idx) {
         if (idx >= 0 && idx < static_cast<int>(m_heroes.size())) {
             m_activeHeroIdx = idx;

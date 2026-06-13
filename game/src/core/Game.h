@@ -75,6 +75,7 @@ private:
 
     // ── State transitions ─────────────────────────────────────────────────────
     void enterWorldMap();
+    void doEndTurn();       // shared end-of-turn logic (SPACE + HUD button)
     void enterCombat(Hero& playerHero,
                      const std::vector<CombatUnit>& playerUnits,
                      const Hero& enemyHero,

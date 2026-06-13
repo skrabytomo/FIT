@@ -266,9 +266,16 @@ void Game::updateWorldMap(float dt)
     }
 
     if (m_input.keyDown(SDLK_SPACE)) {
-        // Restore hero movement pools
-        for (auto& h : m_heroes)      h.movePool = h.maxMove;
-        for (auto& h : m_enemyHeroes) h.movePool = h.maxMove;
+        doEndTurn();
+    }
+}
+
+// ── End Turn — full turn logic (SPACE key + HUD button) ───────────────────────
+void Game::doEndTurn()
+{
+    // Restore hero movement pools
+    for (auto& h : m_heroes)      h.movePool = h.maxMove;
+    for (auto& h : m_enemyHeroes) h.movePool = h.maxMove;
 
         // Enemy hero AI — strength-aware, full move pool
         if (!m_heroes.empty()) {
@@ -474,7 +481,6 @@ void Game::updateWorldMap(float dt)
             }
         }
     }
-}
 
 // ── World map render ──────────────────────────────────────────────────────────
 void Game::renderWorldMap()
