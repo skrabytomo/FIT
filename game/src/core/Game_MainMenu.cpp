@@ -64,9 +64,39 @@ void Game::renderMainMenu()
         ImGui::Spacing(); ImGui::Separator();
         ImGui::TextColored({0.4f, 0.4f, 0.4f, 1.0f}, "F5 Save  F9 Load  F2 Editor  F4 Campaign");
     }
-    // ── 1: New Game — slot picker ─────────────────────────────────────────────
+    // ── 1: New Game — setup + slot picker ────────────────────────────────────
     else if (m_menuMode == 1) {
         header("New Game");
+
+        // Map size
+        ImGui::Text("Map Size:");
+        static const char* kMapSizeLabels[] = { "Small (16)", "Medium (24)", "Large (32)", "XLarge (48)" };
+        for (int i = 0; i < 4; ++i) {
+            if (i > 0) ImGui::SameLine();
+            bool sel = (m_newGameMapSize == i);
+            if (sel) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.4f, 0.3f, 0.1f, 1.f));
+            char msLbl[32]; std::snprintf(msLbl, sizeof(msLbl), "%s##ms%d", kMapSizeLabels[i], i);
+            if (ImGui::Button(msLbl, ImVec2((bw - 6) / 4.f, 26))) m_newGameMapSize = i;
+            if (sel) ImGui::PopStyleColor();
+        }
+        ImGui::Spacing();
+
+        // Faction
+        ImGui::Text("Faction:");
+        static const char* kFacNames[] = {
+            "Holy Order","Crimson Wardens","Thornkin","Eternal Empire",
+            "Bloodsworn","Voidkin","Iron Assembly","Amalgamate","Convergence"
+        };
+        for (int i = 0; i < 9; ++i) {
+            if (i % 3 != 0) ImGui::SameLine();
+            bool sel = (m_newGameFaction == i);
+            if (sel) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.4f, 0.3f, 0.1f, 1.f));
+            char fLbl[40]; std::snprintf(fLbl, sizeof(fLbl), "%s##fc%d", kFacNames[i], i);
+            if (ImGui::Button(fLbl, ImVec2((bw - 4) / 3.f, 26))) m_newGameFaction = i;
+            if (sel) ImGui::PopStyleColor();
+        }
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
         ImGui::TextDisabled("Choose a slot. Existing save will be overwritten.");
         ImGui::Spacing();
 

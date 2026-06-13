@@ -13,6 +13,7 @@
 #include <nlohmann/json.hpp>
 #include <stdio.h>
 #include <fstream>
+#include <algorithm>
 #include <cmath>
 extern "C" {
 #include <lua.h>
@@ -340,13 +341,16 @@ void Game::startNewGame()
     m_showCapturePopup = false;
     m_showTownLostPopup = false;
 
-    // Generate world procedurally
-    m_mapSize = MapSize::Small;
+    // Generate world procedurally using selected settings
+    static constexpr MapSize kMapSizes[] = {
+        MapSize::Small, MapSize::Medium, MapSize::Large, MapSize::XLarge
+    };
+    m_mapSize = kMapSizes[std::clamp(m_newGameMapSize, 0, 3)];
     m_map.create(m_mapSize);
 
     WorldGenParams wgp;
     wgp.seed        = static_cast<uint32_t>(SDL_GetTicks()) ^ 0x5A5A5A5Au;
-    wgp.size        = MapSize::Small;
+    wgp.size        = m_mapSize;
     wgp.playerCount = 4;
     wgp.waterRatio  = 0.18f;
     auto wgResult   = WorldGen::generate(m_map, wgp);
@@ -357,15 +361,31 @@ void Game::startNewGame()
     m_playerResources.set(ResourceType::Gold, 5000);
     m_playerResources.set(ResourceType::Iron, 20);
 
+    static constexpr FactionId kFactions[] = {
+        FactionId::HolyOrder, FactionId::CrimsonWardens, FactionId::Thornkin,
+        FactionId::EternalEmpire, FactionId::Bloodsworn, FactionId::Voidkin,
+        FactionId::IronAssembly, FactionId::Amalgamate, FactionId::Convergence
+    };
+    static constexpr int kFactionStartSpell[] = {
+        SPL::BLESS, SPL::BLOOD_FRENZY, SPL::ENTANGLE,
+        SPL::CURSE, SPL::BLOOD_FRENZY, SPL::ENTANGLE,
+        SPL::REINFORCE, SPL::MEND_FLESH, SPL::BLESS
+    };
+    static const char* kFactionHeroNames[] = {
+        "Alara", "Dren", "Korvas", "Mira", "Seld",
+        "Thayne", "Vex", "Lyra", "Cael"
+    };
+    int fi = std::clamp(m_newGameFaction, 0, 8);
+
     Hero hero;
     hero.id       = 1;
-    hero.name     = "Player Hero";
-    hero.faction  = FactionId::HolyOrder;
+    hero.name     = kFactionHeroNames[fi];
+    hero.faction  = kFactions[fi];
     hero.pos      = wgResult.startPositions.empty() ? HexCoord{0,0}
                                                     : wgResult.startPositions[0];
     hero.movePool = hero.maxMove;
-    hero.lightPower = 3;
-    hero.knownSpells = {SPL::BLESS, SPL::SMITE, SPL::DIVINE_SHIELD};
+    hero.lightPower = (fi == 0 || fi == 8) ? 3 : 0;
+    hero.knownSpells = { kFactionStartSpell[fi] };
     m_heroes.push_back(hero);
     if (HexTile* ht = m_map.getTile(hero.pos)) ht->heroId = hero.id;
 
