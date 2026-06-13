@@ -88,63 +88,114 @@ def tint(col, factor):
     return (min(255,int(col[0]*factor)), min(255,int(col[1]*factor)),
             min(255,int(col[2]*factor)), col[3])
 
+def brighten(col, add):
+    return (min(255,col[0]+add), min(255,col[1]+add), min(255,col[2]+add), col[3])
+
 # ── Weapon drawing ────────────────────────────────────────────────────────────
 def draw_weapon(cv, x, y, wtype, col, frame, s):
-    orb = (160, 100, 240, 230)
-    spark = (255, 240, 80, 220)
+    orb   = (160, 100, 240, 230)
+    spark = (255, 240,  80, 220)
+    steel = (210, 215, 225, 255)
     if wtype == "sword":
-        cv.line(x, y, x+s, y-s*2, col, 2)
-        cv.line(x-2, y-s, x+2, y-s, col, 1)         # cross-guard
+        cv.line(x, y, x+s, y-s*2, steel, 2)
+        cv.line(x-2, y-s, x+2, y-s, col, 1)
     elif wtype == "axe":
-        cv.line(x, y, x+s//2, y-s*2, col, 2)
-        cv.rect(x+s//2-2, y-s*2-4, 6, 5, col)       # axe head
+        cv.line(x, y, x+s//2, y-s*2, steel, 2)
+        cv.rect(x+s//2-2, y-s*2-4, 6, 5, col)
     elif wtype == "staff":
         cv.line(x, y, x, y-s*3, col, 2)
         cv.circ(x, y-s*3-2, 3, orb)
+        cv.circ(x, y-s*3-2, 2, (200, 160, 255, 255))
     elif wtype == "gun":
-        cv.rect(x, y-1, max(4,s*2), 3, col)          # barrel
-        if frame == 5:                                 # muzzle flash
+        cv.rect(x, y-1, max(4,s*2), 3, col)
+        cv.rect(x+1, y, max(3,s*2-1), 1, steel)
+        if frame == 5:
             cv.circ(x+max(4,s*2)+1, y, 3, spark)
     elif wtype == "claw":
         cv.line(x, y, x+s,   y-s,   col, 2)
         cv.line(x, y, x+s+2, y-s+3, col, 1)
         cv.line(x, y, x+s-2, y-s-3, col, 1)
-    if frame == 5 and wtype not in ("gun",):          # generic attack flash
+    if frame == 5 and wtype not in ("gun",):
         cv.circ(x+s, y-s*2, 3, spark)
+        cv.circ(x+s, y-s*2, 1, (255, 255, 200, 255))
+
+# ── Shield drawing ─────────────────────────────────────────────────────────────
+def draw_shield(cv, bx, by_unused, x_off, y_off, arm_y, bw, sc, body, accent):
+    sw = max(4, int(7 * sc))
+    sh = max(5, int(9 * sc))
+    sx = bx + x_off - bw//2 - sw - 1
+    sy = arm_y - 1 + y_off
+    shield_body = tint(body, 0.70)
+    shield_hi   = brighten(body, 40)
+    shield_acc  = accent
+    for dy in range(sh):
+        ratio = dy / max(1, sh - 1)
+        if ratio < 0.65:
+            fw = sw
+        else:
+            fw = max(1, int(sw * (1.0 - (ratio - 0.65) / 0.35)))
+        csx = sx + sw // 2
+        for ddx in range(-fw//2, fw//2+1):
+            cv.put(csx+ddx, sy+dy, *shield_body)
+    # Highlight line on left edge
+    for dy in range(sh // 2):
+        cv.put(sx, sy+dy, *shield_hi)
+    # Boss / rivet in centre
+    mid = sy + sh // 3
+    cv.put(sx + sw//2,     mid, *shield_acc)
+    cv.put(sx + sw//2 - 1, mid, *shield_acc)
+
+# ── Cape drawing ──────────────────────────────────────────────────────────────
+def draw_cape(cv, bx, x_off, y_off, torso_y, bw, bh, leg, body):
+    def cape_rgba(factor, alpha):
+        return (min(255,int(body[0]*factor)), min(255,int(body[1]*factor)),
+                min(255,int(body[2]*factor)), alpha)
+    cape_h = bh + leg - 2
+    for cy_c in range(cape_h):
+        ratio = cy_c / max(1, cape_h)
+        if ratio < 0.3:
+            fw = bw + 4
+        else:
+            fw = max(2, int((bw + 4) * (1.0 - (ratio - 0.3) / 0.7)))
+        base_x = bx + x_off
+        col = cape_rgba(0.60, 200) if cy_c < cape_h // 2 else cape_rgba(0.45, 180)
+        for ddx in range(-fw//2, fw//2+1):
+            cv.put(base_x + ddx, torso_y + cy_c, *col)
 
 # ── Unit drawing ──────────────────────────────────────────────────────────────
 SKIN = (220, 180, 140, 255)
 DARK = (20,  20,  20,  200)
 
-def draw_unit(cv, fx, fy, body, accent, weapon, tier, frame):
+def draw_unit(cv, fx, fy, body, accent, weapon, tier, frame, skin=None):
     """Draw one 48×64 unit into canvas at cell origin (fx, fy)."""
-    sc = 0.55 + 0.09*(tier-1)     # scale: 0.55 (T1) → 1.0 (T6)
+    if skin is None:
+        skin = SKIN
+    sc = 0.55 + 0.09*(tier-1)
 
-    hr  = max(3, int(6*sc))   # head radius
-    bw  = max(5, int(10*sc))  # body width
-    bh  = max(5, int(11*sc))  # body height
-    leg = max(4, int(10*sc))  # leg length
-    arm = max(3, int(8*sc))   # arm length
+    hr  = max(3, int(6*sc))
+    bw  = max(5, int(10*sc))
+    bh  = max(5, int(11*sc))
+    leg = max(4, int(10*sc))
+    arm = max(3, int(8*sc))
 
-    # Anchored at bottom-center of cell
     bx = fx + 24
     by = fy + 58
 
-    # Per-frame offsets
     y_off = 0; x_off = 0; flash = False; dead = False
-    if frame <= 3:     # Idle: slow bob
+    if frame <= 3:
         y_off = [0, -1, -2, -1][frame]
-    elif frame == 4:   # Attack wind-up
+    elif frame == 4:
         x_off = 3; y_off = -1
-    elif frame == 5:   # Attack strike
+    elif frame == 5:
         x_off = 7; y_off = 0
-    elif frame == 6:   # Hurt: recoil + white flash
+    elif frame == 6:
         x_off = 3; flash = True
-    elif frame == 7:   # Dead: lying down
+    elif frame == 7:
         dead = True
 
-    body_c   = lerp(body, (255,255,255,255), 0.55) if flash else body
-    accent_c = lerp(accent, (255,255,255,255), 0.4) if flash else accent
+    body_c   = lerp(body,   (255,255,255,255), 0.55) if flash else body
+    accent_c = lerp(accent, (255,255,255,255), 0.40) if flash else accent
+    skin_c   = lerp(skin,   (255,255,255,255), 0.60) if flash else skin
 
     if dead:
         dc = lerp(body, (40,40,40,0), 0.5)
@@ -157,9 +208,15 @@ def draw_unit(cv, fx, fy, body, accent, weapon, tier, frame):
     # Shadow
     cv.circ(bx+x_off, by+1, max(3, int(bw*0.55)), (0,0,0,50))
 
+    torso_y = by - 1 - leg - bh + y_off
+
+    # Cape behind torso (T5+)
+    if tier >= 5:
+        draw_cape(cv, bx, x_off, y_off, torso_y, bw, bh, leg, body)
+
     # Foot circles
-    cv.circ(bx+x_off-bw//3, by+y_off, 2, SKIN)
-    cv.circ(bx+x_off+bw//3, by+y_off, 2, SKIN)
+    cv.circ(bx+x_off-bw//3, by+y_off, 2, skin_c)
+    cv.circ(bx+x_off+bw//3, by+y_off, 2, skin_c)
 
     # Legs
     leg_top_y = by - 1
@@ -168,23 +225,33 @@ def draw_unit(cv, fx, fy, body, accent, weapon, tier, frame):
         foot_x = bx + x_off + side * bw//3 + swing
         cv.line(foot_x, leg_top_y,
                 bx + x_off + side * 2, leg_top_y - leg + y_off,
-                SKIN, 2)
+                skin_c, 2)
 
     # Torso
-    torso_y = leg_top_y - leg - bh + y_off
     cv.rect(bx+x_off-bw//2, torso_y, bw, bh, body_c)
-    # Chest detail
+    # Chest detail strip
     cv.rect(bx+x_off-bw//4, torso_y+2, max(2,bw//2), max(3,bh-4), accent_c)
+    # Armor highlight (upper-left catch-light)
+    hi = brighten(body_c, 70)
+    cv.put(bx+x_off-bw//2+1, torso_y+1, *hi)
+    cv.put(bx+x_off-bw//2+2, torso_y+1, *hi)
+
+    arm_y = torso_y + 3
+
+    # Shield (T2+ non-gun)
+    if tier >= 2 and weapon != "gun":
+        draw_shield(cv, bx, by, x_off, y_off, arm_y, bw, sc, body_c, accent_c)
 
     # Tier-based armour extras
-    arm_y = torso_y + 3
     if tier >= 3:
-        # Helmet
+        # Helmet crest
         cv.circ(bx+x_off, torso_y-hr-1+y_off-hr+2, hr//2+1, body_c)
     if tier >= 5:
-        # Pauldrons
+        # Pauldrons (shoulder plates)
         cv.circ(bx+x_off-bw//2-2, arm_y-1, hr//2+1, body_c)
         cv.circ(bx+x_off+bw//2+2, arm_y-1, hr//2+1, body_c)
+        cv.put(bx+x_off-bw//2-2, arm_y-2, *brighten(body_c, 50))
+        cv.put(bx+x_off+bw//2+2, arm_y-2, *brighten(body_c, 50))
 
     # Arms
     if frame in (4, 5):
@@ -208,35 +275,37 @@ def draw_unit(cv, fx, fy, body, accent, weapon, tier, frame):
     # Head
     hx = bx + x_off
     hy = torso_y - hr - 1 + y_off
-    cv.circ(hx, hy, hr, SKIN)
-    # Eyes
+    cv.circ(hx, hy, hr, skin_c)
     if hr >= 4:
         cv.put(hx-hr//2, hy-1, *DARK)
         cv.put(hx+hr//2, hy-1, *DARK)
+    # Skin highlight
+    hi_s = brighten(skin_c, 45)
+    cv.put(hx-hr//3, hy-hr//3, *hi_s)
 
 # ── Faction table ─────────────────────────────────────────────────────────────
+# (id, name, body RGBA, accent RGBA, weapon, skin RGBA)
 FACTIONS = [
-    # id  name              body RGBA          accent RGBA        weapon
-    (0, "HolyOrder",     (200,170, 80,255), (240,230,180,255), "sword"),
-    (1, "CrimsonWardens",(180, 40, 40,255), (200,200,200,255), "axe"),
-    (2, "Thornkin",      ( 60,120, 40,255), ( 90,170, 60,255), "staff"),
-    (3, "EternalEmpire", ( 80, 40,130,255), (160,120,200,255), "staff"),
-    (4, "Bloodsworn",    (160, 20, 20,255), ( 80, 10, 10,255), "axe"),
-    (5, "Voidkin",       ( 40, 20, 80,255), ( 80,200,220,255), "staff"),
-    (6, "IronAssembly",  (110,110,120,255), (200,130, 40,255), "gun"),
-    (7, "Amalgamate",    ( 90,130, 30,255), (170,200, 50,255), "claw"),
-    (8, "Convergence",   ( 40, 80,160,255), (200,160, 40,255), "sword"),
+    (0, "HolyOrder",     (155, 120,  35, 255), (230, 210, 140, 255), "sword", (225, 195, 155, 255)),
+    (1, "CrimsonWardens",(130,  18,  18, 255), (175, 175, 185, 255), "axe",   (195, 155, 125, 255)),
+    (2, "Thornkin",      ( 25,  75,  15, 255), ( 75, 155,  35, 255), "staff", (155, 190, 120, 255)),
+    (3, "EternalEmpire", ( 55,  18, 105, 255), (145,  95, 195, 255), "staff", (230, 215, 205, 255)),
+    (4, "Bloodsworn",    (100,   8,   8, 255), ( 55,   5,   5, 255), "axe",   (175, 120, 100, 255)),
+    (5, "Voidkin",       ( 15,   8,  55, 255), ( 50, 165, 200, 255), "staff", (190, 180, 215, 255)),
+    (6, "IronAssembly",  ( 75,  75,  85, 255), (165,  95,  25, 255), "gun",   (155, 155, 165, 255)),
+    (7, "Amalgamate",    ( 65, 100,  15, 255), (155, 185,  25, 255), "claw",  (145, 165, 115, 255)),
+    (8, "Convergence",   ( 15,  40, 130, 255), (185, 145,  25, 255), "sword", (215, 215, 235, 255)),
 ]
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 def main():
-    for fid, name, body, accent, weapon in FACTIONS:
+    for fid, name, body, accent, weapon, skin in FACTIONS:
         cv = Canvas(ATLAS_W, ATLAS_H)
         for tier in range(1, NROWS+1):
             fy = (tier-1) * FH
             for frame in range(NCOLS):
                 fx = frame * FW
-                draw_unit(cv, fx, fy, body, accent, weapon, tier, frame)
+                draw_unit(cv, fx, fy, body, accent, weapon, tier, frame, skin)
 
         for dest in [
             f"game/assets/sprites/faction_{fid}.png",
