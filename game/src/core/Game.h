@@ -129,6 +129,7 @@ private:
     void renderTownLostPopup();
     void renderWeekSummary();
     void renderTavern();
+    void renderArtifactForge();   // craftable artifact shop in town
 
     // ── Unit exchange overlay ─────────────────────────────────────────────────
     void renderUnitExchange();

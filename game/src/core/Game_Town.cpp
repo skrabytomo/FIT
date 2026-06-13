@@ -1,8 +1,10 @@
 #include "Game.h"
 #include <cstdio>
+#include <algorithm>
 #include "../magic/SpellRegistry.h"
 #include "../world/HexGrid.h"
 #include "../world/FogOfWar.h"
+#include "../hero/Artifacts.h"
 #include <imgui.h>
 #include <stdio.h>
 #include <unordered_map>
@@ -32,6 +34,7 @@ void Game::renderTown()
     m_ui.flushText(ImGui::GetBackgroundDrawList());
     renderMageGuild();
     renderTavern();
+    renderArtifactForge();
     if (m_showCapturePopup) renderCapturePopup();
     endImGuiFrame();
 }
@@ -54,12 +57,12 @@ void Game::renderMageGuild()
         switch (f) {
         case FactionId::HolyOrder:     return {{SPL::BLESS,4000},{SPL::SMITE,5000},{SPL::DIVINE_SHIELD,4000},{SPL::RADIANCE,8000}};
         case FactionId::Bloodsworn:    return {{SPL::BLOOD_FRENZY,4000},{SPL::DRAIN_LIFE,5000},{SPL::ENERVATE,4500},{SPL::HEMORRHAGE,7000}};
-        case FactionId::Thornkin:      return {{SPL::BARKSKIN,4000},{SPL::REGROWTH,5500},{SPL::CALL_LIGHTNING,6000},{SPL::ENTANGLE,4500}};
-        case FactionId::EternalEmpire: return {{SPL::CURSE,4000},{SPL::WITHER,5000},{SPL::DEATH_COIL,6000},{SPL::PLAGUE,8000}};
-        case FactionId::CrimsonWardens:return {{SPL::BLOOD_FRENZY,4000},{SPL::DRAIN_LIFE,5000},{SPL::WITHER,5000},{SPL::ENERVATE,4000}};
-        case FactionId::Voidkin:       return {{SPL::ENTANGLE,4000},{SPL::CALL_LIGHTNING,6000},{SPL::CURSE,4500},{SPL::WITHER,5000}};
-        case FactionId::IronAssembly:  return {{SPL::REINFORCE,4000},{SPL::OVERCLOCK,4500},{SPL::SHRAPNEL,6000},{SPL::HARDENED_SHELL,7000}};
-        case FactionId::Amalgamate:    return {{SPL::MEND_FLESH,4000},{SPL::FESTER,5000},{SPL::TOXIN,4500},{SPL::GROWTH,7000}};
+        case FactionId::Thornkin:      return {{SPL::BARKSKIN,4000},{SPL::ENTANGLE,4500},{SPL::SERPENT_VENOM,5500},{SPL::CALL_LIGHTNING,6000}};
+        case FactionId::EternalEmpire: return {{SPL::CURSE,4000},{SPL::WITHER,5000},{SPL::DEATH_COIL,6000},{SPL::VENOMOUS_CLOUD,8000}};
+        case FactionId::CrimsonWardens:return {{SPL::WITHER,4000},{SPL::VENOMOUS_CLOUD,6000},{SPL::DEATH_COIL,5000},{SPL::PLAGUE,8000}};
+        case FactionId::Voidkin:       return {{SPL::CURSE,4000},{SPL::ENTANGLE,4500},{SPL::WITHER,5000},{SPL::VENOMOUS_CLOUD,7000}};
+        case FactionId::IronAssembly:  return {{SPL::REINFORCE,4000},{SPL::OVERCLOCK,4500},{SPL::SHRAPNEL,6000},{SPL::NAPALM,7500}};
+        case FactionId::Amalgamate:    return {{SPL::MEND_FLESH,4000},{SPL::FESTER,5000},{SPL::ACID_SPRAY,5500},{SPL::GROWTH,7000}};
         case FactionId::Convergence:   return {{SPL::BLESS,4000},{SPL::CURSE,4000},{SPL::REINFORCE,4500},{SPL::REGROWTH,5500}};
         default:                       return {};
         }
@@ -104,6 +107,110 @@ void Game::renderMageGuild()
         }
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
             ImGui::SetTooltip("%s", sp->desc);
+        ImGui::PopID();
+    }
+    ImGui::End();
+}
+
+// ── Artifact Forge — craft Basic artifacts ────────────────────────────────────
+void Game::renderArtifactForge()
+{
+    // Require MARKET to be built — the marketplace enables trading of goods/materials
+    const Town* town = m_townScreen.currentTown();
+    if (!town || !town->hasBuilding(BID::MARKET)) return;
+    if (m_heroes.empty()) return;
+    Hero& hero = m_heroes[m_activeHeroIdx];
+
+    ImGui::SetNextWindowPos(ImVec2(580, 80), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
+    if (!ImGui::Begin("Artifact Forge", nullptr,
+                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+                      ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End(); return;
+    }
+
+    ImGui::TextDisabled("Craft Basic artifacts (requires MARKET)");
+    ImGui::Separator();
+
+    // Show current resources
+    ImGui::Text("Gold: %d", m_playerResources.get(ResourceType::Gold));
+    ImGui::SameLine(160.0f);
+    ImGui::Text("Iron: %d", m_playerResources.get(ResourceType::Iron));
+    ImGui::Separator();
+
+    auto craftables = m_artifactRegistry.getCraftable();
+    if (craftables.empty()) {
+        ImGui::TextDisabled("No craftable artifacts registered.");
+        ImGui::End(); return;
+    }
+
+    static const char* kSlotNames[] = {
+        "Helm","Armor","Weapon","Shield","Ring","Boots","Cloak","Misc"
+    };
+
+    for (const ArtifactDef* art : craftables) {
+        // Check if hero already has it equipped
+        int slotIdx = static_cast<int>(art->slot);
+        bool alreadyEquipped = (hero.artifacts.equippedIds[slotIdx] == art->id);
+        bool inInventory = false;
+        for (int inv : hero.artifactInventory) if (inv == art->id) { inInventory = true; break; }
+
+        ImGui::PushID(art->id);
+
+        // Cost check
+        bool canAfford = true;
+        for (int rt = 0; rt < RESOURCE_COUNT && canAfford; ++rt) {
+            int needed = art->craftCost.get(static_cast<ResourceType>(rt));
+            if (needed > 0 && m_playerResources.get(static_cast<ResourceType>(rt)) < needed)
+                canAfford = false;
+        }
+
+        if (alreadyEquipped) {
+            ImGui::TextColored(ImVec4(0.4f,1.f,0.4f,1.f), "[equipped] %s", art->name.c_str());
+        } else if (inInventory) {
+            // Can equip from inventory
+            char btnLabel[80];
+            std::snprintf(btnLabel, sizeof(btnLabel), "Equip %s  [in bag]", art->name.c_str());
+            if (ImGui::Button(btnLabel, ImVec2(-1, 0))) {
+                hero.artifacts.equip(art->id, art->slot);
+                hero.artifactInventory.erase(
+                    std::remove(hero.artifactInventory.begin(),
+                                hero.artifactInventory.end(), art->id),
+                    hero.artifactInventory.end());
+            }
+        } else {
+            if (!canAfford) ImGui::BeginDisabled();
+            // Build cost label
+            char costStr[128] = {};
+            int off = 0;
+            for (int rt = 0; rt < RESOURCE_COUNT; ++rt) {
+                int needed = art->craftCost.get(static_cast<ResourceType>(rt));
+                if (needed <= 0) continue;
+                static const char* kRNames[] = {"g","Fe","Fa","Bl","Sap","Hg"};
+                off += std::snprintf(costStr + off, sizeof(costStr) - off,
+                                     "%d%s ", needed, (rt < 6 ? kRNames[rt] : "?"));
+            }
+            char btnLabel[96];
+            std::snprintf(btnLabel, sizeof(btnLabel), "Craft %s  [%s]  (%s)",
+                          art->name.c_str(), kSlotNames[slotIdx], costStr);
+            if (ImGui::Button(btnLabel, ImVec2(-1, 0))) {
+                // Deduct cost
+                for (int rt = 0; rt < RESOURCE_COUNT; ++rt) {
+                    int needed = art->craftCost.get(static_cast<ResourceType>(rt));
+                    if (needed > 0) m_playerResources.add(static_cast<ResourceType>(rt), -needed);
+                }
+                // Auto-equip if slot is free, else add to inventory
+                if (hero.artifacts.getEquipped(art->slot) == 0) {
+                    hero.artifacts.equip(art->id, art->slot);
+                } else {
+                    hero.artifactInventory.push_back(art->id);
+                }
+            }
+            if (!canAfford) ImGui::EndDisabled();
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", art->description.c_str());
+
         ImGui::PopID();
     }
     ImGui::End();
