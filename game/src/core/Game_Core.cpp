@@ -394,18 +394,34 @@ void Game::startNewGame()
     };
     giveStartingArmy(m_heroes[0]);
 
-    static const char* kEnemyNames[] = {
-        "Dark Warlord", "Blood Raider", "Thornkin Shaman", "Void Stalker"
+    // Faction-appropriate enemy hero names (9 factions × 3 names each)
+    static const char* kEnemyHeroNames[9][3] = {
+        {"Seraphiel", "Ardent Inquisitor", "Blessed Blade"},       // HolyOrder
+        {"Vael Bonechant", "Mortis Raider", "Crypt Sovereign"},    // CrimsonWardens
+        {"Root-Elder", "Thornweave", "Briar Sovereign"},           // Thornkin
+        {"Shade Marshal", "Revenant Warden", "Iron Phantom"},      // EternalEmpire
+        {"Kael Bloodfang", "Ravager Lord", "Warlord Gruk"},        // Bloodsworn
+        {"Vex Nullform", "Phase Stalker", "Rift Caller"},          // Voidkin
+        {"Cogmaster Rex", "Iron Overseer", "Steam Baron"},         // IronAssembly
+        {"Flesh-Weave", "Graft Sovereign", "Marrow Sculptor"},     // Amalgamate
+        {"Synth-One", "Accord Delegate", "Unity Seeker"},          // Convergence
     };
+    uint32_t nameRng = wgp.seed ^ 0xABCD1234u;
     for (int i = 1; i < static_cast<int>(wgResult.startPositions.size()) && i <= 3; ++i) {
         FactionId ef = (i < static_cast<int>(wgResult.towns.size()))
                        ? wgResult.towns[i].faction : FactionId::EternalEmpire;
+        int efi = std::clamp(static_cast<int>(ef), 0, 8);
+        nameRng = nameRng * 1664525u + 1013904223u;
+        const char* eName = kEnemyHeroNames[efi][nameRng % 3];
         Hero eHero;
         eHero.id       = 99u + static_cast<uint32_t>(i);
-        eHero.name     = kEnemyNames[i - 1];
+        eHero.name     = eName;
         eHero.faction  = ef;
         eHero.pos      = wgResult.startPositions[i];
         eHero.movePool = eHero.maxMove;
+        // Give enemy heroes a starting attack/defense boost scaled by difficulty
+        eHero.attack  += 1;
+        eHero.defense += 1;
         giveStartingArmy(eHero);
         m_enemyHeroes.push_back(eHero);
         if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;
@@ -451,30 +467,39 @@ void Game::startNewGame()
             return {0, 0};
         };
 
+        // Scale object count to map size
+        int mapR  = static_cast<int>(m_map.radius());
+        int scale = std::max(1, mapR / 16); // Small=1, Medium=1, Large=2, XL=3
+
         static const int kScrollSpells[] = {
-            SPL::SMITE, SPL::REGROWTH, SPL::CURSE, SPL::BLESS, SPL::CALL_LIGHTNING
+            SPL::SMITE, SPL::REGROWTH, SPL::CURSE, SPL::BLESS, SPL::CALL_LIGHTNING,
+            SPL::REINFORCE, SPL::OVERCLOCK, SPL::WITHER, SPL::BARKSKIN
         };
-        for (int s = 0; s < 4; ++s) {
+        for (int s = 0; s < 4 * scale; ++s) {
             HexCoord p = pickTile();
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::SpellScroll, p,
-                kScrollSpells[lcg() % 5], ResourceType::Gold, false});
+                kScrollSpells[lcg() % 9], ResourceType::Gold, false});
         }
-        for (int a = 0; a < 3; ++a) {
+        for (int a = 0; a < 3 * scale; ++a) {
             HexCoord p = pickTile();
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ArtifactChest, p,
                 1 + static_cast<int>(lcg() % 8), ResourceType::Gold, false});
         }
-        for (int x = 0; x < 3; ++x) {
+        for (int x = 0; x < 3 * scale; ++x) {
             HexCoord p = pickTile();
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::XPShrine, p,
                 50 + static_cast<int>(lcg() % 80), ResourceType::Gold, false});
         }
-        for (int rc = 0; rc < 3; ++rc) {
+        for (int rc = 0; rc < 4 * scale; ++rc) {
             HexCoord p = pickTile();
-            bool isGold = (lcg() & 1);
-            ResourceType rtype = isGold ? ResourceType::Gold : ResourceType::Iron;
-            int rval = isGold ? 300 + static_cast<int>(lcg() % 400)
-                              : 5   + static_cast<int>(lcg() % 10);
+            static const ResourceType kRTypes[] = {
+                ResourceType::Gold, ResourceType::Iron,
+                ResourceType::FaithStones, ResourceType::BloodEssence,
+                ResourceType::VerdantSap, ResourceType::Mercury
+            };
+            ResourceType rtype = kRTypes[lcg() % 6];
+            int rval = (rtype == ResourceType::Gold) ? 300 + static_cast<int>(lcg() % 500)
+                                                     : 3   + static_cast<int>(lcg() % 8);
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ResourceCache, p, rval, rtype, false});
         }
     }
