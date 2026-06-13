@@ -299,9 +299,11 @@ private:
     void renderPauseMenu();
 
     // ── Week summary popup ────────────────────────────────────────────────────
-    bool      m_showWeekSummary   = false;
-    int       m_weekSummaryWeek   = 0;
-    Resources m_weekSummaryIncome;
+    bool        m_showWeekSummary   = false;
+    int         m_weekSummaryWeek   = 0;
+    Resources   m_weekSummaryIncome;
+    std::string m_weeklyEventHeadline;   // empty = no event this week
+    std::string m_weeklyEventBody;
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     AudioManager m_audio;

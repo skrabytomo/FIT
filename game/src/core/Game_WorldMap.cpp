@@ -454,6 +454,87 @@ void Game::doEndTurn()
             // Auto-save at start of each new week
             saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
 
+            // ── Weekly random event ────────────────────────────────────────────
+            m_weeklyEventHeadline.clear();
+            m_weeklyEventBody.clear();
+            // Use week number + a pseudo-hash for varied but deterministic events
+            int evtRoll = ((m_turns.week() * 2654435761u) >> 8) % 7;
+            switch (evtRoll) {
+                case 0: { // no event
+                    break;
+                }
+                case 1: { // Merchant's Gift — bonus gold
+                    m_playerResources.add(ResourceType::Gold, 500);
+                    m_weeklyEventHeadline = "A Merchant's Gift";
+                    m_weeklyEventBody = "A wandering trader pays 500 Gold for safe passage through your lands.";
+                    break;
+                }
+                case 2: { // Wandering Wizard — learn a random unknown spell
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        for (int i = 0; i < SPELL_COUNT; ++i) {
+                            int sid = ALL_SPELLS[i].id;
+                            bool known = false;
+                            for (int s : h.knownSpells) if (s == sid) { known = true; break; }
+                            if (!known) {
+                                h.knownSpells.push_back(sid);
+                                m_weeklyEventHeadline = "Wandering Wizard";
+                                m_weeklyEventBody = std::string("A sage teaches your hero: ")
+                                                  + ALL_SPELLS[i].name + "!";
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+                case 3: { // Bandit Raid — lose gold
+                    int lost = std::min(200, m_playerResources.get(ResourceType::Gold));
+                    m_playerResources.add(ResourceType::Gold, -lost);
+                    m_weeklyEventHeadline = "Bandit Raid!";
+                    m_weeklyEventBody = "Raiders struck your supply wagons, stealing "
+                                      + std::to_string(lost) + " Gold.";
+                    break;
+                }
+                case 4: { // Rich Harvest — bonus resources
+                    m_playerResources.add(ResourceType::Gold, 200);
+                    m_playerResources.add(ResourceType::Iron, 3);
+                    m_weeklyEventHeadline = "Rich Harvest";
+                    m_weeklyEventBody = "Abundant yields from your territories: +200 Gold, +3 Iron.";
+                    break;
+                }
+                case 5: { // Heroic Inspiration — XP boost
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        int xpGain = 150;
+                        if (h.addXp(xpGain)) {
+                            const HeroClassDef* cls = m_classRegistry.getClass(h.classId);
+                            if (cls) {
+                                std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                                m_levelUpOffers = LevelUpSystem::generateOffers(
+                                    *cls, h.skills, h.level, allSkills, h.faction);
+                            }
+                            if (m_levelUpOffers.empty())
+                                m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                            m_showLevelUpModal = true;
+                        }
+                        m_weeklyEventHeadline = "Battle Hardened";
+                        m_weeklyEventBody = "Tales of your deeds spread: +"
+                                           + std::to_string(xpGain) + " XP.";
+                    }
+                    break;
+                }
+                case 6: { // Arcane Font — bonus mana for the hero
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        h.maxMana = std::min(h.maxMana + 5, 99);
+                        h.mana    = h.maxMana;
+                        m_weeklyEventHeadline = "Arcane Font";
+                        m_weeklyEventBody = "A ley-line resonance permanently expands your hero's mana pool by 5.";
+                    }
+                    break;
+                }
+            }
+
             ScriptContext ctx; ctx.heroId = 0;
             m_triggers.fire(TriggerType::WeekStart, ctx);
             if (m_state == GameState::Campaign) {
@@ -1359,6 +1440,9 @@ void Game::renderLevelUpModal()
                     }
                     hero.maxMana += 1;
                     hero.mana = hero.maxMana;
+                    // HP grows 10 per level
+                    hero.heroMaxHp += 10;
+                    hero.heroHp = hero.heroMaxHp;
                 }
                 m_levelUpOffers.clear();
                 m_showLevelUpModal = false;

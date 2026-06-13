@@ -527,6 +527,21 @@ void Game::exitCombat(bool playerWon)
 
         // Remove defeated enemy hero from the world
         if (m_lastCombatEnemyId != 0) {
+            // Loot the defeated hero — gold scales with enemy army strength
+            {
+                int lootGold = 100 + m_combat.xpEarned() * 3;
+                m_playerResources.add(ResourceType::Gold, lootGold);
+                // Find the hero position for the pickup effect
+                for (const auto& eh : m_enemyHeroes) {
+                    if (eh.id == m_lastCombatEnemyId) {
+                        char lootBuf[32];
+                        std::snprintf(lootBuf, sizeof(lootBuf), "+%d Gold (loot)", lootGold);
+                        pushPickupEffect(eh.pos, lootBuf, IM_COL32(255, 215, 50, 255));
+                        break;
+                    }
+                }
+                printf("Enemy hero looted: %d gold\n", lootGold);
+            }
             // Release all mines owned by the defeated hero
             for (auto& r : m_resources)
                 if (r.ownedBy == m_lastCombatEnemyId) r.ownedBy = 0;

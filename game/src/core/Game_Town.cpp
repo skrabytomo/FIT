@@ -337,6 +337,17 @@ void Game::renderWeekSummary()
         if (!anyIncome)
             ImGui::TextDisabled("  (no towns or mines owned)");
 
+        // Weekly event section
+        if (!m_weeklyEventHeadline.empty()) {
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "World Event:");
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.35f, 1.0f), "%s", m_weeklyEventHeadline.c_str());
+            ImGui::Spacing();
+            ImGui::TextWrapped("%s", m_weeklyEventBody.c_str());
+        }
+
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
