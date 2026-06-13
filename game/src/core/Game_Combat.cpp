@@ -296,6 +296,7 @@ void Game::enterCombat(Hero& playerHero,
     m_combat.setLogCallback([](const std::string& msg) {
         printf("[Combat] %s\n", msg.c_str());
     });
+    m_audio.playMusic("combat_music");
     printf("Entered combat\n");
 }
 
@@ -332,6 +333,21 @@ void Game::exitCombat(bool playerWon)
                 printf("Captured town after garrison fight: %s\n", m_capturedTownName.c_str());
             }
             m_pendingTownCaptureId = 0;
+        }
+
+        // Bandit camp reward
+        if (m_lastBanditCampId != 0) {
+            for (auto& obj : m_worldObjects) {
+                if (obj.id == m_lastBanditCampId) {
+                    int diff = obj.value;
+                    int reward = 200 * diff;
+                    m_playerResources.add(ResourceType::Gold, reward);
+                    obj.collected = true;
+                    printf("Bandit camp cleared! Reward: %d gold\n", reward);
+                    break;
+                }
+            }
+            m_lastBanditCampId = 0;
         }
 
         // Remove defeated enemy hero from the world
@@ -392,8 +408,10 @@ void Game::exitCombat(bool playerWon)
             break;
         }
         m_pendingTownCaptureId = 0;
+        m_lastBanditCampId = 0;
         m_triggers.fire(TriggerType::BattleLost, ctx);
         m_showDefeat = true;
     }
+    m_audio.playMusic("worldmap_music");
     enterWorldMap();
 }

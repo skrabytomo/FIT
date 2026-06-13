@@ -31,9 +31,10 @@ WorldGenResult WorldGen::generate(HexMap& map, const WorldGenParams& p)
     result.resources     = std::move(resources);
     result.startPositions = spawnPos;
     buildTowns(result, map, spawnPos, nextId);
+    placeWorldObjects(result, map, p, nextId);
 
-    printf("WorldGen: %zu towns, %zu resources\n",
-           result.towns.size(), result.resources.size());
+    printf("WorldGen: %zu towns, %zu resources, %zu world objects\n",
+           result.towns.size(), result.resources.size(), result.worldObjects.size());
     return result;
 }
 
@@ -343,4 +344,122 @@ bool WorldGen::isSuitable(const HexMap& map, HexCoord c, int minDist,
     for (auto& o : occupied)
         if (HexGrid::distance(c, o) < minDist) return false;
     return true;
+}
+
+// ── World object placement ────────────────────────────────────────────────────
+void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
+                                  const WorldGenParams& p, uint32_t& nextId)
+{
+    uint32_t rng = p.seed ^ 0xDEADB00B;
+    int radius = map.radius();
+
+    // Build a list of occupied positions (towns + resources)
+    std::vector<HexCoord> occupied;
+    for (const auto& t : result.towns)    occupied.push_back(t.pos);
+    for (const auto& r : result.resources) occupied.push_back(r.pos);
+
+    // Helper: place one world object at a random suitable location
+    auto tryPlace = [&](WorldObject& obj, int minDist) -> bool {
+        auto allCoords = map.coords();
+        // Shuffle
+        for (size_t i = allCoords.size() - 1; i > 0; --i) {
+            uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+            std::swap(allCoords[i], allCoords[j]);
+        }
+        for (auto& c : allCoords) {
+            if (!isSuitable(map, c, minDist, occupied)) continue;
+            // Extra: check no other worldObject here
+            bool used = false;
+            for (const auto& wo : result.worldObjects)
+                if (wo.pos == c) { used = true; break; }
+            if (used) continue;
+            obj.pos = c;
+            occupied.push_back(c);
+            return true;
+        }
+        return false;
+    };
+
+    // 2 Observatories (value=5 radius, far from towns)
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::Observatory;
+        obj.value = 5;
+        if (tryPlace(obj, radius / 3)) result.worldObjects.push_back(obj);
+    }
+
+    // 4 StatShrines (value = which stat 0-3)
+    for (int i = 0; i < 4; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::StatShrine;
+        obj.value = static_cast<int>(lcg(rng) % 4);
+        obj.questState = 3; // 3 uses max
+        if (tryPlace(obj, 4)) result.worldObjects.push_back(obj);
+    }
+
+    // 3 BanditCamps (value = difficulty 1-3)
+    for (int i = 0; i < 3; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::BanditCamp;
+        obj.value = 1 + static_cast<int>(lcg(rng) % 3);
+        if (tryPlace(obj, 4)) result.worldObjects.push_back(obj);
+    }
+
+    // UnitDwellings: for factions 0-8, tier 1-3
+    for (int faction = 0; faction < 9; ++faction) {
+        for (int tier = 1; tier <= 3; ++tier) {
+            WorldObject obj;
+            obj.id        = nextId++;
+            obj.type      = WorldObjectType::UnitDwelling;
+            obj.value     = tier;
+            obj.faction   = static_cast<uint8_t>(faction);
+            obj.available = 4 + tier * 2;
+            if (tryPlace(obj, 3)) result.worldObjects.push_back(obj);
+        }
+    }
+
+    // 2 QuestGiver pairs (QuestGiver + QuestTarget 8+ tiles apart)
+    for (int q = 0; q < 2; ++q) {
+        WorldObject giver;
+        giver.id   = nextId++;
+        giver.type = WorldObjectType::QuestGiver;
+        giver.questState = 0;
+
+        if (!tryPlace(giver, 5)) continue;
+
+        // Find a target 8+ tiles away from giver
+        WorldObject target;
+        target.id   = nextId++;
+        target.type = WorldObjectType::QuestTarget;
+
+        auto allCoords = map.coords();
+        for (size_t i = allCoords.size() - 1; i > 0; --i) {
+            uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+            std::swap(allCoords[i], allCoords[j]);
+        }
+        bool found = false;
+        for (auto& c : allCoords) {
+            if (HexGrid::distance(c, giver.pos) < 8) continue;
+            if (!isSuitable(map, c, 4, occupied)) continue;
+            bool used = false;
+            for (const auto& wo : result.worldObjects)
+                if (wo.pos == c) { used = true; break; }
+            if (used) continue;
+            target.pos = c;
+            occupied.push_back(c);
+            found = true;
+            break;
+        }
+        if (!found) { nextId -= 2; continue; }  // rollback IDs if we can't place
+
+        // Link them
+        giver.linkedId  = target.id;
+        target.linkedId = giver.id;
+
+        result.worldObjects.push_back(giver);
+        result.worldObjects.push_back(target);
+    }
 }

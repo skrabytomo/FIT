@@ -4,6 +4,7 @@
 #include "HexMap.h"
 #include "../data/ResourceNode.h"
 #include "../town/Town.h"
+#include "../world/WorldObject.h"
 
 // ── Generation parameters ──────────────────────────────────────────────────────
 struct WorldGenParams
@@ -22,6 +23,7 @@ struct WorldGenResult
     std::vector<Town>         towns;          // one per player slot
     std::vector<ResourceNode> resources;      // all resource nodes
     std::vector<HexCoord>     startPositions; // hero spawn coords (one per player)
+    std::vector<WorldObject>  worldObjects;   // observatories, shrines, dwellings, etc.
 };
 
 // ── WorldGen ──────────────────────────────────────────────────────────────────
@@ -47,6 +49,7 @@ private:
                            const HexMap& map,
                            const std::vector<HexCoord>& positions,
                            uint32_t& nextId);
+    static void placeWorldObjects(WorldGenResult&, HexMap&, const WorldGenParams&, uint32_t&);
 
     static Terrain heightToTerrain(float h, float waterCutoff);
     static bool    isLand(Terrain t);

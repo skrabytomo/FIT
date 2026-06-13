@@ -205,6 +205,14 @@ bool Game::init(const std::string& title, int width, int height)
         }
     }
 
+    // Merge WorldGen-placed world objects
+    for (auto& wo : wgResult.worldObjects)
+        m_worldObjects.push_back(wo);
+
+    // Fix m_nextObjId to avoid collisions
+    for (const auto& wo : m_worldObjects)
+        if (wo.id >= m_nextObjId) m_nextObjId = wo.id + 1;
+
     // Fog of war
     FogOfWar::hideAll(m_map);
     FogOfWar::updateVision(m_map, m_heroes[0]);
@@ -262,6 +270,20 @@ bool Game::init(const std::string& title, int width, int height)
     if (initImGui())
         m_editor.init(width, height);
 
+    // Audio
+    if (m_audio.init()) {
+        m_audio.loadWav("click",          "assets/sounds/click.wav");
+        m_audio.loadWav("pickup",         "assets/sounds/pickup.wav");
+        m_audio.loadWav("levelup",        "assets/sounds/levelup.wav");
+        m_audio.loadWav("hit",            "assets/sounds/hit.wav");
+        m_audio.loadWav("spell",          "assets/sounds/spell.wav");
+        m_audio.loadWav("buy",            "assets/sounds/buy.wav");
+        m_audio.loadWav("worldmap_music", "assets/sounds/worldmap_music.wav");
+        m_audio.loadWav("combat_music",   "assets/sounds/combat_music.wav");
+        m_audio.loadWav("town_music",     "assets/sounds/town_music.wav");
+        m_audio.playMusic("worldmap_music");
+    }
+
     m_running = true;
     printf("Game initialized: %dx%d\n", width, height);
     return true;
@@ -318,6 +340,7 @@ void Game::processEvents()
 // ── Update dispatch ───────────────────────────────────────────────────────────
 void Game::update(float dt)
 {
+    m_audio.update();
     if (m_input.keyDown(SDLK_F5)) saveGame(SAVE_PATH);
     if (m_input.keyDown(SDLK_F9)) loadGame(SAVE_PATH);
     if (m_input.keyDown(SDLK_F2)) {
@@ -558,6 +581,7 @@ void Game::bindLuaAPI()
 // ── Shutdown ──────────────────────────────────────────────────────────────────
 void Game::shutdown()
 {
+    m_audio.shutdown();
     m_lua.shutdown();
     shutdownImGui();
     m_editor.shutdown();

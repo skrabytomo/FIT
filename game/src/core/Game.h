@@ -36,6 +36,7 @@
 #include "../hero/HeroClass.h"
 #include "../hero/Artifacts.h"
 #include "../world/WorldObject.h"
+#include "../audio/AudioManager.h"
 
 class Game
 {
@@ -122,6 +123,11 @@ private:
     // ── Unit exchange overlay ─────────────────────────────────────────────────
     void renderUnitExchange();
 
+    // ── World object interaction popups ───────────────────────────────────────
+    void renderDwellingPopup();
+    void renderStatShrinePopup();
+    void renderQuestPopup();
+
     // ── Victory / defeat modals ────────────────────────────────────────────────
     void renderVictoryModal();
     void renderDefeatModal();
@@ -199,7 +205,7 @@ private:
     CombatHUD    m_combatHUD;
     TownScreen   m_townScreen;
 
-    // ── Icon texture atlas (256x64, 8x2 cells of 32x32) ──────────────────────
+    // ── Icon texture atlas (256x96, 8x3 cells of 32x32) ──────────────────────
     Texture           m_iconTex;
 
     // ── Editor ────────────────────────────────────────────────────────────────
@@ -259,4 +265,14 @@ private:
     int         m_exchangeHeroIdx   = -1;   // index of the OTHER hero
     int         m_exchangeSelSlotA  = -1;   // selected slot in hero A's army
     int         m_exchangeSelSlotB  = -1;   // selected slot in hero B's army
+
+    // ── World object interactions ─────────────────────────────────────────────
+    uint32_t m_pendingObjId        = 0;
+    bool     m_showDwellingPopup   = false;
+    bool     m_showStatShrinePopup = false;
+    bool     m_showQuestPopup      = false;
+    uint32_t m_lastBanditCampId    = 0;
+
+    // ── Audio ─────────────────────────────────────────────────────────────────
+    AudioManager m_audio;
 };

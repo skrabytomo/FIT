@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Generate build/assets/icons.png — 256x64 icon atlas (8x2 grid of 32x32 cells).
+"""Generate build/assets/icons.png — 256x96 icon atlas (8x3 grid of 32x32 cells).
 
 Layout:
   Row 0: HeroPlayer HeroEnemy TownPlayer TownEnemy TownNeutral Scroll Artifact XPShrine
   Row 1: Cache      Gold      Iron       Faith     Blood       Sap    Mercury  (blank)
+  Row 2: Observatory StatShrine BanditCamp Dwelling QuestGiver QuestTarget (blank) (blank)
 """
 
 import struct, zlib, os, math
 
-W, H, CELL = 256, 64, 32
+W, H, CELL = 256, 96, 32
 pixels = [(0, 0, 0, 0)] * (W * H)
 
 # ── Primitives ────────────────────────────────────────────────────────────────
@@ -185,6 +186,67 @@ circ(ccx(i)-3,ccy(i)-3,6,(60,190,180,255)); circ(ccx(i)-4,ccy(i)-4,3,TEALBR)
 circ(ccx(i),ccy(i),3,TEALDK); put(ccx(i)-1,ccy(i)-1,(200,250,245,255))
 
 # ─── 15: blank (transparent, already zero) ───────────────────────────────────
+
+# ─── 16: Observatory (gray circle with eye shape) ────────────────────────────
+i=16; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,GRAYDK); circ(ccx(i),ccy(i),11,GRAY)
+# Eye shape: outer ellipse
+for dy in range(-5,6):
+    w2 = int((1.0 - (dy/5.0)**2)**0.5 * 10)
+    rect(ccx(i)-w2, ccy(i)+dy, w2*2, 1, WHITE)
+# Pupil
+circ(ccx(i),ccy(i),4,(30,30,120,255)); circ(ccx(i),ccy(i),2,BLUEBR)
+
+# ─── 17: StatShrine (red-orange circle with sword) ───────────────────────────
+i=17
+circ(ccx(i),ccy(i),13,(120,40,0,255)); circ(ccx(i),ccy(i),11,(200,80,20,255))
+# Sword: vertical line
+rect(ccx(i)-1,ccy(i)-10,3,16,GOLDBR)
+# Cross guard
+rect(ccx(i)-5,ccy(i)-3,10,3,GOLDBR)
+
+# ─── 18: BanditCamp (dark camp with skull) ───────────────────────────────────
+i=18; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,BROWNDK); circ(ccx(i),ccy(i),11,(80,50,20,255))
+# Skull outline
+circ(ccx(i),ccy(i)-2,7,GRAYBR)
+rect(bx+10,by+20,12,5,GRAYBR)
+rect(bx+10,by+17,4,6,BROWNDK)
+rect(bx+18,by+17,4,6,BROWNDK)
+# Eyes
+circ(ccx(i)-3,ccy(i)-3,2,BROWNDK); circ(ccx(i)+3,ccy(i)-3,2,BROWNDK)
+
+# ─── 19: UnitDwelling (wooden hut) ───────────────────────────────────────────
+i=19; bx,by=ox(i),oy(i)
+# Walls
+rect(bx+5,by+16,22,14,BROWN)
+rect(bx+5,by+16,22,2,BROWNBR)
+# Door
+rect(bx+13,by+22,6,8,BROWNDK)
+# Roof triangle
+poly([(ccx(i),oy(i)+5),(ox(i)+3,oy(i)+17),(ox(i)+29,oy(i)+17)],(60,35,10,255))
+poly([(ccx(i),oy(i)+7),(ox(i)+5,oy(i)+16),(ox(i)+27,oy(i)+16)],BROWNDK)
+# Window
+rect(bx+7,by+19,5,4,GOLDBR)
+rect(bx+20,by+19,5,4,GOLDBR)
+
+# ─── 20: QuestGiver (! on blue) ──────────────────────────────────────────────
+i=20
+circ(ccx(i),ccy(i),13,(15,50,150,255)); circ(ccx(i),ccy(i),11,BLUE)
+# Exclamation mark
+rect(ccx(i)-2,ccy(i)-9,5,13,YELLOW)
+circ(ccx(i),ccy(i)+7,3,YELLOW)
+rect(ccx(i)-2,ccy(i)+4,5,3,(15,50,150,255))
+
+# ─── 21: QuestTarget (flag on pole) ──────────────────────────────────────────
+i=21; bx,by=ox(i),oy(i)
+circ(ccx(i),ccy(i),13,(0,80,30,255)); circ(ccx(i),ccy(i),11,(0,120,50,255))
+# Pole
+rect(ccx(i)-1,ccy(i)-10,2,20,GRAYBR)
+# Flag
+poly([(ccx(i),oy(i)+6),(ox(i)+22,oy(i)+10),(ccx(i),oy(i)+14)],REDBR)
+
+# ─── 22-23: blank ────────────────────────────────────────────────────────────
 
 # ── Write PNG ─────────────────────────────────────────────────────────────────
 def write_png(path, w, h, pxls):

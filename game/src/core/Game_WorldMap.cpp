@@ -369,6 +369,18 @@ void Game::updateWorldMap(float dt)
                 }
             }
         }
+        if (newWeek) {
+            // Add weekly growth to unit dwellings
+            for (auto& obj : m_worldObjects) {
+                if (obj.type == WorldObjectType::UnitDwelling && !obj.collected) {
+                    int tier = obj.value;
+                    obj.available += 3 + tier;  // T1=4, T6=9 per week
+                }
+                // Observatory resets (allow re-use each week)
+                if (obj.type == WorldObjectType::Observatory)
+                    obj.collected = false;
+            }
+        }
     }
 }
 
@@ -400,6 +412,9 @@ void Game::renderWorldMap()
     if (m_showArtifactPanel)  renderArtifactPanel();
     if (m_showHeroInspect)    renderHeroInspect();
     if (m_showUnitExchange)   renderUnitExchange();
+    if (m_showDwellingPopup)    renderDwellingPopup();
+    if (m_showStatShrinePopup)  renderStatShrinePopup();
+    if (m_showQuestPopup)       renderQuestPopup();
     if (m_showTownLostPopup)  renderTownLostPopup();
     if (m_showVictory)        renderVictoryModal();
     if (m_showDefeat)         renderDefeatModal();
@@ -507,41 +522,145 @@ void Game::checkTileEvents()
     if (m_state == GameState::Campaign)
         m_campaign.onTileReached(hero.pos);
 
-    // World objects (scrolls, chests, shrines)
+    // World objects (scrolls, chests, shrines, etc.)
     for (auto& obj : m_worldObjects) {
-        if (obj.collected || !(obj.pos == hero.pos)) continue;
-        obj.collected = true;
+        if (obj.pos != hero.pos) continue;
+
         switch (obj.type) {
-        case WorldObjectType::SpellScroll: {
-            bool already = false;
-            for (int sid : hero.knownSpells) if (sid == obj.value) { already = true; break; }
-            if (!already) {
-                hero.knownSpells.push_back(obj.value);
-                printf("Hero learned spell %d from scroll\n", obj.value);
+        case WorldObjectType::SpellScroll:
+            if (!obj.collected) {
+                obj.collected = true;
+                bool already = false;
+                for (int sid : hero.knownSpells) if (sid == obj.value) { already = true; break; }
+                if (!already) {
+                    hero.knownSpells.push_back(obj.value);
+                    printf("Hero learned spell %d from scroll\n", obj.value);
+                }
             }
             break;
-        }
         case WorldObjectType::ArtifactChest:
-            hero.artifactInventory.push_back(obj.value);
-            printf("Hero picked up artifact %d\n", obj.value);
+            if (!obj.collected) {
+                obj.collected = true;
+                hero.artifactInventory.push_back(obj.value);
+                printf("Hero picked up artifact %d\n", obj.value);
+            }
             break;
         case WorldObjectType::XPShrine:
-            if (hero.addXp(obj.value)) {
-                const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
-                if (cls) {
-                    std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
-                    m_levelUpOffers = LevelUpSystem::generateOffers(
-                        *cls, hero.skills, hero.level, allSkills, hero.faction);
+            if (!obj.collected) {
+                obj.collected = true;
+                if (hero.addXp(obj.value)) {
+                    const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                    if (cls) {
+                        std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                        m_levelUpOffers = LevelUpSystem::generateOffers(
+                            *cls, hero.skills, hero.level, allSkills, hero.faction);
+                    }
+                    if (m_levelUpOffers.empty())
+                        m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                    m_showLevelUpModal = true;
                 }
-                if (m_levelUpOffers.empty())
-                    m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
-                m_showLevelUpModal = true;
+                printf("Hero gained %d XP from shrine\n", obj.value);
             }
-            printf("Hero gained %d XP from shrine\n", obj.value);
             break;
         case WorldObjectType::ResourceCache:
-            m_playerResources.add(obj.resourceType, obj.value);
-            printf("Hero found resource cache: %d %s\n", obj.value, resourceName(obj.resourceType));
+            if (!obj.collected) {
+                obj.collected = true;
+                m_playerResources.add(obj.resourceType, obj.value);
+                printf("Hero found resource cache: %d %s\n", obj.value, resourceName(obj.resourceType));
+            }
+            break;
+        case WorldObjectType::Observatory:
+            if (!obj.collected) {
+                obj.collected = true;  // will reset weekly
+                // Reveal tiles in radius
+                auto cells = HexGrid::range(hero.pos, obj.value);
+                for (auto& c : cells) {
+                    if (HexTile* t = m_map.getTile(c)) {
+                        t->explored = true;
+                        t->visible  = true;
+                    }
+                }
+                printf("Observatory: revealed %d tiles in radius %d\n",
+                       static_cast<int>(cells.size()), obj.value);
+            }
+            break;
+        case WorldObjectType::StatShrine:
+            if (obj.questState > 0) {
+                m_pendingObjId = obj.id;
+                m_showStatShrinePopup = true;
+            }
+            break;
+        case WorldObjectType::BanditCamp:
+            if (!obj.collected) {
+                m_lastBanditCampId = obj.id;
+                // Generate bandit army based on difficulty
+                Hero banditHero;
+                banditHero.id     = 0;
+                banditHero.name   = "Bandit Leader";
+                banditHero.faction = FactionId::None;
+                int diff = obj.value;
+                std::vector<CombatUnit> banditUnits;
+                {
+                    CombatUnit u;
+                    u.id = 50; u.name = "Bandit"; u.count = 5 * diff;
+                    u.maxHp = u.hp = 5; u.attack = 2 + diff; u.defense = 1 + diff;
+                    u.speed = 5; u.range = 0; u.shotsLeft = 0;
+                    u.isPlayer = false;
+                    banditUnits.push_back(u);
+                    if (diff >= 2) {
+                        CombatUnit u2;
+                        u2.id = 51; u2.name = "Bandit Archer"; u2.count = 3 * diff;
+                        u2.maxHp = u2.hp = 4; u2.attack = 3; u2.defense = 1;
+                        u2.speed = 4; u2.range = 4; u2.shotsLeft = u2.shots = 8;
+                        u2.isPlayer = false;
+                        banditUnits.push_back(u2);
+                    }
+                }
+                m_lastCombatEnemyId = 0;
+                m_pendingTownCaptureId = 0;
+                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
+                applyHeroSkillsToUnits(hero, pUnits);
+                enterCombat(hero, pUnits, banditHero, banditUnits);
+                return;
+            }
+            break;
+        case WorldObjectType::UnitDwelling:
+            if (obj.available > 0) {
+                m_pendingObjId = obj.id;
+                m_showDwellingPopup = true;
+            }
+            break;
+        case WorldObjectType::QuestGiver:
+            if (obj.questState == 0) {
+                m_pendingObjId = obj.id;
+                m_showQuestPopup = true;
+            } else if (obj.questState == 1) {
+                // Check if QuestTarget was collected
+                for (const auto& other : m_worldObjects) {
+                    if (other.id == obj.linkedId && other.collected) {
+                        // Quest complete!
+                        const_cast<WorldObject&>(obj).questState = 2;
+                        int reward = 500;
+                        m_playerResources.add(ResourceType::Gold, reward);
+                        printf("Quest complete! Rewarded %d gold\n", reward);
+                        break;
+                    }
+                }
+            }
+            break;
+        case WorldObjectType::QuestTarget:
+            if (!obj.collected) {
+                obj.collected = true;
+                // Mark linked QuestGiver as ready-to-complete
+                for (auto& other : m_worldObjects) {
+                    if (other.id == obj.linkedId) {
+                        if (other.questState == 1) {
+                            printf("Quest target reached! Return to quest giver.\n");
+                        }
+                        break;
+                    }
+                }
+            }
             break;
         }
     }
@@ -647,8 +766,8 @@ void Game::renderWorldOverlay()
         if (!hasIcons) return;
         float col = static_cast<float>(idx % 8);
         float row = static_cast<float>(idx / 8);
-        ImVec2 uv0 = { col / 8.0f,        row / 2.0f };
-        ImVec2 uv1 = { (col + 1.0f) / 8.0f, (row + 1.0f) / 2.0f };
+        ImVec2 uv0 = { col / 8.0f,          row / 3.0f };
+        ImVec2 uv1 = { (col + 1.0f) / 8.0f, (row + 1.0f) / 3.0f };
         dl->AddImage(iconTex, {sx - hs, sy - hs}, {sx + hs, sy + hs}, uv0, uv1);
     };
 
@@ -660,6 +779,8 @@ void Game::renderWorldOverlay()
         ICO_CACHE        = 8, ICO_RES_GOLD     = 9, ICO_RES_IRON     = 10,
         ICO_RES_FAITH    = 11,ICO_RES_BLOOD    = 12,ICO_RES_SAP      = 13,
         ICO_RES_MERCURY  = 14,
+        ICO_OBSERVATORY  = 16, ICO_STAT_SHRINE = 17, ICO_BANDIT_CAMP = 18,
+        ICO_DWELLING     = 19, ICO_QUEST_GIVER = 20, ICO_QUEST_TARGET = 21,
     };
 
     // ── Towns ──────────────────────────────────────────────────────────────────
@@ -691,11 +812,17 @@ void Game::renderWorldOverlay()
         project(obj.pos, sx, sy);
         int ico;
         switch (obj.type) {
-        case WorldObjectType::SpellScroll:   ico = ICO_SCROLL;   break;
-        case WorldObjectType::ArtifactChest: ico = ICO_ARTIFACT; break;
-        case WorldObjectType::XPShrine:      ico = ICO_XP;       break;
-        case WorldObjectType::ResourceCache: ico = ICO_CACHE;    break;
-        default:                             ico = 15;            break;
+        case WorldObjectType::SpellScroll:   ico = ICO_SCROLL;        break;
+        case WorldObjectType::ArtifactChest: ico = ICO_ARTIFACT;     break;
+        case WorldObjectType::XPShrine:      ico = ICO_XP;           break;
+        case WorldObjectType::ResourceCache: ico = ICO_CACHE;        break;
+        case WorldObjectType::Observatory:   ico = ICO_OBSERVATORY;  break;
+        case WorldObjectType::StatShrine:    ico = ICO_STAT_SHRINE;  break;
+        case WorldObjectType::BanditCamp:    ico = ICO_BANDIT_CAMP;  break;
+        case WorldObjectType::UnitDwelling:  ico = ICO_DWELLING;     break;
+        case WorldObjectType::QuestGiver:    ico = ICO_QUEST_GIVER;  break;
+        case WorldObjectType::QuestTarget:   ico = ICO_QUEST_TARGET; break;
+        default:                             ico = 15;               break;
         }
         addIcon(ico, sx, sy, 10.0f);
         dl->AddCircle({sx, sy}, 10.0f, IM_COL32(255, 255, 255, 100), 0, 1.0f);
@@ -1201,6 +1328,154 @@ void Game::renderUnitExchange()
 
     ImGui::SameLine(0, 16);
     drawCol("HERO B", heroB, m_exchangeSelSlotB, false);
+
+    ImGui::End();
+}
+
+// ── Dwelling recruit popup ────────────────────────────────────────────────────
+void Game::renderDwellingPopup()
+{
+    if (!m_showDwellingPopup) return;
+    WorldObject* obj = nullptr;
+    for (auto& o : m_worldObjects)
+        if (o.id == m_pendingObjId) { obj = &o; break; }
+    if (!obj) { m_showDwellingPopup = false; return; }
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({360, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.92f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##dwelling", nullptr, wf)) { ImGui::End(); return; }
+
+    int tier = obj->value;
+    int costPerUnit = tier * 50;
+    ImGui::TextColored({0.9f, 0.7f, 0.2f, 1.0f}, "Unit Dwelling (Tier %d)", tier);
+    ImGui::Separator();
+    ImGui::Text("Available: %d units", obj->available);
+    ImGui::Text("Cost: %d gold per unit", costPerUnit);
+    ImGui::Text("Gold: %d", m_playerResources.get(ResourceType::Gold));
+    ImGui::Spacing();
+
+    if (m_heroes.empty()) { m_showDwellingPopup = false; ImGui::End(); return; }
+    Hero& hero = m_heroes[m_activeHeroIdx];
+
+    int maxAfford = (costPerUnit > 0) ? m_playerResources.get(ResourceType::Gold) / costPerUnit : obj->available;
+    int canBuy    = std::min(maxAfford, obj->available);
+
+    if (canBuy > 0) {
+        if (ImGui::Button("Buy All", {120, 28})) {
+            int total = canBuy * costPerUnit;
+            m_playerResources.add(ResourceType::Gold, -total);
+            // Find a unit def matching this dwelling's faction and tier
+            FactionId fac = static_cast<FactionId>(obj->faction);
+            for (const auto& ud : m_registry.units()) {
+                if (ud.faction == fac && ud.tier == tier && ud.path == UpgradePath::None) {
+                    bool merged = false;
+                    for (auto& s : hero.army)
+                        if (s.defId == ud.id) { s.count += canBuy; merged = true; break; }
+                    if (!merged && hero.army.size() < 7)
+                        hero.army.push_back({ud.id, canBuy});
+                    break;
+                }
+            }
+            obj->available -= canBuy;
+            m_showDwellingPopup = false;
+        }
+        ImGui::SameLine();
+    }
+    if (ImGui::Button("Close", {80, 28}))
+        m_showDwellingPopup = false;
+
+    ImGui::End();
+}
+
+// ── Stat shrine popup ─────────────────────────────────────────────────────────
+void Game::renderStatShrinePopup()
+{
+    if (!m_showStatShrinePopup) return;
+    WorldObject* obj = nullptr;
+    for (auto& o : m_worldObjects)
+        if (o.id == m_pendingObjId) { obj = &o; break; }
+    if (!obj) { m_showStatShrinePopup = false; return; }
+
+    static const char* kStatNames[] = { "Attack", "Defense", "Speed", "Light Power" };
+    const char* statName = kStatNames[obj->value % 4];
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({340, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.92f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##statshrine", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({1.0f, 0.5f, 0.1f, 1.0f}, "Stat Shrine");
+    ImGui::Separator();
+    ImGui::Text("Spend 1000 gold for +1 %s?", statName);
+    ImGui::Text("Gold: %d   Uses remaining: %d", m_playerResources.get(ResourceType::Gold), obj->questState);
+    ImGui::Spacing();
+
+    bool canAfford = m_playerResources.get(ResourceType::Gold) >= 1000;
+
+    if (!canAfford) ImGui::BeginDisabled();
+    if (ImGui::Button("Yes", {80, 28})) {
+        if (!m_heroes.empty()) {
+            Hero& hero = m_heroes[m_activeHeroIdx];
+            m_playerResources.add(ResourceType::Gold, -1000);
+            switch (obj->value % 4) {
+            case 0: hero.attack  += 1; break;
+            case 1: hero.defense += 1; break;
+            case 2: hero.maxMove += 1; hero.movePool = std::min(hero.movePool + 1, hero.maxMove); break;
+            case 3: hero.lightPower += 1; break;
+            }
+            obj->questState--;
+            printf("StatShrine: +1 %s, uses left: %d\n", statName, obj->questState);
+        }
+        m_showStatShrinePopup = false;
+    }
+    if (!canAfford) ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    if (ImGui::Button("No", {80, 28}))
+        m_showStatShrinePopup = false;
+
+    ImGui::End();
+}
+
+// ── Quest popup ───────────────────────────────────────────────────────────────
+void Game::renderQuestPopup()
+{
+    if (!m_showQuestPopup) return;
+    WorldObject* obj = nullptr;
+    for (auto& o : m_worldObjects)
+        if (o.id == m_pendingObjId) { obj = &o; break; }
+    if (!obj) { m_showQuestPopup = false; return; }
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({360, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.92f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##quest", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({1.0f, 0.85f, 0.1f, 1.0f}, "Quest Available!");
+    ImGui::Separator();
+    ImGui::TextWrapped("A mysterious stranger offers you a quest: travel to the marked location and discover what lies there. Reward: 500 gold.");
+    ImGui::Spacing();
+
+    if (ImGui::Button("Accept", {100, 28})) {
+        obj->questState = 1;
+        m_showQuestPopup = false;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Decline", {100, 28}))
+        m_showQuestPopup = false;
 
     ImGui::End();
 }

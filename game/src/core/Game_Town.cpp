@@ -268,11 +268,13 @@ void Game::enterTown(Town* town)
     m_state = GameState::Town;
     Hero* hero = m_heroes.empty() ? nullptr : &m_heroes[m_activeHeroIdx];
     m_townScreen.open(town, &m_playerResources, &m_registry, hero);
+    m_audio.playMusic("town_music");
     printf("Entered town: %s\n", town->name.c_str());
 }
 
 void Game::exitTown()
 {
     m_townScreen.close();
+    m_audio.playMusic("worldmap_music");
     enterWorldMap();
 }
