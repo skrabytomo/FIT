@@ -137,6 +137,20 @@ void CombatHUD::drawUnitInfo(UIRenderer& rdr, const CombatUnit* unit, bool isAct
     rdr.drawText(stats, x, y, UIColor::hex(UITheme::TEXT_SECONDARY), 11.0f);
     y += 14.0f;
 
+    // Active buff/debuff status
+    bool hasBuff = unit->roundAttackBonus != 0 || unit->roundDefenseBonus != 0;
+    if (hasBuff) {
+        std::string buffStr;
+        if (unit->roundAttackBonus > 0)       buffStr += "ATK+" + std::to_string(unit->roundAttackBonus) + " ";
+        else if (unit->roundAttackBonus < 0)   buffStr += "ATK" + std::to_string(unit->roundAttackBonus) + " ";
+        if (unit->roundDefenseBonus > 0)       buffStr += "DEF+" + std::to_string(unit->roundDefenseBonus);
+        else if (unit->roundDefenseBonus < 0)  buffStr += "DEF" + std::to_string(unit->roundDefenseBonus);
+        UIColor buffCol = (unit->roundAttackBonus > 0 || unit->roundDefenseBonus > 0)
+                          ? UIColor::hex(UITheme::MORALE_GOLD) : UIColor::hex(UITheme::BLOOD_RED);
+        rdr.drawText(buffStr, x, y, buffCol, 11.0f);
+        y += 13.0f;
+    }
+
     // Shots remaining
     if (unit->range > 0) {
         rdr.drawText("Shots: " + std::to_string(unit->shotsLeft),
