@@ -269,7 +269,30 @@ void TownScreen::drawIncomePanel(UIRenderer& rdr)
 bool TownScreen::onMouseMove(float x, float y) {
     if (!m_open) return false;
     m_closeBtn.onMouseMove(x, y);
-    for (auto& bb : m_buildBtns)   bb.btn.onMouseMove(x, y);
+
+    m_tooltip.hide();
+    for (auto& bb : m_buildBtns) {
+        bb.btn.onMouseMove(x, y);
+        if (!bb.built && m_registry && bb.btn.bounds.contains(x, y)) {
+            const BuildingDef* bd = m_registry->getBuildingDef(bb.buildingId);
+            if (bd) {
+                std::string tip = bd->name + ": ";
+                if (!bd->description.empty()) tip += bd->description + "  |  ";
+                tip += "Cost: ";
+                bool first = true;
+                for (int i = 0; i < RESOURCE_COUNT; ++i) {
+                    int v = bd->cost.amounts[i];
+                    if (v <= 0) continue;
+                    if (!first) tip += ", ";
+                    tip += std::to_string(v) + " " + resourceName(static_cast<ResourceType>(i));
+                    first = false;
+                }
+                if (first) tip += "free";
+                m_tooltip.show(tip, x, y - 10.0f);
+            }
+        }
+    }
+
     for (auto& rb : m_recruitBtns) rb.btn.onMouseMove(x, y);
     return m_mainPanel.bounds.contains(x, y);
 }

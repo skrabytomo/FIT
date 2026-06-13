@@ -262,6 +262,50 @@ void Game::renderTownLostPopup()
     }
 }
 
+// ── Week summary popup ────────────────────────────────────────────────────────
+void Game::renderWeekSummary()
+{
+    ImGui::OpenPopup("Week Begins!");
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal("Week Begins!", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.15f, 1.0f), "Week %d", m_weekSummaryWeek);
+        ImGui::Separator();
+        ImGui::Spacing();
+        ImGui::Text("Resources received this week:");
+        ImGui::Spacing();
+
+        static const struct { ResourceType type; const char* icon; ImVec4 col; } kRes[] = {
+            { ResourceType::Gold,         "Gold",        {1.00f, 0.85f, 0.20f, 1.f} },
+            { ResourceType::Iron,         "Iron",        {0.70f, 0.70f, 0.75f, 1.f} },
+            { ResourceType::FaithStones,  "Faith",       {0.88f, 0.84f, 1.00f, 1.f} },
+            { ResourceType::BloodEssence, "Blood",       {0.90f, 0.25f, 0.25f, 1.f} },
+            { ResourceType::VerdantSap,   "Sap",         {0.35f, 0.80f, 0.35f, 1.f} },
+            { ResourceType::Mercury,      "Mercury",     {0.30f, 0.80f, 0.75f, 1.f} },
+        };
+        bool anyIncome = false;
+        for (const auto& rd : kRes) {
+            int amt = m_weekSummaryIncome.get(rd.type);
+            if (amt <= 0) continue;
+            anyIncome = true;
+            ImGui::TextColored(rd.col, "  %-12s  +%d", rd.icon, amt);
+        }
+        if (!anyIncome)
+            ImGui::TextDisabled("  (no towns or mines owned)");
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        if (ImGui::Button("Continue", ImVec2(-1, 30))) {
+            m_showWeekSummary = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+}
+
 // ── State transitions ─────────────────────────────────────────────────────────
 void Game::enterTown(Town* town)
 {

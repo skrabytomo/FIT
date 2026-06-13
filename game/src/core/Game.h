@@ -126,6 +126,7 @@ private:
     void renderMageGuild();
     void renderCapturePopup();
     void renderTownLostPopup();
+    void renderWeekSummary();
     void renderTavern();
 
     // ── Unit exchange overlay ─────────────────────────────────────────────────
@@ -287,6 +288,11 @@ private:
     bool     m_showStatShrinePopup = false;
     bool     m_showQuestPopup      = false;
     uint32_t m_lastBanditCampId    = 0;
+
+    // ── Week summary popup ────────────────────────────────────────────────────
+    bool      m_showWeekSummary   = false;
+    int       m_weekSummaryWeek   = 0;
+    Resources m_weekSummaryIncome;
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     AudioManager m_audio;

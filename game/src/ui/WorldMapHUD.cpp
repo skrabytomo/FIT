@@ -42,6 +42,9 @@ void WorldMapHUD::draw(UIRenderer& rdr,
                         const std::vector<Hero>& heroes,
                         int selectedHeroIdx)
 {
+    // Keep end-turn button label in sync with day counter
+    m_endTurnBtn.text = "End Turn  [Day " + std::to_string(turns.day()) + "]";
+
     drawResourceBar(rdr, playerRes);
     drawDatePanel(rdr, turns);
     drawHeroPanel(rdr, heroes, selectedHeroIdx);

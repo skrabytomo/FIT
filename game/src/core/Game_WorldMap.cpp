@@ -182,6 +182,29 @@ void Game::updateWorldMap(float dt)
     if (mouse.leftDown) {
         bool uiHandled = m_worldHUD.onMouseDown(
             static_cast<float>(mouse.x), static_cast<float>(mouse.y));
+
+        // Minimap click: pan camera to clicked map position
+        if (!uiHandled && m_map.radius() > 0) {
+            constexpr float MINI_W = 150.0f, MINI_H = 150.0f, PAD = 10.0f;
+            const float mm_left = PAD;
+            const float mm_top  = static_cast<float>(m_height) - MINI_H - PAD;
+            const float mx = static_cast<float>(mouse.x);
+            const float my = static_cast<float>(mouse.y);
+            if (mx >= mm_left && mx <= mm_left + MINI_W &&
+                my >= mm_top  && my <= mm_top  + MINI_H) {
+                const float mm_cx  = mm_left + MINI_W * 0.5f;
+                const float mm_cy  = mm_top  + MINI_H * 0.5f;
+                const float R      = static_cast<float>(m_map.radius());
+                const float scaleX = MINI_W * 0.5f / R;
+                const float scaleY = MINI_H * 0.5f / R;
+                const float hs     = m_hexRenderer.grid().hexSize();
+                float q_f   = (mx - mm_cx) / scaleX;
+                float rq_f  = (my - mm_cy) / scaleY;
+                m_camera.setPosition(hs * 1.5f * q_f, hs * 1.7320508f * rq_f);
+                uiHandled = true;
+            }
+        }
+
         if (!uiHandled && m_map.inBounds(m_hovered))
             onTileClicked(m_hovered);
         else if (!uiHandled)
@@ -408,11 +431,22 @@ void Game::updateWorldMap(float dt)
         bool newWeek = m_turns.endTurn(m_towns, m_heroes,
                                        m_playerResources, m_registry);
         if (newWeek) {
+            // Capture income totals for week summary popup before adding them
+            m_weekSummaryIncome = m_turns.calculateWeeklyIncome(m_towns, 1);
+            for (const auto& r : m_resources)
+                if (r.ownedBy == 1) m_weekSummaryIncome.add(r.type, r.amount);
+            m_weekSummaryWeek = m_turns.week();
+            m_showWeekSummary = true;
+
             // Mine income for player-controlled resource nodes
             for (const auto& r : m_resources)
                 if (r.ownedBy == 1) m_playerResources.add(r.type, r.amount);
 
             printf("New week %d — income applied\n", m_turns.week());
+
+            // Auto-save at start of each new week
+            saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
+
             ScriptContext ctx; ctx.heroId = 0;
             m_triggers.fire(TriggerType::WeekStart, ctx);
             if (m_state == GameState::Campaign) {
@@ -474,6 +508,7 @@ void Game::renderWorldMap()
     if (m_showStatShrinePopup)  renderStatShrinePopup();
     if (m_showQuestPopup)       renderQuestPopup();
     if (m_showTownLostPopup)  renderTownLostPopup();
+    if (m_showWeekSummary)    renderWeekSummary();
     if (m_showVictory)        renderVictoryModal();
     if (m_showDefeat)         renderDefeatModal();
     endImGuiFrame();
@@ -1104,6 +1139,122 @@ void Game::renderWorldOverlay()
             }
             ImGui::EndTooltip();
         }
+    }
+
+    // ── Minimap ────────────────────────────────────────────────────────────────
+    if (m_map.radius() > 0) {
+        constexpr float MINI_W = 150.0f, MINI_H = 150.0f;
+        constexpr float PAD    = 10.0f;
+        const ImVec2 disp = ImGui::GetIO().DisplaySize;
+        const float mm_left = PAD;
+        const float mm_top  = disp.y - MINI_H - PAD;
+        const float mm_cx   = mm_left + MINI_W * 0.5f;
+        const float mm_cy   = mm_top  + MINI_H * 0.5f;
+        const float R       = static_cast<float>(m_map.radius());
+        const float scaleX  = MINI_W * 0.5f / R;
+        const float scaleY  = MINI_H * 0.5f / R;
+
+        // Terrain color lookup (dim if explored-only, bright if currently visible)
+        auto terrainColor = [](Terrain t, bool vis) -> ImU32 {
+            uint8_t a = vis ? 255 : 110;
+            switch (t) {
+            case Terrain::Water:          return IM_COL32( 35,  65, 145, a);
+            case Terrain::Plains:         return IM_COL32(100, 165,  72, a);
+            case Terrain::Forest:         return IM_COL32( 38,  95,  44, a);
+            case Terrain::Highland:       return IM_COL32(115, 125,  75, a);
+            case Terrain::Rocky:          return IM_COL32(135, 125, 105, a);
+            case Terrain::Swamp:          return IM_COL32( 85, 105,  55, a);
+            case Terrain::Sacred:         return IM_COL32(215, 195, 145, a);
+            case Terrain::Industrial:     return IM_COL32( 75,  75,  75, a);
+            case Terrain::Corrupted:      return IM_COL32( 75,  35,  95, a);
+            case Terrain::Toxic:          return IM_COL32(135, 155,  25, a);
+            case Terrain::Volcanic:       return IM_COL32(125,  35,  15, a);
+            case Terrain::Barren:         return IM_COL32(175, 150,  95, a);
+            case Terrain::Wasteland:      return IM_COL32(125,  95,  55, a);
+            case Terrain::CorruptedForest:return IM_COL32( 45,  65,  65, a);
+            case Terrain::FleshZone:      return IM_COL32(155,  75,  75, a);
+            default:                      return IM_COL32( 95,  95,  95, a);
+            }
+        };
+
+        // Dark backdrop
+        dl->AddRectFilled({mm_left-2, mm_top-2},
+                          {mm_left+MINI_W+2, mm_top+MINI_H+2},
+                          IM_COL32(0, 0, 0, 190));
+
+        // Clip all minimap drawing to its bounds
+        dl->PushClipRect({mm_left, mm_top}, {mm_left+MINI_W, mm_top+MINI_H}, true);
+
+        // Draw explored terrain tiles as 2×2 dots
+        for (const HexCoord& c : m_map.coords()) {
+            const HexTile* t = m_map.getTile(c);
+            if (!t || !t->explored) continue;
+            float mx = mm_cx + static_cast<float>(c.q) * scaleX;
+            float my = mm_cy + (static_cast<float>(c.r) + static_cast<float>(c.q) * 0.5f) * scaleY;
+            dl->AddRectFilled({mx-1.f, my-1.f}, {mx+1.f, my+1.f},
+                              terrainColor(t->terrain, t->visible));
+        }
+
+        // Towns: 4×4 colored square with white outline
+        for (const auto& town : m_towns) {
+            const HexTile* tt = m_map.getTile(town.pos);
+            if (!tt || !tt->explored) continue;
+            float mx = mm_cx + static_cast<float>(town.pos.q) * scaleX;
+            float my = mm_cy + (static_cast<float>(town.pos.r) + static_cast<float>(town.pos.q) * 0.5f) * scaleY;
+            ImU32 col = town.ownerId == 1 ? IM_COL32( 90, 150, 255, 255)
+                      : town.ownerId >  1 ? IM_COL32(255,  70,  70, 255)
+                                          : IM_COL32(210, 165,  45, 255);
+            dl->AddRectFilled({mx-2.f, my-2.f}, {mx+2.f, my+2.f}, col);
+            dl->AddRect({mx-2.f, my-2.f}, {mx+2.f, my+2.f}, IM_COL32(255, 255, 255, 220));
+        }
+
+        // Enemy heroes (only when tile is visible)
+        for (const auto& hero : m_enemyHeroes) {
+            const HexTile* ht2 = m_map.getTile(hero.pos);
+            if (!ht2 || !ht2->visible) continue;
+            float mx = mm_cx + static_cast<float>(hero.pos.q) * scaleX;
+            float my = mm_cy + (static_cast<float>(hero.pos.r) + static_cast<float>(hero.pos.q) * 0.5f) * scaleY;
+            dl->AddCircleFilled({mx, my}, 2.5f, IM_COL32(255, 60, 60, 255));
+        }
+
+        // Player heroes: bright cyan circle
+        for (const auto& ph : m_heroes) {
+            float mx = mm_cx + static_cast<float>(ph.pos.q) * scaleX;
+            float my = mm_cy + (static_cast<float>(ph.pos.r) + static_cast<float>(ph.pos.q) * 0.5f) * scaleY;
+            dl->AddCircleFilled({mx, my}, 3.0f, IM_COL32(70, 200, 255, 255));
+            dl->AddCircle({mx, my}, 3.5f, IM_COL32(255, 240, 80, 220));
+        }
+
+        // Camera viewport rectangle
+        {
+            constexpr float SQRT3 = 1.7320508f;
+            const float hs   = m_hexRenderer.grid().hexSize();
+            const float cx_w = m_camera.x();
+            const float cy_w = m_camera.y();
+            const float z    = m_camera.zoom();
+            const float sw   = static_cast<float>(m_width);
+            const float sh   = static_cast<float>(m_height);
+            // half-extents of visible region in hex-axial units
+            const float hx_q  = (sw * 0.5f / z) / (hs * 1.5f);
+            const float hy_rq = (sh * 0.5f / z) / (hs * SQRT3);
+            // camera center in axial units
+            const float cx_q  = cx_w / (hs * 1.5f);
+            const float cy_rq = cy_w / (hs * SQRT3);
+            float vl = mm_cx + (cx_q - hx_q) * scaleX;
+            float vr = mm_cx + (cx_q + hx_q) * scaleX;
+            float vt = mm_cy + (cy_rq - hy_rq) * scaleY;
+            float vb = mm_cy + (cy_rq + hy_rq) * scaleY;
+            dl->AddRect({vl, vt}, {vr, vb}, IM_COL32(255, 255, 255, 210), 0.f, 0, 1.5f);
+        }
+
+        dl->PopClipRect();
+
+        // Minimap border
+        dl->AddRect({mm_left-2, mm_top-2},
+                    {mm_left+MINI_W+2, mm_top+MINI_H+2},
+                    IM_COL32(175, 155, 115, 230), 2.0f, 0, 1.5f);
+        // "MAP" label above
+        dl->AddText({mm_left+2, mm_top-14}, IM_COL32(195, 175, 135, 220), "MAP");
     }
 }
 
