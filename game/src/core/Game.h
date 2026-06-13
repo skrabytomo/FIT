@@ -224,6 +224,10 @@ private:
     // ── Per-unit combat animators (keyed by CombatUnit id) ───────────────────
     std::unordered_map<uint32_t, SpriteAnimator> m_combatAnimators;
 
+    // ── Floating damage text effects in combat ────────────────────────────────
+    struct CombatDmgEffect { float bx, by, t; int dmg; bool isHeal; };
+    std::vector<CombatDmgEffect> m_combatDmgEffects;
+
     // ── Editor ────────────────────────────────────────────────────────────────
     MapEditor         m_editor;
     SimulatorWindow   m_simWindow;

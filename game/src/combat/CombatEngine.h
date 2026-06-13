@@ -37,7 +37,8 @@ struct CombatLog
 class CombatEngine
 {
 public:
-    using LogCallback = std::function<void(const std::string&)>;
+    using LogCallback    = std::function<void(const std::string&)>;
+    using DamageCallback = std::function<void(uint32_t /*targetId*/, int /*damage*/, HexCoord /*pos*/)>;
 
     CombatEngine() = default;
 
@@ -78,6 +79,7 @@ public:
     // Log
     const std::vector<CombatLog>& log() const { return m_log; }
     void setLogCallback(LogCallback cb) { m_logCb = cb; }
+    void setDamageCallback(DamageCallback cb) { m_dmgCb = cb; }
 
     // XP earned this battle (enemy unit-count × 5, awarded on victory)
     int xpEarned() const { return m_enemyStartCount * 5; }
@@ -120,6 +122,7 @@ private:
 
     std::vector<CombatLog> m_log;
     LogCallback            m_logCb;
+    DamageCallback         m_dmgCb;
     bool                   m_silent  = false;
     AIDifficulty           m_playerAI = AIDifficulty::Standard;
     AIDifficulty           m_enemyAI  = AIDifficulty::Standard;

@@ -279,6 +279,8 @@ bool CombatEngine::submitAction(const CombatAction& action)
             unit->shotsLeft--;
         }
 
+        HexCoord targetPos = target->pos;
+        uint32_t targetId  = target->id;
         auto result = DamageCalc::attack(*unit, *target, m_grid);
 
         std::ostringstream ss;
@@ -286,6 +288,9 @@ bool CombatEngine::submitAction(const CombatAction& action)
            << " for " << result.damage << " damage";
         if (result.killed > 0) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
+
+        if (m_dmgCb && result.damage > 0)
+            m_dmgCb(targetId, result.damage, targetPos);
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
@@ -399,8 +404,11 @@ bool CombatEngine::submitAction(const CombatAction& action)
             switch (spell->effect) {
                 case SpellEffect::Damage: {
                     int dmg = std::max(1, potency);
+                    HexCoord tPos = t->pos;
+                    uint32_t tId  = t->id;
                     t->applyDamage(dmg);
                     ss << " → " << t->name << " takes " << dmg;
+                    if (m_dmgCb) m_dmgCb(tId, dmg, tPos);
                     if (!t->alive) addLog(t->name + " destroyed!");
                     // Death Coil and Drain Life restore HP to caster's unit
                     if (action.spellId == SPL::DEATH_COIL ||

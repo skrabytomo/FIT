@@ -89,6 +89,13 @@ void Game::updateCombat(float dt)
     if (m_combat.phase() == CombatPhase::EnemyTurn)
         m_combat.processAITurn();
 
+    // Advance floating damage effect timers
+    for (auto& ef : m_combatDmgEffects) ef.t -= dt;
+    m_combatDmgEffects.erase(
+        std::remove_if(m_combatDmgEffects.begin(), m_combatDmgEffects.end(),
+            [](const CombatDmgEffect& e){ return e.t <= 0.f; }),
+        m_combatDmgEffects.end());
+
     if (m_combat.phase() == CombatPhase::Victory)
         exitCombat(true);
     else if (m_combat.phase() == CombatPhase::Defeat)
@@ -302,6 +309,22 @@ void Game::renderCombatBoard()
         dl->AddPolyline(pts, 6, IM_COL32(220, 220, 120, 180),
                         ImDrawFlags_Closed, 1.5f);
     }
+
+    // Floating damage numbers
+    for (const auto& ef : m_combatDmgEffects) {
+        float alpha = std::min(1.0f, ef.t);
+        if (alpha <= 0.f) continue;
+        float rise = (1.5f - ef.t) * 35.0f;
+        char dmgBuf[16];
+        std::snprintf(dmgBuf, sizeof(dmgBuf), "%d", ef.dmg);
+        float fx = ef.bx - ImGui::CalcTextSize(dmgBuf).x * 0.5f;
+        float fy = ef.by - rise;
+        int   a  = static_cast<int>(alpha * 255);
+        ImU32 shadow = IM_COL32(0, 0, 0, a);
+        ImU32 col    = ef.isHeal ? IM_COL32(80, 255, 100, a) : IM_COL32(255, 80, 60, a);
+        dl->AddText({fx + 1, fy + 1}, shadow, dmgBuf);
+        dl->AddText({fx, fy}, col, dmgBuf);
+    }
 }
 
 // ── Spell panel (ImGui) ───────────────────────────────────────────────────────
@@ -391,6 +414,16 @@ void Game::enterCombat(Hero& playerHero,
     m_combat.setLogCallback([](const std::string& msg) {
         printf("[Combat] %s\n", msg.c_str());
     });
+    m_combatDmgEffects.clear();
+    m_combat.setDamageCallback([this](uint32_t targetId, int dmg, HexCoord pos) {
+        // Convert hex pos to board pixel pos for floating text
+        float wx, wy;
+        m_combat.grid().hexGrid().hexToWorld(pos, wx, wy);
+        float sx = wx * m_combatBoardScale + m_combatBoardOffX;
+        float sy = wy * m_combatBoardScale + m_combatBoardOffY;
+        m_combatDmgEffects.push_back({sx, sy, 1.5f, dmg, false});
+        (void)targetId;
+    });
     // Build sprite animators for every unit
     m_combatAnimators.clear();
     const auto& unitDefs = m_registry.units();
@@ -450,6 +483,9 @@ void Game::exitCombat(bool playerWon)
                     int reward = 200 * diff;
                     m_playerResources.add(ResourceType::Gold, reward);
                     obj.collected = true;
+                    char campBuf[32];
+                    std::snprintf(campBuf, sizeof(campBuf), "+%d Gold!", reward);
+                    pushPickupEffect(obj.pos, campBuf, IM_COL32(255, 215, 50, 255));
                     printf("Bandit camp cleared! Reward: %d gold\n", reward);
                     break;
                 }
@@ -483,6 +519,11 @@ void Game::exitCombat(bool playerWon)
         if (!m_heroes.empty()) {
             Hero& hero = m_heroes[m_activeHeroIdx];
             int xp = m_combat.xpEarned();
+            if (xp > 0) {
+                char xpBuf[32];
+                std::snprintf(xpBuf, sizeof(xpBuf), "+%d XP", xp);
+                pushPickupEffect(hero.pos, xpBuf, IM_COL32(160, 255, 160, 255));
+            }
             printf("Hero earns %d XP\n", xp);
             if (hero.addXp(xp)) {
                 printf("Hero leveled up to %d!\n", hero.level);
