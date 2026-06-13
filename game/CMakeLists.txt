@@ -64,6 +64,8 @@ file(GLOB_RECURSE SOURCES
     src/*.cpp
     src/*.h
 )
+# Exclude the simulator's own main — it has its own executable target below
+list(FILTER SOURCES EXCLUDE REGEX ".*/sim/sim_main\\.cpp$")
 
 add_executable(${PROJECT_NAME} ${SOURCES})
 

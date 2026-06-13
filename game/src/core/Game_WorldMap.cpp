@@ -138,6 +138,8 @@ static int heroStrength(const Hero& hero, const std::vector<UnitDef>& defs)
 // ── World map update ──────────────────────────────────────────────────────────
 void Game::updateWorldMap(float dt)
 {
+    m_hexRenderer.update(dt);
+
     const auto& mouse = m_input.mouse();
 
     if (mouse.wheelY != 0.0f)
@@ -635,6 +637,31 @@ void Game::renderWorldOverlay()
         m_camera.worldToScreen(wx, wy, sx, sy);
     };
 
+    // Helper: draw one icon from the atlas centered at (sx,sy) with half-size hs
+    const bool hasIcons = m_iconTex.ok();
+    ImTextureID iconTex = hasIcons
+        ? (ImTextureID)(uintptr_t)m_iconTex.id()
+        : (ImTextureID)(uintptr_t)0;
+
+    auto addIcon = [&](int idx, float sx, float sy, float hs) {
+        if (!hasIcons) return;
+        float col = static_cast<float>(idx % 8);
+        float row = static_cast<float>(idx / 8);
+        ImVec2 uv0 = { col / 8.0f,        row / 2.0f };
+        ImVec2 uv1 = { (col + 1.0f) / 8.0f, (row + 1.0f) / 2.0f };
+        dl->AddImage(iconTex, {sx - hs, sy - hs}, {sx + hs, sy + hs}, uv0, uv1);
+    };
+
+    // Icon atlas indices
+    enum : int {
+        ICO_HERO_PLAYER  = 0, ICO_HERO_ENEMY   = 1,
+        ICO_TOWN_PLAYER  = 2, ICO_TOWN_ENEMY   = 3, ICO_TOWN_NEUTRAL = 4,
+        ICO_SCROLL       = 5, ICO_ARTIFACT     = 6, ICO_XP           = 7,
+        ICO_CACHE        = 8, ICO_RES_GOLD     = 9, ICO_RES_IRON     = 10,
+        ICO_RES_FAITH    = 11,ICO_RES_BLOOD    = 12,ICO_RES_SAP      = 13,
+        ICO_RES_MERCURY  = 14,
+    };
+
     // ── Towns ──────────────────────────────────────────────────────────────────
     for (const auto& town : m_towns) {
         const HexTile* ttile = m_map.getTile(town.pos);
@@ -646,21 +673,14 @@ void Game::renderWorldOverlay()
 
         bool isPlayer = (town.ownerId == 1);
         bool isEnemy  = (town.ownerId > 1);
-        ImU32 fillCol = isPlayer ? IM_COL32( 40,  80, 180, 210)
-                       : isEnemy ? IM_COL32(140,  30,  30, 210)
-                                 : IM_COL32( 90,  60,  20, 210);
+        int  ico      = isPlayer ? ICO_TOWN_PLAYER : isEnemy ? ICO_TOWN_ENEMY : ICO_TOWN_NEUTRAL;
         ImU32 ringCol = isPlayer ? IM_COL32(120, 180, 255, 255)
                        : isEnemy ? IM_COL32(255, 100, 100, 255)
                                  : IM_COL32(200, 160,  60, 255);
-        ImU32 lblCol  = isPlayer ? IM_COL32(220, 240, 255, 255)
-                       : isEnemy ? IM_COL32(255, 200, 200, 255)
-                                 : IM_COL32(240, 200, 100, 255);
-        const char* lbl = isPlayer ? "T" : isEnemy ? "E" : "N";
 
-        dl->AddRectFilled({sx - HS, sy - HS}, {sx + HS, sy + HS}, fillCol, 3.0f);
+        addIcon(ico, sx, sy, HS);
         dl->AddRect({sx - HS, sy - HS}, {sx + HS, sy + HS}, ringCol, 3.0f, 0, 1.5f);
-        dl->AddText({sx - 4, sy - 6}, lblCol, lbl);
-        dl->AddText({sx - town.name.size() * 3.5f, sy + HS + 2},
+        dl->AddText({sx - (float)town.name.size() * 3.5f, sy + HS + 2},
                     IM_COL32(200, 220, 255, 200), town.name.c_str());
     }
 
@@ -669,18 +689,16 @@ void Game::renderWorldOverlay()
         if (obj.collected) continue;
         float sx, sy;
         project(obj.pos, sx, sy);
-        ImU32 col;
-        const char* lbl;
+        int ico;
         switch (obj.type) {
-        case WorldObjectType::SpellScroll:   col = IM_COL32(100,200,255,230); lbl = "S"; break;
-        case WorldObjectType::ArtifactChest: col = IM_COL32(255,180, 50,230); lbl = "A"; break;
-        case WorldObjectType::XPShrine:      col = IM_COL32(160, 80,255,230); lbl = "X"; break;
-        case WorldObjectType::ResourceCache: col = IM_COL32(100,220,100,230); lbl = "R"; break;
-        default:                             col = IM_COL32(200,200,200,180); lbl = "?"; break;
+        case WorldObjectType::SpellScroll:   ico = ICO_SCROLL;   break;
+        case WorldObjectType::ArtifactChest: ico = ICO_ARTIFACT; break;
+        case WorldObjectType::XPShrine:      ico = ICO_XP;       break;
+        case WorldObjectType::ResourceCache: ico = ICO_CACHE;    break;
+        default:                             ico = 15;            break;
         }
-        dl->AddCircleFilled({sx, sy}, 8.0f, col);
-        dl->AddCircle({sx, sy}, 8.0f, IM_COL32(255,255,255,160), 0, 1.2f);
-        dl->AddText({sx - 3, sy - 6}, IM_COL32(20, 20, 20, 255), lbl);
+        addIcon(ico, sx, sy, 10.0f);
+        dl->AddCircle({sx, sy}, 10.0f, IM_COL32(255, 255, 255, 100), 0, 1.0f);
     }
 
     // ── Resource nodes (mines) ────────────────────────────────────────────────
@@ -689,25 +707,22 @@ void Game::renderWorldOverlay()
         if (!rtile || !rtile->explored) continue;
         float sx, sy;
         project(r.pos, sx, sy);
-        ImU32 fill = r.ownedBy == 1  ? IM_COL32( 40, 100, 220, 200)
-                   : r.ownedBy >  1  ? IM_COL32(180,  30,  30, 200)
-                                     : IM_COL32(160, 130,  20, 200);
-        ImU32 ring = r.ownedBy == 1  ? IM_COL32(120, 180, 255, 255)
-                   : r.ownedBy >  1  ? IM_COL32(255, 100, 100, 255)
-                                     : IM_COL32(220, 190,  60, 255);
-        const char* ml;
+        int ico;
         switch (r.type) {
-        case ResourceType::Gold:         ml = "G"; break;
-        case ResourceType::Iron:         ml = "I"; break;
-        case ResourceType::FaithStones:  ml = "F"; break;
-        case ResourceType::BloodEssence: ml = "B"; break;
-        case ResourceType::VerdantSap:   ml = "V"; break;
-        case ResourceType::Mercury:      ml = "M"; break;
-        default:                         ml = "?"; break;
+        case ResourceType::Gold:         ico = ICO_RES_GOLD;    break;
+        case ResourceType::Iron:         ico = ICO_RES_IRON;    break;
+        case ResourceType::FaithStones:  ico = ICO_RES_FAITH;   break;
+        case ResourceType::BloodEssence: ico = ICO_RES_BLOOD;   break;
+        case ResourceType::VerdantSap:   ico = ICO_RES_SAP;     break;
+        case ResourceType::Mercury:      ico = ICO_RES_MERCURY; break;
+        default:                         ico = 15;               break;
         }
-        dl->AddRectFilled({sx - 8, sy - 8}, {sx + 8, sy + 8}, fill, 2.0f);
-        dl->AddRect({sx - 8, sy - 8}, {sx + 8, sy + 8}, ring, 2.0f, 0, 1.2f);
-        dl->AddText({sx - 3, sy - 6}, IM_COL32(240, 240, 240, 240), ml);
+        addIcon(ico, sx, sy, 10.0f);
+        // ownership ring
+        ImU32 ring = r.ownedBy == 1 ? IM_COL32(120, 180, 255, 220)
+                   : r.ownedBy >  1 ? IM_COL32(255, 100, 100, 220)
+                                    : IM_COL32(220, 190,  60, 160);
+        dl->AddRect({sx - 10, sy - 10}, {sx + 10, sy + 10}, ring, 2.0f, 0, 1.2f);
     }
 
     // ── Enemy heroes (only if tile is visible) ────────────────────────────────
@@ -716,10 +731,9 @@ void Game::renderWorldOverlay()
         if (!etile || !etile->visible) continue;
         float sx, sy;
         project(hero.pos, sx, sy);
-        dl->AddCircleFilled({sx, sy}, 12.0f, IM_COL32(200, 40, 40, 220));
-        dl->AddCircle({sx, sy}, 12.0f, IM_COL32(255, 140, 140, 255), 0, 1.5f);
-        dl->AddText({sx - 4, sy - 6}, IM_COL32(255, 240, 240, 255), "E");
-        dl->AddText({sx - hero.name.size() * 3.0f, sy + 14},
+        addIcon(ICO_HERO_ENEMY, sx, sy, 13.0f);
+        dl->AddCircle({sx, sy}, 13.0f, IM_COL32(255, 140, 140, 200), 0, 1.5f);
+        dl->AddText({sx - (float)hero.name.size() * 3.0f, sy + 15},
                     IM_COL32(255, 160, 160, 200), hero.name.c_str());
     }
 
@@ -727,7 +741,6 @@ void Game::renderWorldOverlay()
     for (int i = 0; i < static_cast<int>(m_heroes.size()); ++i) {
         const auto& hero = m_heroes[i];
         float wx, wy;
-        // Use animated position for active hero
         if (i == m_activeHeroIdx && m_moveT < 1.0f) {
             wx = m_moveSrcX + (m_moveDstX - m_moveSrcX) * m_moveT;
             wy = m_moveSrcY + (m_moveDstY - m_moveSrcY) * m_moveT;
@@ -737,14 +750,12 @@ void Game::renderWorldOverlay()
         float sx, sy;
         m_camera.worldToScreen(wx, wy, sx, sy);
 
-        bool active = (i == m_activeHeroIdx);
-        ImU32 fill = active ? IM_COL32(255, 220, 50, 230) : IM_COL32(200, 175, 40, 200);
-        ImU32 ring = active ? IM_COL32(255, 255, 200, 255) : IM_COL32(200, 200, 100, 200);
-        dl->AddCircleFilled({sx, sy}, 12.0f, fill);
-        dl->AddCircle({sx, sy}, 12.0f, ring, 0, active ? 2.0f : 1.5f);
-        dl->AddText({sx - 4, sy - 6}, IM_COL32(30, 20, 0, 255), "H");
+        bool  active = (i == m_activeHeroIdx);
+        ImU32 ring   = active ? IM_COL32(255, 255, 160, 255) : IM_COL32(200, 200, 80, 200);
+        addIcon(ICO_HERO_PLAYER, sx, sy, 13.0f);
+        dl->AddCircle({sx, sy}, 13.0f, ring, 0, active ? 2.0f : 1.2f);
         if (active)
-            dl->AddText({sx - hero.name.size() * 3.0f, sy + 14},
+            dl->AddText({sx - (float)hero.name.size() * 3.0f, sy + 15},
                         IM_COL32(255, 230, 100, 220), hero.name.c_str());
     }
 }

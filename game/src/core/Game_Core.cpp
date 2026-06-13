@@ -55,6 +55,7 @@ bool Game::init(const std::string& title, int width, int height)
     if (!m_batch.init())           { fprintf(stderr, "SpriteBatch failed\n"); return false; }
     if (!m_hexRenderer.init(40.0f)){ fprintf(stderr, "HexRenderer failed\n"); return false; }
     if (!m_ui.init(width, height)) { fprintf(stderr, "UIRenderer failed\n"); return false; }
+    m_iconTex.load("assets/icons.png", true, false); // flipV=false: ImGui uses top-left UV origin
 
     // Building registry
     m_registry.init();

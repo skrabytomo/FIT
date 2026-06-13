@@ -199,6 +199,9 @@ private:
     CombatHUD    m_combatHUD;
     TownScreen   m_townScreen;
 
+    // ── Icon texture atlas (256x64, 8x2 cells of 32x32) ──────────────────────
+    Texture           m_iconTex;
+
     // ── Editor ────────────────────────────────────────────────────────────────
     MapEditor         m_editor;
     SimulatorWindow   m_simWindow;

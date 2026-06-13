@@ -19,6 +19,7 @@ public:
     ~HexMapRenderer();
 
     bool init(float hexSize);
+    void update(float dt) { m_time += dt; }
     void render(const HexMap& map, const Camera2D& camera,
                 HexCoord hovered, HexCoord selected);
 
@@ -30,6 +31,7 @@ private:
 
     HexGrid m_grid{ 32.0f };
     Shader  m_shader;
+    float   m_time  = 0.0f;
 
     GLuint  m_vao  = 0;
     GLuint  m_vbo  = 0;

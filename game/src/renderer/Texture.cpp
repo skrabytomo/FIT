@@ -11,9 +11,9 @@ Texture::~Texture()
     if (m_id) glDeleteTextures(1, &m_id);
 }
 
-bool Texture::load(const std::string& path, bool pixelArt)
+bool Texture::load(const std::string& path, bool pixelArt, bool flipV)
 {
-    stbi_set_flip_vertically_on_load(1); // OpenGL UV origin is bottom-left
+    stbi_set_flip_vertically_on_load(flipV ? 1 : 0);
 
     int channels = 0;
     unsigned char* data = stbi_load(path.c_str(), &m_width, &m_height, &channels, 4);
