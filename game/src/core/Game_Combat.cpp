@@ -275,13 +275,37 @@ void Game::renderCombatBoard()
         // Activity ring
         dl->AddCircle({sx, sy}, hexR * 1.05f, rimCol, 0, isActive ? 2.5f : 1.2f);
 
-        // HP bar
-        float hpFrac = (u.maxHp > 0) ? static_cast<float>(u.hp) / u.maxHp : 0.0f;
+        // HP bar — shows total stack HP as a fraction of starting HP for this stack
+        int   stackMaxHp = u.count * u.maxHp + (u.maxHp - u.hp);  // approximate starting max
+        float hpFrac     = (stackMaxHp > 0)
+                            ? static_cast<float>(u.totalHp()) / static_cast<float>(u.count * u.maxHp + (u.maxHp - u.hp))
+                            : 0.0f;
+        // Simpler: just show top-unit fraction (more useful feedback per-unit)
+        hpFrac = (u.maxHp > 0) ? static_cast<float>(u.hp) / static_cast<float>(u.maxHp) : 0.0f;
         float barW = hexR * 1.4f;
         float barY = sy + sprH * 0.15f + 2.0f;
         dl->AddRectFilled({sx - barW, barY}, {sx + barW, barY + 4}, IM_COL32(70, 10, 10, 200));
-        dl->AddRectFilled({sx - barW, barY}, {sx - barW + 2.0f*barW*hpFrac, barY + 4},
-                          IM_COL32(50, 200, 50, 220));
+        ImU32 hpCol = hpFrac > 0.5f ? IM_COL32(50, 200, 50, 220)
+                    : hpFrac > 0.25f ? IM_COL32(220, 180, 30, 220)
+                                     : IM_COL32(220, 50, 50, 220);
+        dl->AddRectFilled({sx - barW, barY}, {sx - barW + 2.0f*barW*hpFrac, barY + 4}, hpCol);
+
+        // Buff/debuff indicators — small colored dots above the unit
+        float dotY  = sy - sprH * 0.85f - 6.0f;
+        float dotX  = sx - 6.0f;
+        if (u.roundAttackBonus > 0) {
+            dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(255, 140, 20, 220));  // orange = atk buff
+            dotX += 10.0f;
+        } else if (u.roundAttackBonus < 0) {
+            dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(200, 60, 60, 220));   // red = atk debuff
+            dotX += 10.0f;
+        }
+        if (u.roundDefenseBonus > 0) {
+            dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(60, 140, 255, 220));  // blue = def buff
+            dotX += 10.0f;
+        } else if (u.roundDefenseBonus < 0) {
+            dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(160, 60, 200, 220));  // purple = def debuff
+        }
 
         // Stack count label (bottom-center)
         char buf[12];

@@ -430,19 +430,23 @@ bool CombatEngine::submitAction(const CombatAction& action)
                 }
                 case SpellEffect::AttackBuff:
                     t->roundAttackBonus  += spell->power;
-                    ss << " → " << t->name << " +" << spell->power << " atk";
+                    t->buffAttackRounds   = 2;
+                    ss << " → " << t->name << " +" << spell->power << " atk (2 rounds)";
                     break;
                 case SpellEffect::DefenseBuff:
                     t->roundDefenseBonus += spell->power;
-                    ss << " → " << t->name << " +" << spell->power << " def";
+                    t->buffDefenseRounds  = 2;
+                    ss << " → " << t->name << " +" << spell->power << " def (2 rounds)";
                     break;
                 case SpellEffect::AttackDebuff:
                     t->roundAttackBonus  -= spell->power;
-                    ss << " → " << t->name << " -" << spell->power << " atk";
+                    t->buffAttackRounds   = 2;
+                    ss << " → " << t->name << " -" << spell->power << " atk (2 rounds)";
                     break;
                 case SpellEffect::DefenseDebuff:
                     t->roundDefenseBonus -= spell->power;
-                    ss << " → " << t->name << " -" << spell->power << " def";
+                    t->buffDefenseRounds  = 2;
+                    ss << " → " << t->name << " -" << spell->power << " def (2 rounds)";
                     break;
                 case SpellEffect::MoraleBoost:
                     if (!t->moraleImmune)
