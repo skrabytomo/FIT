@@ -142,6 +142,12 @@ bool Game::init(const std::string& title, int width, int height)
         m_audio.loadWav("worldmap_music", "assets/sounds/worldmap_music.wav");
         m_audio.loadWav("combat_music",   "assets/sounds/combat_music.wav");
         m_audio.loadWav("town_music",     "assets/sounds/town_music.wav");
+        for (int fi = 0; fi < 9; ++fi) {
+            char key[32], path[64];
+            std::snprintf(key,  sizeof(key),  "faction_music_%d", fi);
+            std::snprintf(path, sizeof(path), "assets/sounds/faction_music_%d.wav", fi);
+            m_audio.loadWav(key, path);
+        }
         m_audio.playMusic("worldmap_music");
     }
 

@@ -1,4 +1,5 @@
 #include "Game.h"
+#include <cstdio>
 #include "../magic/SpellRegistry.h"
 #include "../world/HexGrid.h"
 #include "../world/FogOfWar.h"
@@ -268,7 +269,14 @@ void Game::enterTown(Town* town)
     m_state = GameState::Town;
     Hero* hero = m_heroes.empty() ? nullptr : &m_heroes[m_activeHeroIdx];
     m_townScreen.open(town, &m_playerResources, &m_registry, hero);
-    m_audio.playMusic("town_music");
+    // Play faction-specific theme; fall back to generic town_music
+    int fid = static_cast<int>(town->faction);
+    if (fid >= 0 && fid < 9) {
+        char key[32]; std::snprintf(key, sizeof(key), "faction_music_%d", fid);
+        m_audio.playMusic(key);
+    } else {
+        m_audio.playMusic("town_music");
+    }
     printf("Entered town: %s\n", town->name.c_str());
 }
 
