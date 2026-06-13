@@ -2,12 +2,14 @@
 #include <SDL2/SDL.h>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 #include "GameState.h"
 #include "InputState.h"
 #include "TurnManager.h"
 #include "../renderer/SpriteBatch.h"
 #include "../renderer/Camera2D.h"
+#include "../renderer/SpriteAnim.h"
 #include "../world/HexMap.h"
 #include "../world/HexMapRenderer.h"
 #include "../world/FogOfWar.h"
@@ -207,6 +209,13 @@ private:
 
     // ── Icon texture atlas (256x96, 8x3 cells of 32x32) ──────────────────────
     Texture           m_iconTex;
+
+    // ── Faction sprite atlases (384×384, 8 frames × 6 tiers per faction) ────
+    static constexpr int NUM_FACTIONS = 9;
+    Texture           m_spriteAtlas[NUM_FACTIONS];
+
+    // ── Per-unit combat animators (keyed by CombatUnit id) ───────────────────
+    std::unordered_map<uint32_t, SpriteAnimator> m_combatAnimators;
 
     // ── Editor ────────────────────────────────────────────────────────────────
     MapEditor         m_editor;

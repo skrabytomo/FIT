@@ -7,10 +7,21 @@
 #include <algorithm>
 #include <cmath>
 
+// ── Helper: resolve (faction, tier) for a CombatUnit ─────────────────────────
+static std::pair<int,int> unitFactionTier(const CombatUnit& u,
+                                          const std::vector<UnitDef>& defs)
+{
+    if (u.defId != 0) {
+        for (const auto& d : defs)
+            if (d.id == u.defId)
+                return { static_cast<int>(d.faction), d.tier };
+    }
+    return { 0, 1 };   // fallback: HolyOrder T1
+}
+
 // ── Combat update ─────────────────────────────────────────────────────────────
 void Game::updateCombat(float dt)
 {
-    (void)dt;
     const auto& mouse = m_input.mouse();
     float mx = static_cast<float>(mouse.x);
     float my = static_cast<float>(mouse.y);
@@ -55,6 +66,25 @@ void Game::updateCombat(float dt)
         }
     }
     m_combatHUD.onMouseMove(mx, my);
+
+    // Advance sprite animators
+    {
+        const CombatUnit* active = m_combat.activeUnit();
+        for (const auto& u : m_combat.grid().units()) {
+            auto it = m_combatAnimators.find(u.id);
+            if (it == m_combatAnimators.end()) continue;
+            SpriteAnimator& anim = it->second;
+            if (!u.alive) {
+                anim.setState(AnimState::Dead);
+            } else if (active && u.id == active->id && u.isPlayer) {
+                // Active player unit shows attack pose
+                anim.setState(AnimState::Attack);
+            } else {
+                anim.setState(AnimState::Idle);
+            }
+            anim.update(dt);
+        }
+    }
 
     if (m_combat.phase() == CombatPhase::EnemyTurn)
         m_combat.processAITurn();
@@ -171,8 +201,36 @@ void Game::renderCombatBoard()
                         ImDrawFlags_Closed, 1.0f);
     }
 
-    // Draw units
+    // Draw units (sprite or circle fallback)
     float hexR = hg.hexSize() * scale * 0.38f;
+    float sprW = hexR * 1.8f;    // half-width of sprite quad
+    float sprH = hexR * 2.8f;    // full height of sprite quad
+
+    // Draw dead units first (behind living ones)
+    for (const auto& u : grid.units()) {
+        if (u.alive) continue;
+        float wx, wy;
+        hg.hexToWorld(u.pos, wx, wy);
+        float sx = wx * scale + m_combatBoardOffX;
+        float sy = wy * scale + m_combatBoardOffY;
+
+        auto it = m_combatAnimators.find(u.id);
+        if (it != m_combatAnimators.end()) {
+            const SpriteAnimator& anim = it->second;
+            int fi = anim.faction;
+            if (fi >= 0 && fi < NUM_FACTIONS && m_spriteAtlas[fi].ok()) {
+                float u0, v0, u1, v1;
+                it->second.getUV(u0, v0, u1, v1);
+                ImTextureID tid = (ImTextureID)(uintptr_t)m_spriteAtlas[fi].id();
+                dl->AddImage(tid,
+                    {sx - sprW, sy - sprH * 0.85f},
+                    {sx + sprW, sy + sprH * 0.15f},
+                    {u0, v0}, {u1, v1}, IM_COL32(255,255,255,90));
+            }
+        }
+    }
+
+    // Draw alive units
     for (const auto& u : grid.units()) {
         if (!u.alive) continue;
         float wx, wy;
@@ -180,21 +238,52 @@ void Game::renderCombatBoard()
         float sx = wx * scale + m_combatBoardOffX;
         float sy = wy * scale + m_combatBoardOffY;
 
-        ImU32 fillCol  = u.isPlayer ? IM_COL32(55, 155, 55, 230)
-                                    : IM_COL32(185, 45, 45, 230);
         bool  isActive = (active && u.id == active->id);
         ImU32 rimCol   = isActive ? IM_COL32(255, 205, 50, 255)
-                                  : IM_COL32(210, 210, 210, 200);
+                                  : IM_COL32(210, 210, 210, 160);
 
-        dl->AddCircleFilled({sx, sy}, hexR, fillCol);
-        dl->AddCircle({sx, sy}, hexR, rimCol, 0, isActive ? 2.5f : 1.5f);
+        auto it = m_combatAnimators.find(u.id);
+        bool drewSprite = false;
+        if (it != m_combatAnimators.end()) {
+            const SpriteAnimator& anim = it->second;
+            int fi = anim.faction;
+            if (fi >= 0 && fi < NUM_FACTIONS && m_spriteAtlas[fi].ok()) {
+                float u0, v0, u1, v1;
+                anim.getUV(u0, v0, u1, v1);
+                ImTextureID tid = (ImTextureID)(uintptr_t)m_spriteAtlas[fi].id();
+                dl->AddImage(tid,
+                    {sx - sprW, sy - sprH * 0.85f},
+                    {sx + sprW, sy + sprH * 0.15f},
+                    {u0, v0}, {u1, v1});
+                drewSprite = true;
+            }
+        }
+        if (!drewSprite) {
+            // Circle fallback if no sprite atlas loaded
+            ImU32 fillCol = u.isPlayer ? IM_COL32(55, 155, 55, 230)
+                                       : IM_COL32(185, 45, 45, 230);
+            dl->AddCircleFilled({sx, sy}, hexR, fillCol);
+        }
 
-        // Stack count
+        // Activity ring
+        dl->AddCircle({sx, sy}, hexR * 1.05f, rimCol, 0, isActive ? 2.5f : 1.2f);
+
+        // HP bar
+        float hpFrac = (u.maxHp > 0) ? static_cast<float>(u.hp) / u.maxHp : 0.0f;
+        float barW = hexR * 1.4f;
+        float barY = sy + sprH * 0.15f + 2.0f;
+        dl->AddRectFilled({sx - barW, barY}, {sx + barW, barY + 4}, IM_COL32(70, 10, 10, 200));
+        dl->AddRectFilled({sx - barW, barY}, {sx - barW + 2.0f*barW*hpFrac, barY + 4},
+                          IM_COL32(50, 200, 50, 220));
+
+        // Stack count label (bottom-center)
         char buf[12];
         std::snprintf(buf, sizeof(buf), "%d", u.count);
         ImVec2 ts = ImGui::CalcTextSize(buf);
-        dl->AddText({sx - ts.x * 0.5f, sy - ts.y * 0.5f},
-                    IM_COL32(255, 255, 255, 255), buf);
+        float lx = sx - ts.x * 0.5f;
+        float ly = sy + sprH * 0.02f;  // just below center
+        dl->AddText({lx + 1, ly + 1}, IM_COL32(0, 0, 0, 200), buf);
+        dl->AddText({lx, ly}, IM_COL32(255, 255, 255, 255), buf);
     }
 
     // Coordinate hint for hovered hex (debug feel)
@@ -296,6 +385,18 @@ void Game::enterCombat(Hero& playerHero,
     m_combat.setLogCallback([](const std::string& msg) {
         printf("[Combat] %s\n", msg.c_str());
     });
+    // Build sprite animators for every unit
+    m_combatAnimators.clear();
+    const auto& unitDefs = m_registry.units();
+    for (const auto& u : m_combat.grid().units()) {
+        SpriteAnimator anim;
+        auto [fac, tier] = unitFactionTier(u, unitDefs);
+        anim.faction = fac;
+        anim.tier    = std::max(1, std::min(6, tier));
+        anim.mirror  = !u.isPlayer;  // enemy faces left
+        m_combatAnimators[u.id] = anim;
+    }
+
     m_audio.playMusic("combat_music");
     printf("Entered combat\n");
 }
