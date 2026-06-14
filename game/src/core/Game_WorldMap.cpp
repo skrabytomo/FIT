@@ -723,6 +723,7 @@ void Game::renderWorldMap()
     if (m_showTownLostPopup)  renderTownLostPopup();
     if (m_showWeekSummary)    renderWeekSummary();
     if (m_showPauseMenu)      renderPauseMenu();
+    if (m_showCombatResult)   renderCombatResultPopup();
     if (m_showVictory)        renderVictoryModal();
     if (m_showDefeat)         renderDefeatModal();
     endImGuiFrame();
@@ -1927,6 +1928,44 @@ void Game::renderHeroInspect()
         ImGui::TextDisabled("  Total units: %d", totalStrength);
     }
     ImGui::End();
+}
+
+// ── Combat result popup ───────────────────────────────────────────────────────
+void Game::renderCombatResultPopup()
+{
+    const char* title = m_combatResultWon ? "Battle Won!" : "Battle Lost";
+    ImGui::OpenPopup(title);
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        if (m_combatResultWon) {
+            ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Victory!");
+        } else {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Defeat");
+        }
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        if (m_combatResultKills > 0)
+            ImGui::Text("Enemies defeated:  %d", m_combatResultKills);
+        if (m_combatResultLost > 0)
+            ImGui::Text("Units lost:        %d", m_combatResultLost);
+        if (m_combatResultXp > 0)
+            ImGui::TextColored(ImVec4(0.6f, 1.0f, 0.6f, 1.0f), "XP gained:         +%d", m_combatResultXp);
+        if (m_combatResultGold > 0)
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.15f, 1.0f), "Gold looted:       +%d", m_combatResultGold);
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        if (ImGui::Button("Continue", ImVec2(-1, 28))) {
+            m_showCombatResult = false;
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
 }
 
 // ── Victory modal ─────────────────────────────────────────────────────────────

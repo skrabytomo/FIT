@@ -358,6 +358,20 @@ void Game::renderCombatBoard()
         if (u.hasSecondLife && !u.secondLifeUsed) {
             dl->AddCircle({sx, sy}, hexR * 0.6f, IM_COL32(255, 215, 0, 180), 0, 1.5f);  // gold inner ring
         }
+        // OrganicMech adaptation indicator: small teal gems below the unit, one per 2 adaptations
+        if (hasTag(u.tags, UnitTag::OrganicMech) && u.adaptationsGained > 0) {
+            int gemCount = (u.adaptationsGained + 1) / 2;  // show 1 gem per 2 adaptations (max 3)
+            gemCount = std::min(gemCount, 3);
+            float gemY = barY + 8.0f;
+            float gemStartX = sx - (gemCount - 1) * 5.0f;
+            ImU32 gemCol = u.adaptationsGained >= 6
+                ? IM_COL32(50, 255, 220, 240)   // fully adapted — bright teal
+                : IM_COL32(80, 200, 160, 200);  // partially adapted — muted teal
+            for (int g = 0; g < gemCount; g++) {
+                float gx = gemStartX + g * 10.0f;
+                dl->AddCircleFilled({gx, gemY}, 3.0f, gemCol);
+            }
+        }
         // Flying marker: small wing-like triangle above unit
         if (u.flying) {
             float wy = sy - sprH * 0.85f - 14.0f;
@@ -861,6 +875,20 @@ void Game::exitCombat(bool playerWon)
             }
         }
 
+        // Combat result summary — collect stats before transitioning
+        if (!captured) {
+            int startCount = 0, survivingCount = 0;
+            for (const auto& bs : m_battleStartArmy) startCount += bs.count;
+            if (!m_heroes.empty())
+                for (const auto& s : m_heroes[m_activeHeroIdx].army) survivingCount += s.count;
+            m_combatResultWon   = true;
+            m_combatResultXp    = m_combat.xpEarned();
+            m_combatResultKills = m_combat.enemyStartCount();
+            m_combatResultLost  = std::max(0, startCount - survivingCount);
+            m_combatResultGold  = (m_lastCombatEnemyId != 0) ? 100 + m_combat.xpEarned() * 3 : 0;
+            m_showCombatResult  = true;
+        }
+
         // After a garrison victory, drop the player into the captured town
         if (captured) {
             enterTown(captured);
@@ -901,6 +929,18 @@ void Game::exitCombat(bool playerWon)
             }
         }
         if (!phylacteryEscape) {
+            // Show defeat combat result summary
+            m_combatResultWon   = false;
+            m_combatResultXp    = 0;
+            m_combatResultKills = m_combat.enemyStartCount() - m_combat.enemiesAlive();
+            m_combatResultLost  = m_battleStartArmy.empty() ? 0
+                : [&](){
+                    int start = 0;
+                    for (const auto& bs : m_battleStartArmy) start += bs.count;
+                    return start;
+                }();
+            m_combatResultGold  = 0;
+            m_showCombatResult  = true;
             m_showDefeat = true;
             m_audio.playSound("hit");
         }

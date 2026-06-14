@@ -332,6 +332,7 @@ void Game::startNewGame()
     m_showDefeat      = false;
     m_showCapturePopup = false;
     m_showTownLostPopup = false;
+    m_showCombatResult = false;
 
     // Generate world procedurally using selected settings
     static constexpr MapSize kMapSizes[] = {

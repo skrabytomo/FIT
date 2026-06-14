@@ -140,6 +140,7 @@ private:
     void renderQuestPopup();
 
     // ── Victory / defeat modals ────────────────────────────────────────────────
+    void renderCombatResultPopup();
     void renderVictoryModal();
     void renderDefeatModal();
 
@@ -271,6 +272,14 @@ private:
     // ── Victory / defeat ──────────────────────────────────────────────────────
     bool m_showVictory = false;
     bool m_showDefeat  = false;
+
+    // ── Combat result summary popup ───────────────────────────────────────────
+    bool        m_showCombatResult  = false;
+    bool        m_combatResultWon   = false;
+    int         m_combatResultXp    = 0;
+    int         m_combatResultGold  = 0;
+    int         m_combatResultKills = 0;
+    int         m_combatResultLost  = 0;
 
     // ── Town capture notification ─────────────────────────────────────────────
     bool        m_showCapturePopup  = false;

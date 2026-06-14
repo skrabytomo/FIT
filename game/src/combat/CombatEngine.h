@@ -85,6 +85,12 @@ public:
     // XP earned this battle (enemy unit-count × 5, awarded on victory)
     int xpEarned() const { return m_enemyStartCount * 5; }
     int enemyStartCount() const { return m_enemyStartCount; }
+    int enemiesAlive() const {
+        int n = 0;
+        for (const auto& u : m_grid.units())
+            if (!u.isPlayer && u.alive) n += u.count;
+        return n;
+    }
 
     // Hero state accessors (for HUD display)
     const Hero& playerHero() const { return m_playerHero; }
