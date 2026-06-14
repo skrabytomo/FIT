@@ -410,8 +410,27 @@ void Game::startNewGame()
             hero.ghostWalkSpecialty   = (chosenCls->specialty == SpecialtyType::GhostWalk);
             hero.blightAuraSpecialty  = (chosenCls->specialty == SpecialtyType::BlightAura);
             // Grant first skill from class pool at Basic tier
-            if (!chosenCls->skillPool.empty())
-                hero.skills.learn(chosenCls->skillPool[0]);
+            if (!chosenCls->skillPool.empty()) {
+                int startSkillId = chosenCls->skillPool[0];
+                hero.skills.learn(startSkillId);
+                // Apply immediate world-map bonuses for passive skills
+                if (const SkillDef* sd = findSkillDef(startSkillId)) {
+                    int v = sd->values[0]; // Basic tier value
+                    if (sd->effectType == SkillEffectType::MovementBonus) {
+                        hero.maxMove += v;
+                        hero.movePool = hero.maxMove;
+                    } else if (sd->effectType == SkillEffectType::VisionBonus) {
+                        hero.visionRange += v;
+                    } else if (sd->effectType == SkillEffectType::MagicSchoolBonus) {
+                        if      (sd->statName == "lightPower")  hero.lightPower  += v;
+                        else if (sd->statName == "bloodPower")  hero.bloodPower  += v;
+                        else if (sd->statName == "deathPower")  hero.deathPower  += v;
+                        else if (sd->statName == "naturePower") hero.naturePower += v;
+                        else if (sd->statName == "forgePower")  hero.forgePower  += v;
+                        else if (sd->statName == "fleshPower")  hero.fleshPower  += v;
+                    }
+                }
+            }
         }
     }
 

@@ -2648,7 +2648,7 @@ void Game::renderStatShrinePopup()
             case 1: hero.defense += 1; break;
             case 2: hero.maxMove += 2; hero.movePool = std::min(hero.movePool + 2, hero.maxMove); break;
             case 3: hero.maxMana += 5; hero.mana = std::min(hero.mana + 5, hero.maxMana); break;
-            case 4: hero.visionRange += 1; break;
+            case 4: hero.visionRange += 1; FogOfWar::updateVision(m_map, hero); break;
             case 5: hero.heroMaxHp += 10; hero.heroHp = std::min(hero.heroHp + 10, hero.heroMaxHp); break;
             }
             obj->questState--;
