@@ -852,6 +852,27 @@ void Game::exitCombat(bool playerWon)
                     }
                 }
             }
+
+            // Necropolis Gate (EE_NECROPOLIS building): 15% of killed enemies rise as Conscripts
+            for (const auto& town : m_towns) {
+                if (town.ownerId != 1 || town.pos != hero.pos) continue;
+                if (!town.hasBuilding(BID::EE_NECROPOLIS)) break;
+                int risen = m_combat.enemyStartCount() * 15 / 100;
+                if (risen > 0) {
+                    constexpr int CONSCRIPT_DEF_ID = 4001;
+                    bool merged = false;
+                    for (auto& stack : hero.army)
+                        if (stack.defId == CONSCRIPT_DEF_ID) {
+                            stack.count += risen; merged = true; break;
+                        }
+                    if (!merged && hero.army.size() < 7)
+                        hero.army.push_back({CONSCRIPT_DEF_ID, risen});
+                    char riseBuf[52];
+                    std::snprintf(riseBuf, sizeof(riseBuf), "+%d Conscripts (Necropolis)", risen);
+                    pushPickupEffect(hero.pos, riseBuf, IM_COL32(180, 220, 255, 255));
+                }
+                break;
+            }
         }
     }
 

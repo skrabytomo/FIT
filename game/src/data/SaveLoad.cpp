@@ -142,6 +142,7 @@ static json heroToJson(const HeroSave& h)
         {"ghostWalk", h.ghostWalkSpecialty}, {"blightAura", h.blightAuraSpecialty},
         {"infestation", h.infestationSpecialty}, {"efficient", h.efficientSpecialty},
         {"bloodScent", h.bloodScentSpecialty},
+        {"garrisoned", h.isGarrisoned},
     };
 }
 static HeroSave heroFromJson(const json& j)
@@ -197,6 +198,7 @@ static HeroSave heroFromJson(const json& j)
     h.infestationSpecialty = j.value("infestation",    false);
     h.efficientSpecialty   = j.value("efficient",      false);
     h.bloodScentSpecialty  = j.value("bloodScent",     false);
+    h.isGarrisoned         = j.value("garrisoned",     false);
     return h;
 }
 
@@ -259,11 +261,13 @@ bool SaveLoad::saveGame(const std::string& path, const GameSaveData& data)
 {
     try {
         json j;
-        j["version"]  = data.version;
-        j["day"]      = data.day;
-        j["week"]     = data.week;
-        j["mapRadius"]   = data.mapRadius;
-        j["mapSizeEnum"] = data.mapSizeEnum;
+        j["version"]      = data.version;
+        j["day"]          = data.day;
+        j["week"]         = data.week;
+        j["difficulty"]   = data.difficulty;
+        j["activeHero"]   = data.activeHeroIdx;
+        j["mapRadius"]    = data.mapRadius;
+        j["mapSizeEnum"]  = data.mapSizeEnum;
 
         // Resources
         json resArr = json::array();
@@ -332,11 +336,13 @@ bool SaveLoad::loadGame(const std::string& path, GameSaveData& out)
         json j;
         f >> j;
 
-        out.version     = j.value("version", 1);
-        out.day         = j.value("day", 1);
-        out.week        = j.value("week", 1);
-        out.mapRadius   = j.value("mapRadius", 16);
-        out.mapSizeEnum = j.value("mapSizeEnum", 0);
+        out.version       = j.value("version", 1);
+        out.day           = j.value("day", 1);
+        out.week          = j.value("week", 1);
+        out.difficulty    = j.value("difficulty", 1);
+        out.activeHeroIdx = j.value("activeHero", 0);
+        out.mapRadius     = j.value("mapRadius", 16);
+        out.mapSizeEnum   = j.value("mapSizeEnum", 0);
 
         out.resourceAmounts.fill(0);
         if (j.contains("resources")) {
@@ -438,6 +444,7 @@ static HeroSave packHero(const Hero& h)
     hs.infestationSpecialty = h.infestationSpecialty;
     hs.efficientSpecialty   = h.efficientSpecialty;
     hs.bloodScentSpecialty  = h.bloodScentSpecialty;
+    hs.isGarrisoned         = h.isGarrisoned;
     return hs;
 }
 
@@ -489,6 +496,7 @@ static Hero unpackHero(const HeroSave& hs)
     h.infestationSpecialty = hs.infestationSpecialty;
     h.efficientSpecialty   = hs.efficientSpecialty;
     h.bloodScentSpecialty  = hs.bloodScentSpecialty;
+    h.isGarrisoned         = hs.isGarrisoned;
     return h;
 }
 
@@ -502,15 +510,19 @@ GameSaveData SaveLoad::packState(const HexMap& map,
                                  uint32_t nextObjId,
                                  const Resources& playerRes,
                                  int day, int week,
-                                 MapSize mapSize)
+                                 MapSize mapSize,
+                                 int difficulty,
+                                 int activeHeroIdx)
 {
     GameSaveData save;
-    save.day         = day;
-    save.week        = week;
-    save.mapRadius   = map.radius();
-    save.mapSizeEnum = static_cast<int>(mapSize);
+    save.day           = day;
+    save.week          = week;
+    save.difficulty    = difficulty;
+    save.activeHeroIdx = activeHeroIdx;
+    save.mapRadius     = map.radius();
+    save.mapSizeEnum   = static_cast<int>(mapSize);
     save.resourceAmounts = playerRes.amounts;
-    save.nextObjId   = nextObjId;
+    save.nextObjId     = nextObjId;
 
     // Heroes
     for (auto& h : heroes)      save.heroes.push_back(packHero(h));

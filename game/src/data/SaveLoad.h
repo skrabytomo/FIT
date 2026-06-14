@@ -93,6 +93,8 @@ struct HeroSave
     int specialtyAtk    = 0;
     int recyclerBonus   = 0;
     int livingRuneBonus = 0;
+    // World-map hero state
+    bool isGarrisoned        = false;
     // Persistent world-map specialty flags
     bool phylacteryUsed      = false;
     bool ghostWalkSpecialty  = false;
@@ -142,11 +144,15 @@ struct CampaignSaveState
 // ── Full game save ─────────────────────────────────────────────────────────────
 struct GameSaveData
 {
-    int version = 2;
+    int version = 3;
 
     // Turn state
     int day  = 1;
     int week = 1;
+
+    // Game settings persisted in save
+    int difficulty    = 1;  // 0=Easy, 1=Normal, 2=Hard
+    int activeHeroIdx = 0;  // which hero is currently selected
 
     // Map
     int mapRadius   = 0;
@@ -186,7 +192,9 @@ namespace SaveLoad
                            uint32_t nextObjId,
                            const Resources& playerRes,
                            int day, int week,
-                           MapSize mapSize);
+                           MapSize mapSize,
+                           int difficulty = 1,
+                           int activeHeroIdx = 0);
 
     void unpackState(const GameSaveData& save,
                      HexMap& map,

@@ -258,7 +258,8 @@ void Game::saveGame(const std::string& path)
         m_towns, m_worldObjects, m_resources, m_nextObjId,
         m_playerResources,
         m_turns.day(), m_turns.week(),
-        m_mapSize);
+        m_mapSize,
+        m_newGameDifficulty, m_activeHeroIdx);
 
     data.campaign = m_campaign.toSaveState();
 
@@ -284,10 +285,13 @@ bool Game::loadGame(const std::string& path)
                           m_towns, m_worldObjects, m_resources, m_nextObjId,
                           m_playerResources, day, week);
 
-    m_activeHeroIdx = 0;
+    m_newGameDifficulty = data.difficulty;
+    m_activeHeroIdx = (!m_heroes.empty())
+        ? std::min(data.activeHeroIdx, (int)m_heroes.size() - 1)
+        : 0;
     if (!m_heroes.empty()) {
         float hx, hy;
-        m_hexRenderer.grid().hexToWorld(m_heroes[0].pos, hx, hy);
+        m_hexRenderer.grid().hexToWorld(m_heroes[m_activeHeroIdx].pos, hx, hy);
         m_camera.setPosition(hx, hy);
     }
 
