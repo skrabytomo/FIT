@@ -904,8 +904,10 @@ void Game::exitCombat(bool playerWon)
                 pushPickupEffect(hero.pos, xpBuf, IM_COL32(160, 255, 160, 255));
             }
             printf("Hero earns %d XP\n", xp);
+            int oldLevel = hero.level;
             if (hero.addXp(xp)) {
-                printf("Hero leveled up to %d!\n", hero.level);
+                int levelsGained = hero.level - oldLevel;
+                printf("Hero leveled up to %d! (%d levels gained)\n", hero.level, levelsGained);
                 if (hero.level >= 5)  m_hideout.completeMilestone(Milestone::HERO_LEVEL_5);
                 if (hero.level >= 10) m_hideout.completeMilestone(Milestone::HERO_LEVEL_10);
                 const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
@@ -916,6 +918,7 @@ void Game::exitCombat(bool playerWon)
                 }
                 if (m_levelUpOffers.empty())
                     m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                m_pendingLevelUps = levelsGained;
                 m_showLevelUpModal = true;
             }
         }

@@ -268,6 +268,7 @@ private:
     HeroClassRegistry          m_classRegistry;
     std::vector<LevelUpOffer>  m_levelUpOffers;
     bool                       m_showLevelUpModal = false;
+    int                        m_pendingLevelUps  = 0;  // queued level-ups awaiting skill pick
 
     // ── Victory / defeat ──────────────────────────────────────────────────────
     bool m_showVictory = false;

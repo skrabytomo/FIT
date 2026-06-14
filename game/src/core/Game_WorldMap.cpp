@@ -564,6 +564,29 @@ void Game::doEndTurn()
 
             printf("New week %d — income applied\n", m_turns.week());
 
+            // Enemy hero weekly reinforcements — scale with week number so they stay relevant
+            {
+                int week = m_turns.week();
+                int reinforceCount = 2 + week;  // 3 on week 1, grows by 1 per week
+                for (auto& eHero : m_enemyHeroes) {
+                    if (eHero.army.empty()) continue;
+                    // Count towns owned by this enemy hero
+                    int ownedTowns = 0;
+                    for (const auto& t : m_towns)
+                        if (t.ownerId == eHero.id) ownedTowns++;
+                    if (ownedTowns == 0) continue;  // no base → no reinforcements
+                    // Add reinforceCount units to the smallest stack (per owned town)
+                    int total = reinforceCount * ownedTowns;
+                    int smallestIdx = 0;
+                    for (int i = 1; i < (int)eHero.army.size(); ++i)
+                        if (eHero.army[i].count < eHero.army[smallestIdx].count)
+                            smallestIdx = i;
+                    eHero.army[smallestIdx].count = std::min(50, eHero.army[smallestIdx].count + total);
+                    printf("Enemy %s reinforced +%d units (week %d, %d towns)\n",
+                           eHero.name.c_str(), total, week, ownedTowns);
+                }
+            }
+
             // Auto-save at start of each new week
             saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
 
@@ -1884,7 +1907,22 @@ void Game::renderLevelUpModal()
                     hero.heroHp = hero.heroMaxHp;
                 }
                 m_levelUpOffers.clear();
-                m_showLevelUpModal = false;
+                // If more level-ups are queued, generate the next set of offers
+                if (m_pendingLevelUps > 1) {
+                    m_pendingLevelUps--;
+                    const HeroClassDef* ncls = m_classRegistry.getClass(hero.classId);
+                    if (ncls) {
+                        std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                        m_levelUpOffers = LevelUpSystem::generateOffers(
+                            *ncls, hero.skills, hero.level, allSkills, hero.faction);
+                    }
+                    if (m_levelUpOffers.empty())
+                        m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                    // Keep m_showLevelUpModal true so the next modal opens immediately
+                } else {
+                    m_pendingLevelUps = 0;
+                    m_showLevelUpModal = false;
+                }
                 ImGui::CloseCurrentPopup();
             }
             // Show description below button
