@@ -243,6 +243,27 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
         defender.desperationMeter = std::min(100, defender.desperationMeter + gain);
     }
 
+    // Amalgamate adaptation: OrganicMech units gain stats after taking enough hits
+    if (finalDmg > 0 && defender.alive && hasTag(defender.tags, UnitTag::OrganicMech)
+        && defender.adaptationsGained < 6) {
+        defender.hitsTaken++;
+        int threshold = defender.rapidEvolution ? 1 : 3;
+        if (defender.hitsTaken >= threshold) {
+            defender.hitsTaken = 0;
+            // Alternate ATK and DEF gains
+            if (defender.adaptationsGained % 2 == 0) {
+                defender.attack++;
+                result.adaptationGained = true;
+                result.adaptationStat   = 1;  // ATK
+            } else {
+                defender.defense++;
+                result.adaptationGained = true;
+                result.adaptationStat   = -1; // DEF
+            }
+            defender.adaptationsGained++;
+        }
+    }
+
     // Vampiric drain — heal attacker by damage dealt (not during retaliation)
     if (!isRetaliation && attacker.vampiric && finalDmg > 0) {
         int heal = finalDmg / std::max(1, attacker.count);

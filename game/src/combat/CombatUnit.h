@@ -75,8 +75,9 @@ struct CombatUnit
     int         luck        = 0;
 
     // Second life (Eternal Empire)
-    bool        hasSecondLife  = false;
-    bool        secondLifeUsed = false;
+    bool        hasSecondLife      = false;
+    bool        secondLifeUsed     = false;
+    bool        secondLifeFullHeal = false; // EternalLegion: revive at full HP instead of half
 
     // Per-round temporary bonuses — persist across rounds while duration > 0
     int         roundAttackBonus  = 0;
@@ -96,8 +97,13 @@ struct CombatUnit
     int         defendDefenseBonus = 0;
 
     // Faction-specific state
-    int         desperationMeter  = 0;   // Holy Order
+    int         desperationMeter  = 0;   // Holy Order: charges under duress, surges on full
     bool        isLastOfType      = false;
+
+    // Amalgamate adaptation state
+    int         hitsTaken         = 0;   // hits received since last adaptation
+    int         adaptationsGained = 0;   // total adaptations gained (max 6)
+    bool        rapidEvolution    = false; // Evolver specialty: adapt after every hit
 
     // ── Methods ───────────────────────────────────────────────────────────────
     bool canAct()   const { return alive && !hasActed; }

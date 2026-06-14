@@ -113,6 +113,10 @@ struct Hero
     bool phylacteryUsed               = false; // persistent: tracks if Phylactery was consumed
     bool bloodScentSpecialty          = false; // Inquisitor Hunter — Bloodsworn heroes always visible
     bool lastRitesSpecialty           = false; // Confessor — friendly deaths charge Holy units' Desperation
+    bool voidLinkSpecialty            = false; // Void Weaver — Void unit death disrupts/buffs adjacent
+    bool infestationSpecialty         = false; // Flesh Architect — FleshZone spreads each turn on world map
+    bool eternalLegionSpecialty       = false; // Iron General — second-life revives at full HP
+    bool rapidEvolutionSpecialty      = false; // Evolver (Amalgamate) — OrganicMech adapt on every hit
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 

@@ -445,6 +445,43 @@ void Game::doEndTurn()
             }
         }
 
+        // Infestation specialty (Flesh Architect/Amalgamate): FleshZone spreads each turn
+        for (auto& hero : m_heroes) {
+            if (!hero.infestationSpecialty) continue;
+            constexpr int INFEST_RADIUS = 2;
+            std::vector<HexCoord> toInfest;
+            for (const auto& coord : m_map.coords()) {
+                if (HexGrid::distance(hero.pos, coord) > INFEST_RADIUS) continue;
+                HexTile* t = m_map.getTile(coord);
+                if (!t || t->terrain == Terrain::FleshZone) continue;
+                // Spread to Plains, Corrupted, Wasteland near existing FleshZone
+                bool adjacentFlesh = false;
+                for (const auto& nb : HexGrid::neighbors(coord)) {
+                    const HexTile* nt = m_map.getTile(nb);
+                    if (nt && nt->terrain == Terrain::FleshZone) { adjacentFlesh = true; break; }
+                }
+                Terrain ter = t->terrain;
+                if (adjacentFlesh && (ter == Terrain::Plains || ter == Terrain::Wasteland
+                                      || ter == Terrain::Corrupted || ter == Terrain::Barren)) {
+                    toInfest.push_back(coord);
+                }
+            }
+            if (!toInfest.empty()) {
+                // Convert up to 2 tiles per turn to avoid runaway growth
+                int converted = 0;
+                for (const auto& c : toInfest) {
+                    if (converted >= 2) break;
+                    HexTile* t = m_map.getTile(c);
+                    if (t) { t->terrain = Terrain::FleshZone; converted++; }
+                }
+                if (converted > 0) {
+                    char buf[48];
+                    std::snprintf(buf, sizeof(buf), "Infestation: +%d FleshZone", converted);
+                    pushPickupEffect(hero.pos, buf, IM_COL32(180, 100, 60, 255));
+                }
+            }
+        }
+
         // BlightAura specialty (Blight Caller/Voidkin): Sacred terrain near the hero
         // is passively corrupted each turn.
         for (auto& hero : m_heroes) {

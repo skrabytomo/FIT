@@ -10,7 +10,9 @@ struct DamageResult
     bool  moraleTrigger   = false;  // attacker got bonus action
     bool  luckTrigger     = false;  // lucky hit — double damage
     int   vampireHeal     = 0;      // HP healed by vampiric drain
-    bool  desperationSurge = false; // Holy attacker had full meter — got bonus ATK
+    bool  desperationSurge  = false; // Holy attacker had full meter — got bonus ATK
+    bool  adaptationGained  = false; // OrganicMech defender gained an adaptation
+    int   adaptationStat    = 0;     // +1: ATK gained; -1: DEF gained (for log msg)
 };
 
 class DamageCalc

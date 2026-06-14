@@ -392,6 +392,7 @@ void Game::startNewGame()
             hero.classId = chosenCls->id;
             hero.efficientSpecialty  = (chosenCls->specialty == SpecialtyType::Efficient);
             hero.bloodScentSpecialty = (chosenCls->specialty == SpecialtyType::BloodScent);
+            hero.infestationSpecialty = (chosenCls->specialty == SpecialtyType::Infestation);
             // Grant first skill from class pool at Basic tier
             if (!chosenCls->skillPool.empty())
                 hero.skills.learn(chosenCls->skillPool[0]);

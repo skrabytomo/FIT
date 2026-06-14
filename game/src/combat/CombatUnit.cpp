@@ -22,9 +22,10 @@ int CombatUnit::applyDamage(int dmg)
 
     if (count <= 0) {
         if (hasSecondLife && !secondLifeUsed) {
-            // Eternal Empire second-life: revive at 1 unit, half HP
-            count          = 1;
-            hp             = std::max(1, maxHp / 2);
+            // Eternal Empire second-life: revive at 1 unit
+            count = 1;
+            // EternalLegion specialty: revive at full HP instead of half
+            hp = secondLifeFullHeal ? maxHp : std::max(1, maxHp / 2);
             secondLifeUsed = true;
         } else {
             count = 0;

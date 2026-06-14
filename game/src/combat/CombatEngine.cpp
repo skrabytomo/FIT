@@ -131,8 +131,14 @@ void CombatEngine::startBattle(
 
         // ETERNAL_CMD: grant second-life to all this hero's units
         if (hero.skills.getSkill(SID::ETERNAL_CMD)) {
-            for (auto& u : m_grid.units())
-                if (u.isPlayer == isPlayer && u.alive) u.hasSecondLife = true;
+            bool fullHeal = hero.eternalLegionSpecialty;
+            for (auto& u : m_grid.units()) {
+                if (u.isPlayer != isPlayer || !u.alive) continue;
+                u.hasSecondLife = true;
+                u.secondLifeFullHeal = fullHeal;
+            }
+            if (fullHeal)
+                addLog(hero.name + " EternalLegion: units revive at full HP");
         }
 
         // IronDiscipline specialty: Warlord Mechanic's constructs ignore morale loss
@@ -214,6 +220,17 @@ void CombatEngine::startBattle(
     };
     applySwarm(m_playerHero, true);
     applySwarm(m_enemyHero,  false);
+
+    // RapidEvolution specialty (Evolver): OrganicMech units adapt on every hit
+    auto applyRapidEvolution = [this](const Hero& hero, bool isPlayer) {
+        if (!hero.rapidEvolutionSpecialty) return;
+        for (auto& u : m_grid.units())
+            if (u.isPlayer == isPlayer && u.alive && hasTag(u.tags, UnitTag::OrganicMech))
+                u.rapidEvolution = true;
+        addLog(hero.name + " RapidEvolution: OrganicMech units adapt instantly");
+    };
+    applyRapidEvolution(m_playerHero, true);
+    applyRapidEvolution(m_enemyHero,  false);
 
     m_coordinatedStrikeTarget = 0;
     m_wildGrowthGhosted.clear();
@@ -422,6 +439,9 @@ bool CombatEngine::submitAction(const CombatAction& action)
            << " for " << result.damage << " damage";
         if (result.killed > 0) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
+        if (result.adaptationGained)
+            addLog(target->name + " adapts: +" + (result.adaptationStat > 0 ? "ATK" : "DEF") +
+                   " (total " + std::to_string(target->adaptationsGained) + ")");
         if (result.vampireHeal > 0)
             addLog(unit->name + " drains " + std::to_string(result.vampireHeal) + " HP!");
 
@@ -448,6 +468,42 @@ bool CombatEngine::submitAction(const CombatAction& action)
             };
             applyLastRites(m_playerHero, true);
             applyLastRites(m_enemyHero, false);
+            // VoidLink specialty (Void Weaver): Void unit death disrupts adjacent enemies,
+            //   and empowers allied Void units in range 3
+            if (hasTag(target->tags, UnitTag::Void)) {
+                HexCoord deathPos = target->pos;
+                bool targetWasPlayer = target->isPlayer;
+                auto applyVoidLink = [&](const Hero& hero, bool isPlayer) {
+                    if (!hero.voidLinkSpecialty) return;
+                    // Only applies when the dead unit was on THIS hero's side
+                    if (targetWasPlayer != isPlayer) return;
+                    // Disrupt adjacent enemies (-1 ATK for 2 rounds)
+                    int disrupted = 0;
+                    for (auto& foe : m_grid.units()) {
+                        if (!foe.alive || foe.isPlayer == isPlayer) continue;
+                        if (HexGrid::distance(foe.pos, deathPos) > 1) continue;
+                        foe.roundAttackBonus -= 1;
+                        foe.buffAttackRounds = std::max(foe.buffAttackRounds, 2);
+                        disrupted++;
+                    }
+                    // Empower allied Void units in range 3 (+1 ATK for 2 rounds)
+                    int empowered = 0;
+                    for (auto& ally : m_grid.units()) {
+                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
+                        if (!hasTag(ally.tags, UnitTag::Void)) continue;
+                        if (HexGrid::distance(ally.pos, deathPos) > 3) continue;
+                        ally.roundAttackBonus += 1;
+                        ally.buffAttackRounds = std::max(ally.buffAttackRounds, 2);
+                        empowered++;
+                    }
+                    if (disrupted > 0 || empowered > 0)
+                        addLog(hero.name + " VoidLink: " + target->name + " death — "
+                               + std::to_string(disrupted) + " enemies disrupted, "
+                               + std::to_string(empowered) + " Void allies empowered");
+                };
+                applyVoidLink(m_playerHero, true);
+                applyVoidLink(m_enemyHero, false);
+            }
             // BloodWeb specialty (Oathmaster): all allies heal on a kill
             if (result.killed > 0) {
                 auto applyBloodWeb = [&](const Hero& hero, bool isPlayer) {
