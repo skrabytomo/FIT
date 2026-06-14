@@ -531,7 +531,7 @@ void Game::doEndTurn()
             m_weeklyEventHeadline.clear();
             m_weeklyEventBody.clear();
             // Use week number + a pseudo-hash for varied but deterministic events
-            int evtRoll = ((m_turns.week() * 2654435761u) >> 8) % 12;
+            int evtRoll = ((m_turns.week() * 2654435761u) >> 8) % 20;
             switch (evtRoll) {
                 case 0: { // no event
                     break;
@@ -657,6 +657,96 @@ void Game::doEndTurn()
                     m_weeklyEventBody = "A virulent sickness culls your town garrisons. "
                         + (lostTotal > 0 ? std::to_string(lostTotal) + " garrison troops perished."
                                          : "Your towns were untouched — no garrison losses.");
+                    break;
+                }
+                case 12: { // Fallen Knight — hero gains +1 Defense
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        h.defense++;
+                        m_weeklyEventHeadline = "Fallen Knight's Legacy";
+                        m_weeklyEventBody = "You bury a fallen champion and claim his mantle. Your hero gains +1 Defense.";
+                    }
+                    break;
+                }
+                case 13: { // Mercenary Camp — strongest stack grows by 8
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        int best = 0, bestIdx = -1;
+                        for (int i = 0; i < (int)h.army.size(); ++i)
+                            if (h.army[i].count > best) { best = h.army[i].count; bestIdx = i; }
+                        if (bestIdx >= 0) {
+                            h.army[bestIdx].count += 8;
+                            m_weeklyEventHeadline = "Mercenary Camp";
+                            m_weeklyEventBody = "Hired blades swell your ranks: +8 fighters join your strongest unit.";
+                        }
+                    }
+                    break;
+                }
+                case 14: { // Scouting Report — enemy hero mana drained + player gets gold
+                    for (auto& eh : m_enemyHeroes) eh.mana = std::max(0, eh.mana - 8);
+                    m_playerResources.add(ResourceType::Gold, 150);
+                    m_weeklyEventHeadline = "Spy Network Pays Off";
+                    m_weeklyEventBody = "Your agents disrupt enemy supply lines: +150 Gold, enemy heroes lose 8 mana.";
+                    break;
+                }
+                case 15: { // Alchemy — rare resources
+                    m_playerResources.add(ResourceType::Mercury, 2);
+                    m_playerResources.add(ResourceType::BloodEssence, 1);
+                    m_weeklyEventHeadline = "Alchemist's Discovery";
+                    m_weeklyEventBody = "A rogue alchemist delivers rare reagents: +2 Mercury, +1 Blood Essence.";
+                    break;
+                }
+                case 16: { // Divine Favour — hero fully restores mana
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        h.mana = h.maxMana;
+                        m_weeklyEventHeadline = "Divine Favour";
+                        m_weeklyEventBody = "A radiant vision renews your hero's magical reserves. Mana fully restored.";
+                    }
+                    break;
+                }
+                case 17: { // Enemy Deserters — XP + small unit join
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        int xp = 100;
+                        if (h.addXp(xp)) {
+                            const HeroClassDef* cls = m_classRegistry.getClass(h.classId);
+                            if (cls) {
+                                std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                                m_levelUpOffers = LevelUpSystem::generateOffers(
+                                    *cls, h.skills, h.level, allSkills, h.faction);
+                            }
+                            if (m_levelUpOffers.empty())
+                                m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                            m_showLevelUpModal = true;
+                        }
+                        // Also add 3 to hero's weakest stack
+                        int least = INT32_MAX, leastIdx = -1;
+                        for (int i = 0; i < (int)h.army.size(); ++i)
+                            if (h.army[i].count > 0 && h.army[i].count < least)
+                                { least = h.army[i].count; leastIdx = i; }
+                        if (leastIdx >= 0) h.army[leastIdx].count += 3;
+                    }
+                    m_weeklyEventHeadline = "Enemy Deserters";
+                    m_weeklyEventBody = "Enemy soldiers defect to your cause, bringing +100 XP and 3 recruits for your smallest unit.";
+                    break;
+                }
+                case 18: { // Tax Revolt — gold halved (one-time penalty)
+                    int lost = m_playerResources.get(ResourceType::Gold) / 2;
+                    m_playerResources.add(ResourceType::Gold, -lost);
+                    m_weeklyEventHeadline = "Tax Revolt!";
+                    m_weeklyEventBody = "Overtaxed peasants revolt and seize half your treasury. Lost: "
+                        + std::to_string(lost) + " Gold.";
+                    break;
+                }
+                case 19: { // Titan's Favour — hero max HP +15
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        h.heroMaxHp += 15;
+                        h.heroHp = std::min(h.heroHp + 15, h.heroMaxHp);
+                        m_weeklyEventHeadline = "Titan's Favour";
+                        m_weeklyEventBody = "A titan spirit blesses your hero's endurance. Max HP permanently increased by 15.";
+                    }
                     break;
                 }
             }
@@ -829,6 +919,70 @@ void Game::checkTileEvents()
 
     if (m_state == GameState::Campaign)
         m_campaign.onTileReached(hero.pos);
+
+    // ── Terrain traversal effects ────────────────────────────────────────────
+    {
+        // Count total army strength to scale danger
+        int totalCount = 0;
+        for (const auto& s : hero.army) totalCount += s.count;
+
+        switch (tile->terrain) {
+        case Terrain::Toxic: {
+            // Poisonous vapors — kill one unit from the smallest non-empty stack
+            int smallestCount = INT32_MAX, smallestIdx = -1;
+            for (int i = 0; i < (int)hero.army.size(); ++i)
+                if (hero.army[i].count > 0 && hero.army[i].count < smallestCount)
+                    { smallestCount = hero.army[i].count; smallestIdx = i; }
+            if (smallestIdx >= 0 && totalCount > 1) {
+                hero.army[smallestIdx].count = std::max(0, hero.army[smallestIdx].count - 1);
+                pushPickupEffect(hero.pos, "Toxic vapors — 1 unit lost!", IM_COL32(130, 200, 50, 255));
+            }
+            hero.mana = std::max(0, hero.mana - 1);
+            break;
+        }
+        case Terrain::Volcanic: {
+            // Lava heat — kill one unit from a random stack (not the last one)
+            if (totalCount > 2) {
+                int idx = static_cast<int>((hero.pos.q * 31 + hero.pos.r * 17) % (int)hero.army.size());
+                for (int i = 0; i < (int)hero.army.size(); ++i) {
+                    int try_ = (idx + i) % (int)hero.army.size();
+                    if (hero.army[try_].count > 0) {
+                        hero.army[try_].count--;
+                        pushPickupEffect(hero.pos, "Volcanic heat — 1 unit slain!", IM_COL32(220, 80, 30, 255));
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+        case Terrain::Corrupted:
+        case Terrain::CorruptedForest:
+            // Dark energy — mana drain
+            if (hero.mana > 0) {
+                hero.mana = std::max(0, hero.mana - 2);
+                pushPickupEffect(hero.pos, "Corrupted — -2 mana", IM_COL32(160, 60, 200, 255));
+            }
+            break;
+        case Terrain::Sacred:
+            // Holy ground — restore 1 unit to weakest stack and heal hero HP
+            if (!hero.army.empty()) {
+                int leastCount = INT32_MAX, leastIdx = -1;
+                for (int i = 0; i < (int)hero.army.size(); ++i)
+                    if (hero.army[i].count > 0 && hero.army[i].count < leastCount)
+                        { leastCount = hero.army[i].count; leastIdx = i; }
+                if (leastIdx >= 0) hero.army[leastIdx].count++;
+            }
+            hero.heroHp = std::min(hero.heroMaxHp, hero.heroHp + 5);
+            pushPickupEffect(hero.pos, "Sacred ground — healing", IM_COL32(200, 255, 180, 255));
+            break;
+        case Terrain::Industrial:
+            // Machine district — passive gold income
+            m_playerResources.add(ResourceType::Gold, 10);
+            pushPickupEffect(hero.pos, "+10 Gold", IM_COL32(255, 215, 50, 255));
+            break;
+        default: break;
+        }
+    }
 
     // World objects (scrolls, chests, shrines, etc.)
     for (auto& obj : m_worldObjects) {

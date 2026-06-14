@@ -1080,6 +1080,7 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
             int steps = std::min(unit.speed, static_cast<int>(path.size()));
             m_grid.moveUnit(unit.id, path[steps - 1]);
             unit.hasMoved = true;
+            applyTileEffect(unit);
             addLog(unit.name + " moves toward " + target->name);
             // Attack immediately if movement reached melee range
             if (target->alive && HexGrid::distance(unit.pos, target->pos) == 1) {
@@ -1185,8 +1186,20 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
 
     auto melee = m_grid.meleePositions(target->pos);
     if (!melee.empty()) {
-        HexCoord best = melee[0]; int d = HexGrid::distance(unit.pos, best);
-        for (auto& h : melee) { int nd = HexGrid::distance(unit.pos, h); if (nd < d) { d = nd; best = h; } }
+        // Prefer melee hexes with Attack tiles; fall back to nearest
+        auto tileScore = [&](HexCoord h) -> int {
+            const CombatTile* t = m_grid.getTile(h);
+            if (!t) return 0;
+            if (t->type == CombatTileType::Attack)  return 2;
+            if (t->type == CombatTileType::Defense && unit.totalHp() < unit.maxHp * unit.count / 2) return 1;
+            return 0;
+        };
+        HexCoord best = melee[0];
+        int bestScore = -HexGrid::distance(unit.pos, melee[0]) + tileScore(melee[0]);
+        for (auto& h : melee) {
+            int s = -HexGrid::distance(unit.pos, h) + tileScore(h);
+            if (s > bestScore) { bestScore = s; best = h; }
+        }
         auto path = m_grid.findPath(unit.pos, best, unit.flying);
         if (!path.empty()) {
             int steps = std::min(unit.speed, static_cast<int>(path.size()));
@@ -1200,6 +1213,7 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
             }
             m_grid.moveUnit(unit.id, path[steps - 1]);
             unit.hasMoved = true;
+            applyTileEffect(unit);
             // If now in range: shoot immediately (ranged) or attack (melee)
             int nowDist = HexGrid::distance(unit.pos, target->pos);
             if (unit.range > 0 && unit.shotsLeft > 0 && nowDist <= unit.range && target->alive) {
@@ -1270,8 +1284,29 @@ void CombatEngine::applyTileEffect(CombatUnit& unit)
 {
     const CombatTile* tile = m_grid.getTile(unit.pos);
     if (!tile) return;
-    if (tile->type == CombatTileType::Speed && !unit.moraleImmune)
-        unit.morale = std::min(100, unit.morale + 5);
+    switch (tile->type) {
+    case CombatTileType::Speed:
+        if (!unit.moraleImmune)
+            unit.morale = std::min(100, unit.morale + 5);
+        break;
+    case CombatTileType::Attack:
+        // Consecrated ground — +2 ATK this round (stacks, expires next round)
+        unit.roundAttackBonus += 2;
+        unit.buffAttackRounds  = std::max(unit.buffAttackRounds, 1);
+        if (!m_silent) addLog(unit.name + " gains +2 ATK from power tile");
+        break;
+    case CombatTileType::Defense:
+        // Fortified ground — +2 DEF this round
+        unit.roundDefenseBonus += 2;
+        unit.buffDefenseRounds  = std::max(unit.buffDefenseRounds, 1);
+        if (!m_silent) addLog(unit.name + " gains +2 DEF from shield tile");
+        break;
+    case CombatTileType::SpeedPenalty:
+        if (!unit.moraleImmune)
+            unit.morale = std::max(0, unit.morale - 5);
+        break;
+    default: break;
+    }
 }
 
 // ── Thornkin Symbiosis — Beast bond bonus applied at round start ───────────────
