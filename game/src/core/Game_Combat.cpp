@@ -993,6 +993,8 @@ void Game::exitCombat(bool playerWon)
                 printf("Hero leveled up to %d! (%d levels gained)\n", hero.level, levelsGained);
                 if (hero.level >= 5)  m_hideout.completeMilestone(Milestone::HERO_LEVEL_5);
                 if (hero.level >= 10) m_hideout.completeMilestone(Milestone::HERO_LEVEL_10);
+                ScriptContext lvlCtx; lvlCtx.heroId = hero.id;
+                m_triggers.fire(TriggerType::HeroLevel, lvlCtx);
                 const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
                 if (cls) {
                     std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);

@@ -530,6 +530,11 @@ void Game::enterTown(Town* town)
     if (!town) return;
     m_state = GameState::Town;
     Hero* hero = m_heroes.empty() ? nullptr : &m_heroes[m_activeHeroIdx];
+    // Entering a player-owned town restores hero HP fully
+    if (hero && town->ownerId == 1 && hero->heroHp < hero->heroMaxHp) {
+        hero->heroHp = hero->heroMaxHp;
+        pushPickupEffect(town->pos, "Hero healed!", IM_COL32(180, 255, 180, 255));
+    }
     m_townScreen.open(town, &m_playerResources, &m_registry, hero);
     // Play faction-specific theme; fall back to generic town_music
     int fid = static_cast<int>(town->faction);
