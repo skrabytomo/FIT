@@ -47,6 +47,13 @@ public:
     bool playerWon()       const { return m_won; }
     FactionId unlockedFaction(bool convergenceEligible) const;
 
+    // All missions (for end-screen decision summary)
+    const std::vector<CampaignMission>& allMissions() const { return m_missions; }
+
+    // Convergence eligibility — set once at campaign start from HideoutDB
+    void setConvergenceEligible(bool v) { m_convergenceEligible = v; }
+    bool convergenceEligible() const    { return m_convergenceEligible; }
+
     // Objectives progress for HUD
     int completedObjectives() const;
     int requiredObjectives()  const;
@@ -67,9 +74,10 @@ private:
     static std::vector<CampaignMission> buildCampaign();
 
     std::vector<CampaignMission> m_missions;
-    int              m_currentIdx   = 0;
-    bool             m_over         = false;
-    bool             m_won          = false;
+    int              m_currentIdx        = 0;
+    bool             m_over              = false;
+    bool             m_won               = false;
+    bool             m_convergenceEligible = false;
     int              m_pendingDecIdx = -1;  // index into current mission decisions
     AlignmentSystem  m_alignment;
     EventCallback    m_onEvent;

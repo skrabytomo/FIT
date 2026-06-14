@@ -6,7 +6,23 @@
 #include <cstdio>
 
 // ── Save slot metadata ────────────────────────────────────────────────────────
-struct SlotMeta { bool exists = false; std::string heroName; int day = 0, week = 0; };
+struct SlotMeta { bool exists = false; std::string heroName; std::string factionName; int day = 0, week = 0; };
+
+static const char* factionShortName(int factionId)
+{
+    switch (factionId) {
+    case 0: return "Holy Order";
+    case 1: return "Crimson Wardens";
+    case 2: return "Thornkin";
+    case 3: return "Eternal Empire";
+    case 4: return "Bloodsworn";
+    case 5: return "Voidkin";
+    case 6: return "Iron Assembly";
+    case 7: return "Amalgamate";
+    case 8: return "Convergence";
+    default: return "Unknown";
+    }
+}
 
 static SlotMeta readSlotMeta(int slot)
 {
@@ -14,10 +30,16 @@ static SlotMeta readSlotMeta(int slot)
     GameSaveData data;
     std::string path = "saves/save" + std::to_string(slot) + ".json";
     if (!SaveLoad::loadGame(path, data)) return m;
-    m.exists   = true;
-    m.day      = data.day;
-    m.week     = data.week;
-    m.heroName = data.heroes.empty() ? "Unknown" : data.heroes[0].name;
+    m.exists      = true;
+    m.day         = data.day;
+    m.week        = data.week;
+    if (!data.heroes.empty()) {
+        m.heroName    = data.heroes[0].name;
+        m.factionName = factionShortName(data.heroes[0].faction);
+    } else {
+        m.heroName    = "Unknown";
+        m.factionName = "";
+    }
     return m;
 }
 
@@ -130,7 +152,12 @@ void Game::renderMainMenu()
 
         // Difficulty
         ImGui::Text("Difficulty:");
-        static const char* kDiffNames[] = { "Easy", "Normal", "Hard" };
+        static const char* kDiffNames[]    = { "Easy", "Normal", "Hard" };
+        static const char* kDiffTooltips[] = {
+            "Easy: Player heroes gain +2 ATK/DEF, enemies are weaker. Good for learning.",
+            "Normal: Balanced gameplay. Recommended for most players.",
+            "Hard: Enemy heroes are stronger and more aggressive. For veterans."
+        };
         for (int i = 0; i < 3; ++i) {
             if (i > 0) ImGui::SameLine();
             bool sel = (m_newGameDifficulty == i);
@@ -140,6 +167,7 @@ void Game::renderMainMenu()
                          ImVec4(0.5f, 0.1f, 0.1f, 1.f));
             char dlbl[24]; std::snprintf(dlbl, sizeof(dlbl), "%s##df%d", kDiffNames[i], i);
             if (ImGui::Button(dlbl, ImVec2((bw - 4) / 3.f, 26))) m_newGameDifficulty = i;
+            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", kDiffTooltips[i]);
             if (sel) ImGui::PopStyleColor();
         }
         ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
@@ -149,11 +177,12 @@ void Game::renderMainMenu()
 
         for (int s = 0; s < 3; ++s) {
             SlotMeta meta = readSlotMeta(s);
-            char lbl[160];
+            char lbl[200];
             if (meta.exists)
                 std::snprintf(lbl, sizeof(lbl),
-                    "Slot %d  |  %s   Day %d  Week %d  [overwrite]##ng%d",
-                    s + 1, meta.heroName.c_str(), meta.day, meta.week, s);
+                    "Slot %d  |  %s  (%s)  Day %d  Week %d  [overwrite]##ng%d",
+                    s + 1, meta.heroName.c_str(), meta.factionName.c_str(),
+                    meta.day, meta.week, s);
             else
                 std::snprintf(lbl, sizeof(lbl), "Slot %d  |  Empty##ng%d", s + 1, s);
 
@@ -185,10 +214,11 @@ void Game::renderMainMenu()
                 continue;
             }
             anySave = true;
-            char lbl[160];
+            char lbl[200];
             std::snprintf(lbl, sizeof(lbl),
-                "Slot %d  |  %s   Day %d  Week %d##ld%d",
-                s + 1, meta.heroName.c_str(), meta.day, meta.week, s);
+                "Slot %d  |  %s  (%s)  Day %d  Week %d##ld%d",
+                s + 1, meta.heroName.c_str(), meta.factionName.c_str(),
+                meta.day, meta.week, s);
             if (ImGui::Button(lbl, ImVec2(bw, 36))) {
                 m_activeSlot = s;
                 std::string path = "saves/save" + std::to_string(s) + ".json";
@@ -220,6 +250,19 @@ void Game::renderMainMenu()
         if (ImGui::Checkbox("Fullscreen", &m_settingsFullscreen))
             SDL_SetWindowFullscreen(m_window,
                 m_settingsFullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+        ImGui::Checkbox("Floating Combat Numbers", &m_settingsShowDmgNums);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Show damage numbers floating above units during combat.");
+
+        ImGui::Spacing();
+        ImGui::Text("Gameplay");
+        ImGui::Separator();
+        ImGui::Checkbox("Auto-Save at Week End", &m_settingsAutoSave);
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Automatically save to the active slot at the start of each new week.");
+        ImGui::SliderFloat("Combat Anim Speed", &m_settingsAnimSpeed, 0.5f, 2.0f, "%.1fx");
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Adjust combat animation speed. 1.0 = normal, 2.0 = double speed.");
 
         ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
 

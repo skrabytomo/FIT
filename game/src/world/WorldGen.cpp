@@ -1,6 +1,7 @@
 #include "WorldGen.h"
 #include "Noise.h"
 #include "HexGrid.h"
+#include "../magic/SpellDef.h"
 #include <cmath>
 #include <algorithm>
 #include <cstdio>
@@ -472,15 +473,20 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         int             count;   // how many to place
     };
     static const TerrainObjSpec kTerrainSpecs[] = {
-        { Terrain::Forest,    WorldObjectType::ForestShrine,  75,  ResourceType::Gold,    3 },
-        { Terrain::Highland,  WorldObjectType::HighlandRuin,   4,  ResourceType::Gold,    2 },
-        { Terrain::Rocky,     WorldObjectType::HighlandRuin,   3,  ResourceType::Gold,    2 },
-        { Terrain::Sacred,    WorldObjectType::HolyFountain,   0,  ResourceType::Gold,    2 },
-        { Terrain::Barren,    WorldObjectType::Oasis,          0,  ResourceType::Gold,    2 },
-        { Terrain::Wasteland, WorldObjectType::Oasis,          0,  ResourceType::Gold,    1 },
-        { Terrain::Plains,    WorldObjectType::Campfire,      150, ResourceType::Gold,    4 },
-        { Terrain::Volcanic,  WorldObjectType::LavaCrystal,    3,  ResourceType::Mercury, 2 },
-        { Terrain::Swamp,     WorldObjectType::SwampAltar,     5,  ResourceType::Gold,    2 }, // value=5 = CURSE spell
+        { Terrain::Forest,          WorldObjectType::ForestShrine,  75,                    ResourceType::Gold,         3 },
+        { Terrain::Highland,        WorldObjectType::HighlandRuin,   4,                    ResourceType::Gold,         2 },
+        { Terrain::Rocky,           WorldObjectType::HighlandRuin,   3,                    ResourceType::Gold,         2 },
+        { Terrain::Sacred,          WorldObjectType::HolyFountain,   0,                    ResourceType::Gold,         2 },
+        { Terrain::Barren,          WorldObjectType::Oasis,          0,                    ResourceType::Gold,         2 },
+        { Terrain::Wasteland,       WorldObjectType::Oasis,          0,                    ResourceType::Gold,         1 },
+        { Terrain::Plains,          WorldObjectType::Campfire,      150,                   ResourceType::Gold,         4 },
+        { Terrain::Volcanic,        WorldObjectType::LavaCrystal,    3,                    ResourceType::Mercury,      2 },
+        { Terrain::Swamp,           WorldObjectType::SwampAltar,    SPL::CURSE,            ResourceType::Gold,         2 },
+        // Extended: formerly missing terrains
+        { Terrain::Corrupted,       WorldObjectType::SpellScroll,   SPL::DEATH_COIL,      ResourceType::Gold,         2 },
+        { Terrain::CorruptedForest, WorldObjectType::SpellScroll,   SPL::VENOMOUS_CLOUD,  ResourceType::Gold,         2 },
+        { Terrain::Industrial,      WorldObjectType::ResourceCache,  250,                   ResourceType::Iron,         2 },
+        { Terrain::Toxic,           WorldObjectType::ResourceCache,    5,                   ResourceType::BloodEssence, 2 },
     };
 
     auto tryPlaceOnTerrain = [&](WorldObject& obj, Terrain terrain, int minDist) -> bool {

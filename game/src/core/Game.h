@@ -350,7 +350,10 @@ private:
     int  m_newGameClassId    = 0;   // classId of chosen hero class (0=auto)
 
     // ── Persisted display / audio settings ───────────────────────────────────
-    float m_settingsSfxVol     = 0.7f;
-    float m_settingsMasVol     = 0.35f;
-    bool  m_settingsFullscreen = false;
+    float m_settingsSfxVol       = 0.7f;
+    float m_settingsMasVol       = 0.35f;
+    bool  m_settingsFullscreen   = false;
+    bool  m_settingsAutoSave     = true;    // save at each week-end automatically
+    float m_settingsAnimSpeed    = 1.0f;   // combat animation speed multiplier (0.5–2.0)
+    bool  m_settingsShowDmgNums  = true;   // floating damage numbers in combat
 };

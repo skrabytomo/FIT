@@ -61,7 +61,7 @@ void CampaignHUD::render(CampaignManager& mgr, LuaEngine& lua)
 
     // ── End-campaign screen ────────────────────────────────────────────────────
     if (mgr.isCampaignOver()) {
-        drawEndScreen(mgr, false);
+        drawEndScreen(mgr);
         return;
     }
 
@@ -238,41 +238,97 @@ void CampaignHUD::drawDecisionModal(CampaignManager& mgr, LuaEngine& lua)
     ImGui::End();
 }
 
-void CampaignHUD::drawEndScreen(CampaignManager& mgr, bool convergenceEligible)
+void CampaignHUD::drawEndScreen(CampaignManager& mgr)
 {
-    ImGui::SetNextWindowSize(ImVec2(480, 0), ImGuiCond_Always);
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowSize(ImVec2(520, std::min(io.DisplaySize.y * 0.85f, 600.0f)),
+                             ImGuiCond_Always);
     ImGui::SetNextWindowPos(
-        ImVec2(ImGui::GetIO().DisplaySize.x * 0.5f,
-               ImGui::GetIO().DisplaySize.y * 0.5f),
+        ImVec2(io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f),
         ImGuiCond_Always, ImVec2(0.5f, 0.5f));
 
     ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                              ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoTitleBar;
     if (ImGui::Begin("##endscreen", nullptr, flags)) {
+        // Title
         if (mgr.playerWon()) {
-            ImGui::TextColored(ImVec4(1,0.85f,0.3f,1), "CAMPAIGN COMPLETE");
+            ImGui::TextColored(ImVec4(1.0f,0.85f,0.3f,1.0f), "THE FRACTURE — CAMPAIGN COMPLETE");
         } else {
-            ImGui::TextColored(ImVec4(1,0.3f,0.3f,1), "CAMPAIGN FAILED");
+            ImGui::TextColored(ImVec4(1.0f,0.3f,0.3f,1.0f), "THE FRACTURE — CAMPAIGN FAILED");
         }
         ImGui::Separator();
         ImGui::Spacing();
 
+        // Alignment result
         const auto& align = mgr.alignment();
-        ImGui::Text("Final Alignment: %s", align.getTitle());
-        ImGui::TextWrapped("%s", align.getDescription());
+        ImGui::TextColored(ImVec4(0.8f,0.85f,1.0f,1.0f),
+            "Final Alignment: %s", align.getTitle());
+        ImGui::PushTextWrapPos(0.0f);
+        ImGui::TextDisabled("%s", align.getDescription());
+        ImGui::PopTextWrapPos();
         ImGui::Spacing();
 
-        FactionId unlock = mgr.unlockedFaction(convergenceEligible);
-        ImGui::TextColored(ImVec4(0.4f,1.0f,0.6f,1),
+        // Faction unlock
+        bool convOk = mgr.convergenceEligible();
+        FactionId unlock = mgr.unlockedFaction(convOk);
+        ImGui::TextColored(ImVec4(0.4f,1.0f,0.6f,1.0f),
             "Faction Unlocked: %s", factionName(unlock));
-
         if (unlock == FactionId::Convergence) {
-            ImGui::TextColored(ImVec4(0.8f,0.6f,1.0f,1),
+            ImGui::TextColored(ImVec4(0.8f,0.6f,1.0f,1.0f),
                 "(Secret faction — Hideout conditions met)");
         }
 
         ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Decision history across all missions
+        ImGui::TextColored(ImVec4(1.0f,0.85f,0.3f,1.0f), "Decision Log:");
+        ImGui::Spacing();
+        bool anyDecision = false;
+        for (const auto& mission : mgr.allMissions()) {
+            for (const auto& dec : mission.decisions) {
+                if (!dec.resolved) continue;
+                anyDecision = true;
+                ImGui::TextDisabled("[%s]", mission.name.c_str());
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.9f,0.9f,0.9f,1.0f), "%s:", dec.prompt.c_str());
+                if (dec.chosenIdx >= 0 &&
+                    dec.chosenIdx < static_cast<int>(dec.choices.size()))
+                {
+                    const auto& chosen = dec.choices[dec.chosenIdx];
+                    ImGui::TextColored(ImVec4(0.6f,1.0f,0.6f,1.0f),
+                        "  \"%s\"", chosen.label.c_str());
+                    int ord = chosen.alignment.orderDelta;
+                    int lgt = chosen.alignment.lightDelta;
+                    if (ord != 0 || lgt != 0) {
+                        ImGui::SameLine();
+                        ImGui::TextDisabled("[Order%+d Light%+d]", ord, lgt);
+                    }
+                }
+                ImGui::Spacing();
+            }
+        }
+        if (!anyDecision) {
+            ImGui::TextDisabled("No decisions were made.");
+            ImGui::Spacing();
+        }
+
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Alignment compass (compact)
         drawAlignmentCompass(align);
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Return to menu
+        float bw = ImGui::GetWindowWidth() - 32.0f;
+        if (ImGui::Button("Return to Main Menu", ImVec2(bw, 36))) {
+            m_returnToMenu = true;
+        }
     }
     ImGui::End();
 }

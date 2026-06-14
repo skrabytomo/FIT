@@ -440,6 +440,19 @@ void Game::renderPauseMenu()
             ImGui::CloseCurrentPopup();
         }
 
+        ImGui::Spacing();
+
+        if (ImGui::Button("Campaign  [F4]", ImVec2(-1, 32))) {
+            m_showPauseMenu = false;
+            ImGui::CloseCurrentPopup();
+            if (m_state == GameState::Campaign) exitCampaign();
+            else enterCampaign();
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("Start/resume the campaign story arc.");
+
+        ImGui::Spacing();
+
         if (ImGui::Button("Main Menu", ImVec2(-1, 32))) {
             m_showPauseMenu = false;
             m_state = GameState::MainMenu;

@@ -84,7 +84,7 @@ void Game::updateCombat(float dt)
             } else {
                 anim.setState(AnimState::Idle);
             }
-            anim.update(dt);
+            anim.update(dt * m_settingsAnimSpeed);
         }
     }
 
@@ -735,6 +735,7 @@ void Game::enterCombat(Hero& playerHero,
 
     m_combatDmgEffects.clear();
     m_combat.setDamageCallback([this](uint32_t targetId, int dmg, HexCoord pos) {
+        if (!m_settingsShowDmgNums) { (void)targetId; return; }
         // Convert hex pos to board pixel pos for floating text
         float wx, wy;
         m_combat.grid().hexGrid().hexToWorld(pos, wx, wy);

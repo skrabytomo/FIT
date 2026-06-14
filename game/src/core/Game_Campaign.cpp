@@ -18,6 +18,13 @@ void Game::renderCampaign()
     beginImGuiFrame();
     m_campaignHUD.render(m_campaign, m_lua);
     endImGuiFrame();
+
+    // End screen requested return to menu
+    if (m_campaignHUD.wantsReturnToMenu()) {
+        m_campaignHUD.resetReturnToMenu();
+        m_state    = GameState::MainMenu;
+        m_menuMode = 0;
+    }
 }
 
 // ── State transitions ─────────────────────────────────────────────────────────
@@ -25,17 +32,21 @@ void Game::enterCampaign()
 {
     m_state = GameState::Campaign;
     m_campaign.init();
+
+    // Lock in convergence eligibility at campaign start (HideoutDB state won't change mid-run)
+    m_campaign.setConvergenceEligible(m_hideout.isConvergenceUnlocked());
+
     m_campaign.setEventCallback([this](CampaignEvent e) {
         if (e == CampaignEvent::MissionCompleted)
             printf("[Campaign] Mission complete!\n");
         else if (e == CampaignEvent::MissionFailed)
             printf("[Campaign] Mission failed.\n");
         else if (e == CampaignEvent::CampaignEnded) {
-            bool convergenceOk = m_hideout.isConvergenceUnlocked();
+            bool convergenceOk = m_campaign.convergenceEligible();
             FactionId unlocked = m_campaign.unlockedFaction(convergenceOk);
             printf("[Campaign] Ended — faction unlocked: %d\n",
                    static_cast<int>(unlocked));
-            if (convergenceOk)
+            if (convergenceOk && m_campaign.playerWon())
                 m_hideout.completeMilestone("convergence_unlock");
         }
     });

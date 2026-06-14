@@ -776,6 +776,11 @@ void Game::doEndTurn()
                     obj.type == WorldObjectType::Oasis)
                     obj.collected = false;
             }
+
+            // Auto-save at week start if enabled
+            if (m_settingsAutoSave && m_activeSlot >= 0) {
+                saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
+            }
         }
     }
 
