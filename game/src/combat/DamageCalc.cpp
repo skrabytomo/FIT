@@ -102,10 +102,11 @@ float DamageCalc::weaknessBonus(UnitTag attackerTags, UnitTag defenderTags,
         if (hasTag(defenderTags, UnitTag::Undead)) bonus *= 1.10f;
     }
 
-    // Beast deals bonus damage to Void and Undead (primal life-force disrupts both)
+    // Beast deals bonus damage to Void, Undead, and Mechanical (primal instinct disrupts clockwork)
     if (hasTag(attackerTags, UnitTag::Beast)) {
-        if (hasTag(defenderTags, UnitTag::Void))  bonus *= 1.08f;
-        if (hasTag(defenderTags, UnitTag::Undead)) bonus *= 1.08f;
+        if (hasTag(defenderTags, UnitTag::Void))       bonus *= 1.08f;
+        if (hasTag(defenderTags, UnitTag::Undead))     bonus *= 1.08f;
+        if (hasTag(defenderTags, UnitTag::Mechanical)) bonus *= 1.07f;
     }
 
     // Void units deal bonus damage to BloodBound (entropic void unravels blood-bonds)
