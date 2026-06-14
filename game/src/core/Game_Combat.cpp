@@ -424,13 +424,22 @@ void Game::renderCombatBoard()
             if (act && act->isPlayer && act->alive) {
                 auto est = DamageCalc::estimate(*act, *hovered, grid);
                 if (est.maxDmg > 0) {
-                    char tipBuf[80];
+                    // Also compute retaliation estimate if target can retaliate
+                    char retBuf[64] = {};
+                    if (hovered->canRetaliate && !hovered->hasActed) {
+                        auto retEst = DamageCalc::estimate(*hovered, *act, grid);
+                        if (retEst.maxDmg > 0)
+                            std::snprintf(retBuf, sizeof(retBuf),
+                                "\nRetal: %d-%d  Kills: %d-%d",
+                                retEst.minDmg, retEst.maxDmg, retEst.minKills, retEst.maxKills);
+                    }
+                    char tipBuf[160];
                     std::snprintf(tipBuf, sizeof(tipBuf),
-                        "Damage: %d-%d  Kills: %d-%d",
-                        est.minDmg, est.maxDmg, est.minKills, est.maxKills);
+                        "Damage: %d-%d  Kills: %d-%d%s",
+                        est.minDmg, est.maxDmg, est.minKills, est.maxKills, retBuf);
                     // Draw tooltip near mouse
                     float tx = mouse.x + 12.0f;
-                    float ty = mouse.y - 24.0f;
+                    float ty = mouse.y - 36.0f;
                     ImVec2 ts2 = ImGui::CalcTextSize(tipBuf);
                     dl->AddRectFilled({tx - 4, ty - 3}, {tx + ts2.x + 4, ty + ts2.y + 3},
                                       IM_COL32(15, 15, 30, 220), 3.0f);

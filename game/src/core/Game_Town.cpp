@@ -217,17 +217,18 @@ void Game::renderArtifactForge()
     ImGui::End();
 }
 
-// ── Tavern — hire a hero ──────────────────────────────────────────────────────
+// ── Tavern — hire a hero from candidates ────────────────────────────────────
 void Game::renderTavern()
 {
     const Town* town = m_townScreen.currentTown();
     if (!town || town->ownerId != 1) return;  // only in owned towns
 
-    static constexpr int HIRE_COST = 2500;
+    static constexpr int HIRE_COST  = 2500;
     static constexpr int MAX_HEROES = 3;
+    static constexpr int NUM_CANDIDATES = 3;
 
     ImGui::SetNextWindowPos(ImVec2(310, 80), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(260, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
     if (!ImGui::Begin("Tavern", nullptr,
                       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
                       ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -243,73 +244,50 @@ void Game::renderTavern()
         ImGui::End(); return;
     }
 
-    bool canAfford = m_playerResources.get(ResourceType::Gold) >= HIRE_COST;
-    if (!canAfford) ImGui::BeginDisabled();
+    // Name pool
+    static const char* kNames[] = {
+        "Alara", "Dren", "Korvas", "Mira", "Seld", "Thayne",
+        "Vex", "Lyra", "Brant", "Cael", "Essen", "Fynn",
+        "Orin", "Yasha", "Wick", "Seren", "Gael", "Petra"
+    };
+    static const int kStartSpell[] = {
+        SPL::BLESS,        // HolyOrder
+        SPL::BLOOD_FRENZY, // CrimsonWardens
+        SPL::ENTANGLE,     // Thornkin
+        SPL::CURSE,        // EternalEmpire
+        SPL::BLOOD_FRENZY, // Bloodsworn
+        SPL::ENTANGLE,     // Voidkin
+        SPL::REINFORCE,    // IronAssembly
+        SPL::MEND_FLESH,   // Amalgamate
+        SPL::BLESS,        // Convergence
+    };
 
-    char label[64];
-    std::snprintf(label, sizeof(label), "Hire Hero  (%dg)", HIRE_COST);
-    if (ImGui::Button(label, ImVec2(-1, 34))) {
-        m_playerResources.add(ResourceType::Gold, -HIRE_COST);
+    auto buildHero = [&](int candidateSlot) -> Hero {
+        // Deterministic seed per town + week + candidate slot
+        uint32_t seed = static_cast<uint32_t>(town->pos.q * 997u + town->pos.r * 491u
+                                              + m_turns.week() * 6271u + candidateSlot * 1013u);
+        auto classes = m_classRegistry.getClassesForFaction(town->faction);
 
-        // Find a free adjacent tile to the town
-        HexCoord spawnPos = town->pos;
-        for (auto& nb : HexGrid::neighbors(town->pos)) {
-            const HexTile* t = m_map.getTile(nb);
-            if (t && t->terrain != Terrain::Water && t->heroId == 0) {
-                spawnPos = nb;
-                break;
-            }
+        Hero h;
+        h.id      = 300u + static_cast<uint32_t>(candidateSlot);
+        h.faction = town->faction;
+        h.pos     = town->pos;
+        h.movePool = h.maxMove;
+        h.name    = kNames[seed % 18];
+
+        if (!classes.empty()) {
+            const HeroClassDef* cls = classes[(seed / 18) % classes.size()];
+            h.classId = cls->id;
+            if (!cls->skillPool.empty())
+                h.skills.learn(cls->skillPool[0]);
         }
-
-        // Name pool per faction
-        static const char* kNames[] = {
-            "Alara", "Dren", "Korvas", "Mira", "Seld", "Thayne",
-            "Vex", "Lyra", "Brant", "Cael", "Essen", "Fynn"
-        };
-        uint32_t nameIdx = static_cast<uint32_t>(m_heroes.size() + m_turns.day() * 7)
-                           % 12;
-
-        Hero hired;
-        hired.id       = 200u + static_cast<uint32_t>(m_heroes.size());
-        hired.name     = kNames[nameIdx];
-        hired.faction  = town->faction;
-        hired.pos      = spawnPos;
-        hired.movePool = hired.maxMove;
-
-        // Assign a random class from the faction's pool
-        {
-            auto classes = m_classRegistry.getClassesForFaction(town->faction);
-            if (!classes.empty()) {
-                int pick = static_cast<int>((m_heroes.size() + m_turns.day()) % classes.size());
-                const HeroClassDef* cls = classes[pick];
-                hired.classId = cls->id;
-                if (!cls->skillPool.empty())
-                    hired.skills.learn(cls->skillPool[0]);
-            }
-        }
-
-        // Starting spell for faction
-        static const int kStartSpell[] = {
-            SPL::BLESS,        // HolyOrder
-            SPL::BLOOD_FRENZY, // CrimsonWardens
-            SPL::ENTANGLE,     // Thornkin
-            SPL::CURSE,        // EternalEmpire
-            SPL::BLOOD_FRENZY, // Bloodsworn
-            SPL::ENTANGLE,     // Voidkin
-            SPL::REINFORCE,    // IronAssembly
-            SPL::MEND_FLESH,   // Amalgamate
-            SPL::BLESS,        // Convergence
-        };
         int fi = static_cast<int>(town->faction);
-        if (fi >= 0 && fi < 9) hired.knownSpells.push_back(kStartSpell[fi]);
+        if (fi >= 0 && fi < 9) h.knownSpells.push_back(kStartSpell[fi]);
 
-        // Starting army: faction-scaled from dwelling weekly growth
-        // T1: full week's growth  T2: one-third week's growth
         for (int tier : {1, 2}) {
-            // Find weekly growth for this tier's base dwelling
             int growth = 0;
             for (const auto& bd : m_registry.buildings()) {
-                if (bd.faction == hired.faction && bd.tier == tier
+                if (bd.faction == h.faction && bd.tier == tier
                     && bd.category == BuildingCategory::UnitDwelling
                     && bd.path == UpgradePath::None) {
                     growth = (tier == 1) ? bd.weeklyGrowth : bd.weeklyGrowth / 3;
@@ -318,22 +296,76 @@ void Game::renderTavern()
             }
             if (growth <= 0) continue;
             for (const auto& ud : m_registry.units()) {
-                if (ud.faction == hired.faction && ud.tier == tier
+                if (ud.faction == h.faction && ud.tier == tier
                     && ud.path == UpgradePath::None) {
-                    hired.army.push_back({ud.id, growth});
+                    h.army.push_back({ud.id, growth});
                     break;
                 }
             }
         }
+        return h;
+    };
 
-        m_heroes.push_back(hired);
-        if (HexTile* ht = m_map.getTile(spawnPos)) ht->heroId = hired.id;
-        FogOfWar::updateVision(m_map, hired);
+    ImGui::TextDisabled("Choose a hero to hire  (%dg each):", HIRE_COST);
+    bool canAfford = m_playerResources.get(ResourceType::Gold) >= HIRE_COST;
 
-        printf("Hired hero: %s\n", hired.name.c_str());
+    for (int c = 0; c < NUM_CANDIDATES; ++c) {
+        Hero cand = buildHero(c);
+        const HeroClassDef* cls = m_classRegistry.getClass(cand.classId);
+
+        ImGui::PushID(c);
+        ImGui::Separator();
+
+        // Candidate header
+        char hdr[64];
+        std::snprintf(hdr, sizeof(hdr), "%s  [%s]", cand.name.c_str(),
+                      cls ? cls->name : "Unknown");
+        ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.4f, 1.0f), "%s", hdr);
+
+        // Specialty description
+        if (cls) ImGui::TextDisabled("  %s", cls->specialtyDesc.c_str());
+
+        // Army preview
+        char armyBuf[64] = {};
+        int off2 = 0;
+        for (const auto& s : cand.army) {
+            for (const auto& ud : m_registry.units()) {
+                if (ud.id == s.defId) {
+                    off2 += std::snprintf(armyBuf + off2, sizeof(armyBuf) - off2,
+                                          "%dx%s ", s.count, ud.name.c_str());
+                    break;
+                }
+            }
+        }
+        if (off2 > 0) ImGui::TextDisabled("  Army: %s", armyBuf);
+
+        // Hire button
+        if (!canAfford) ImGui::BeginDisabled();
+        char btnLabel[48];
+        std::snprintf(btnLabel, sizeof(btnLabel), "Hire %s", cand.name.c_str());
+        if (ImGui::Button(btnLabel, ImVec2(-1, 0))) {
+            m_playerResources.add(ResourceType::Gold, -HIRE_COST);
+
+            // Find spawn tile
+            HexCoord spawnPos = town->pos;
+            for (auto& nb : HexGrid::neighbors(town->pos)) {
+                const HexTile* t2 = m_map.getTile(nb);
+                if (t2 && t2->terrain != Terrain::Water && t2->heroId == 0) {
+                    spawnPos = nb; break;
+                }
+            }
+            cand.id     = 200u + static_cast<uint32_t>(m_heroes.size());
+            cand.pos    = spawnPos;
+            m_heroes.push_back(cand);
+            if (HexTile* ht = m_map.getTile(spawnPos)) ht->heroId = cand.id;
+            FogOfWar::updateVision(m_map, cand);
+            printf("Hired hero: %s (%s)\n", cand.name.c_str(), cls ? cls->name : "?");
+        }
+        if (!canAfford) ImGui::EndDisabled();
+        ImGui::PopID();
     }
-    if (!canAfford) ImGui::EndDisabled();
 
+    ImGui::Separator();
     ImGui::TextDisabled("Roster: %d/%d heroes", (int)m_heroes.size(), MAX_HEROES);
     ImGui::End();
 }
