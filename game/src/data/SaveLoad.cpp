@@ -137,7 +137,7 @@ static json heroToJson(const HeroSave& h)
         {"artEq", artEqArr}, {"artInv", artInvArr},
         {"army", armyArr},
         {"battlesWon", h.battlesWon}, {"specialtyAtk", h.specialtyAtk},
-        {"recyclerBonus", h.recyclerBonus},
+        {"recyclerBonus", h.recyclerBonus}, {"livingRuneBonus", h.livingRuneBonus},
         {"phylacteryUsed", h.phylacteryUsed},
         {"ghostWalk", h.ghostWalkSpecialty}, {"blightAura", h.blightAuraSpecialty},
         {"infestation", h.infestationSpecialty}, {"efficient", h.efficientSpecialty},
@@ -187,9 +187,10 @@ static HeroSave heroFromJson(const json& j)
     if (j.contains("army"))
         for (auto& a : j.at("army"))
             h.army.push_back({a.at("d").get<int>(), a.at("c").get<int>()});
-    h.battlesWon    = j.value("battlesWon",   0);
-    h.specialtyAtk  = j.value("specialtyAtk", 0);
-    h.recyclerBonus = j.value("recyclerBonus", 0);
+    h.battlesWon      = j.value("battlesWon",      0);
+    h.specialtyAtk    = j.value("specialtyAtk",   0);
+    h.recyclerBonus   = j.value("recyclerBonus",   0);
+    h.livingRuneBonus = j.value("livingRuneBonus", 0);
     h.phylacteryUsed     = j.value("phylacteryUsed",  false);
     h.ghostWalkSpecialty = j.value("ghostWalk",        false);
     h.blightAuraSpecialty = j.value("blightAura",      false);
@@ -427,9 +428,10 @@ static HeroSave packHero(const Hero& h)
     for (int i = 0; i < 8; ++i) hs.artifactEquipped[i] = h.artifacts.equippedIds[i];
     hs.artifactInventory = h.artifactInventory;
     for (auto& s : h.army) hs.army.push_back({s.defId, s.count});
-    hs.battlesWon    = h.battlesWon;
-    hs.specialtyAtk  = h.specialtyAtk;
-    hs.recyclerBonus = h.recyclerBonus;
+    hs.battlesWon      = h.battlesWon;
+    hs.specialtyAtk    = h.specialtyAtk;
+    hs.recyclerBonus   = h.recyclerBonus;
+    hs.livingRuneBonus = h.livingRuneBonus;
     hs.phylacteryUsed     = h.phylacteryUsed;
     hs.ghostWalkSpecialty = h.ghostWalkSpecialty;
     hs.blightAuraSpecialty = h.blightAuraSpecialty;
@@ -477,10 +479,11 @@ static Hero unpackHero(const HeroSave& hs)
     for (int i = 0; i < 8; ++i) h.artifacts.equippedIds[i] = hs.artifactEquipped[i];
     h.artifactInventory = hs.artifactInventory;
     for (auto& [did, cnt] : hs.army) h.army.push_back({did, cnt});
-    h.battlesWon    = hs.battlesWon;
-    h.specialtyAtk  = hs.specialtyAtk;
-    h.recyclerBonus = hs.recyclerBonus;
-    h.phylacteryUsed     = hs.phylacteryUsed;
+    h.battlesWon      = hs.battlesWon;
+    h.specialtyAtk    = hs.specialtyAtk;
+    h.recyclerBonus   = hs.recyclerBonus;
+    h.livingRuneBonus = hs.livingRuneBonus;
+    h.phylacteryUsed  = hs.phylacteryUsed;
     h.ghostWalkSpecialty = hs.ghostWalkSpecialty;
     h.blightAuraSpecialty = hs.blightAuraSpecialty;
     h.infestationSpecialty = hs.infestationSpecialty;

@@ -87,6 +87,7 @@ struct Hero
     int battlesWon = 0;         // total combat victories (Veteran specialty)
     int specialtyAtk = 0;       // accumulated specialty attack bonus
     int recyclerBonus = 0;      // Salvage Lord: permanent ATK bonus to units (max 5)
+    int livingRuneBonus = 0;    // Runesmith: permanent ATK+DEF bonus to hero (max 5 each)
 
     // Transient per-battle specialty flags (set in enterCombat, not persisted)
     bool feastSpecialty      = false;  // Blood Prince — drain own units, heal hero per round

@@ -917,6 +917,18 @@ void Game::exitCombat(bool playerWon)
                         pushPickupEffect(hero.pos, buf, IM_COL32(180, 200, 100, 255));
                     }
                 }
+                // LivingRune (Runesmith): hero gains permanent +1 ATK and +1 DEF per battle won (max 5)
+                if (cls->specialty == SpecialtyType::LivingRune) {
+                    if (hero.livingRuneBonus < 5) {
+                        hero.livingRuneBonus++;
+                        hero.attack++;
+                        hero.defense++;
+                        char buf[56];
+                        std::snprintf(buf, sizeof(buf), "+1 ATK/DEF (Living Rune, tier %d)",
+                                      hero.livingRuneBonus);
+                        pushPickupEffect(hero.pos, buf, IM_COL32(255, 210, 80, 255));
+                    }
+                }
             }
         }
 
