@@ -270,9 +270,13 @@ void Game::updateWorldMap(float dt)
 // ── End Turn — full turn logic (SPACE key + HUD button) ───────────────────────
 void Game::doEndTurn()
 {
-    // Restore hero movement pools
+    // Restore hero movement pools and daily mana regen for enemy heroes
     for (auto& h : m_heroes)      h.movePool = h.maxMove;
-    for (auto& h : m_enemyHeroes) h.movePool = h.maxMove;
+    for (auto& h : m_enemyHeroes) {
+        h.movePool = h.maxMove;
+        int manaRegen = std::max(2, 2 + h.maxMana / 10);
+        h.mana = std::min(h.maxMana, h.mana + manaRegen);
+    }
 
         // Enemy hero AI — strength-aware, full move pool
         if (!m_heroes.empty()) {
@@ -1384,6 +1388,12 @@ void Game::checkTileEvents()
                 printf("Captured town: %s\n", t.name.c_str());
                 m_capturedTownName = t.name;
                 m_showCapturePopup = true;
+                m_hideout.completeMilestone(Milestone::FIRST_TOWN_CAPTURED);
+                {
+                    ScriptContext tCtx;
+                    tCtx.townId = t.id;
+                    m_triggers.fire(TriggerType::TownCaptured, tCtx);
+                }
             }
             enterTown(&t);
             return;

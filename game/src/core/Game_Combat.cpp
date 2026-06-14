@@ -914,6 +914,9 @@ void Game::exitCombat(bool playerWon)
                 m_showCapturePopup = true;
                 m_hideout.completeMilestone(Milestone::FIRST_TOWN_CAPTURED);
                 printf("Captured town after garrison fight: %s\n", m_capturedTownName.c_str());
+                ScriptContext townCtx;
+                townCtx.townId = captured->id;
+                m_triggers.fire(TriggerType::TownCaptured, townCtx);
             }
             m_pendingTownCaptureId = 0;
         }

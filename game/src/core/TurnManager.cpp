@@ -6,11 +6,14 @@ bool TurnManager::endTurn(std::vector<Town>& towns,
                            Resources& playerResources,
                            const BuildingRegistry& registry)
 {
-    // Restore hero movement
+    // Restore hero movement and regenerate a small amount of mana each day
     for (auto& hero : heroes) {
         hero.movePool = hero.maxMove;
         hero.path.clear();
         hero.pathStep = 0;
+        // Daily mana regen: 2 + 10% of max, minimum 2
+        int manaRegen = std::max(2, 2 + hero.maxMana / 10);
+        hero.mana = std::min(hero.maxMana, hero.mana + manaRegen);
     }
 
     m_day++;
