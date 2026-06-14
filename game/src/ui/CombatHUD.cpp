@@ -285,15 +285,44 @@ void CombatHUD::drawCombatLog(UIRenderer& rdr, const CombatEngine& engine)
     int start = std::max(0, static_cast<int>(log.size()) - maxLines);
 
     for (int i = start; i < static_cast<int>(log.size()) && y < maxY; ++i) {
+        const auto& msg = log[i].message;
         UIColor c = UIColor::hex(UITheme::TEXT_SECONDARY);
-        if (log[i].message.find("VICTORY") != std::string::npos)
+        // Round separator
+        if (msg.find("===") != std::string::npos || msg.find("Round") != std::string::npos)
+            c = UIColor::rgba(0.7f, 0.7f, 0.9f);
+        else if (msg.find("VICTORY") != std::string::npos)
             c = UIColor::hex(UITheme::GOLD);
-        else if (log[i].message.find("DEFEAT") != std::string::npos)
+        else if (msg.find("DEFEAT") != std::string::npos)
             c = UIColor::hex(UITheme::DANGER_RED);
-        else if (log[i].message.find("killed") != std::string::npos ||
-                 log[i].message.find("destroyed") != std::string::npos)
+        else if (msg.find("LUCKY") != std::string::npos)
+            c = UIColor::rgba(1.0f, 0.95f, 0.2f);     // bright yellow for lucky hit
+        else if (msg.find("spell") != std::string::npos ||
+                 msg.find("casts") != std::string::npos ||
+                 msg.find("Mana") != std::string::npos)
+            c = UIColor::rgba(0.5f, 0.7f, 1.0f);      // blue for spell cast
+        else if (msg.find("drains") != std::string::npos ||
+                 msg.find("vampir") != std::string::npos ||
+                 msg.find("Feast") != std::string::npos)
+            c = UIColor::rgba(0.75f, 0.2f, 0.95f);    // purple for vampiric
+        else if (msg.find("regenerat") != std::string::npos ||
+                 msg.find("healed") != std::string::npos ||
+                 msg.find("Regrowth") != std::string::npos)
+            c = UIColor::rgba(0.3f, 0.95f, 0.5f);     // green for heal/regen
+        else if (msg.find("poison") != std::string::npos)
+            c = UIColor::rgba(0.3f, 0.9f, 0.3f);      // poison green
+        else if (msg.find("burn") != std::string::npos ||
+                 msg.find("incinerat") != std::string::npos)
+            c = UIColor::rgba(1.0f, 0.5f, 0.1f);      // orange for burn
+        else if (msg.find("Wither") != std::string::npos ||
+                 msg.find("Symbiosis") != std::string::npos)
+            c = UIColor::rgba(0.7f, 0.5f, 1.0f);      // lavender for auras
+        else if (msg.find("killed") != std::string::npos ||
+                 msg.find("destroyed") != std::string::npos ||
+                 msg.find("perishes") != std::string::npos)
             c = UIColor::hex(UITheme::BLOOD_RED);
-        rdr.drawText(log[i].message, x, y, c, 11.0f);
+        else if (msg.find("morale surge") != std::string::npos)
+            c = UIColor::rgba(1.0f, 0.8f, 0.2f);      // gold for morale
+        rdr.drawText(msg, x, y, c, 11.0f);
         y += lineH;
     }
 }

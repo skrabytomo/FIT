@@ -603,7 +603,6 @@ void Game::renderWorldMap()
     if (m_showPauseMenu)      renderPauseMenu();
     if (m_showVictory)        renderVictoryModal();
     if (m_showDefeat)         renderDefeatModal();
-    if (m_showMinimap)        renderMinimap();
     endImGuiFrame();
 }
 
@@ -1331,7 +1330,7 @@ void Game::renderWorldOverlay()
     }
 
     // ── Minimap ────────────────────────────────────────────────────────────────
-    if (m_map.radius() > 0) {
+    if (m_showMinimap && m_map.radius() > 0) {
         constexpr float MINI_W = 150.0f, MINI_H = 150.0f;
         constexpr float PAD    = 10.0f;
         const ImVec2 disp = ImGui::GetIO().DisplaySize;
@@ -1397,6 +1396,18 @@ void Game::renderWorldOverlay()
             dl->AddRect({mx-2.f, my-2.f}, {mx+2.f, my+2.f}, IM_COL32(255, 255, 255, 220));
         }
 
+        // Resource mines
+        for (const auto& r : m_resources) {
+            const HexTile* rt = m_map.getTile(r.pos);
+            if (!rt || !rt->explored) continue;
+            float mx = mm_cx + static_cast<float>(r.pos.q) * scaleX;
+            float my = mm_cy + (static_cast<float>(r.pos.r) + static_cast<float>(r.pos.q) * 0.5f) * scaleY;
+            ImU32 col = r.ownedBy == 1 ? IM_COL32(80, 220, 80, 200)
+                      : r.ownedBy  > 1 ? IM_COL32(220, 80, 80, 200)
+                                       : IM_COL32(200, 180, 80, 150);
+            dl->AddCircleFilled({mx, my}, 1.5f, col);
+        }
+
         // Enemy heroes (only when tile is visible)
         for (const auto& hero : m_enemyHeroes) {
             const HexTile* ht2 = m_map.getTile(hero.pos);
@@ -1442,8 +1453,8 @@ void Game::renderWorldOverlay()
         dl->AddRect({mm_left-2, mm_top-2},
                     {mm_left+MINI_W+2, mm_top+MINI_H+2},
                     IM_COL32(175, 155, 115, 230), 2.0f, 0, 1.5f);
-        // "MAP" label above
-        dl->AddText({mm_left+2, mm_top-14}, IM_COL32(195, 175, 135, 220), "MAP");
+        // "MAP [M]" label above
+        dl->AddText({mm_left+2, mm_top-14}, IM_COL32(195, 175, 135, 220), "MAP [M]");
     }
 }
 
@@ -2108,164 +2119,5 @@ void Game::renderQuestPopup()
 }
 
 // ── Mini-map ──────────────────────────────────────────────────────────────────
-void Game::renderMinimap()
-{
-    ImGuiIO& io = ImGui::GetIO();
-    const float MMW = 160.0f, MMH = 160.0f;
-    const float MMX = io.DisplaySize.x - MMW - 4.0f;
-    const float MMY = io.DisplaySize.y - MMH - 44.0f;  // above bottom HUD row
-
-    ImGui::SetNextWindowPos({MMX - 4.0f, MMY - 4.0f}, ImGuiCond_Always);
-    ImGui::SetNextWindowSize({MMW + 8.0f, MMH + 24.0f}, ImGuiCond_Always);
-    ImGui::SetNextWindowBgAlpha(0.82f);
-    ImGuiWindowFlags mmf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
-                         | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar
-                         | ImGuiWindowFlags_NoScrollWithMouse
-                         | ImGuiWindowFlags_NoInputs;
-    if (!ImGui::Begin("##minimap", nullptr, mmf)) { ImGui::End(); return; }
-
-    // "M - Map" toggle hint
-    ImGui::TextDisabled("Mini-map  [M]");
-    ImGui::End();
-
-    // Draw directly on background draw list for crisp rendering
-    ImDrawList* dl = ImGui::GetBackgroundDrawList();
-    dl->AddRectFilled({MMX - 2, MMY - 2}, {MMX + MMW + 2, MMY + MMH + 2},
-                      IM_COL32(10, 10, 20, 210));
-    dl->AddRect({MMX - 2, MMY - 2}, {MMX + MMW + 2, MMY + MMH + 2},
-                IM_COL32(80, 80, 100, 200), 2.0f);
-
-    // Compute world bounds from map radius
-    int rad = m_map.radius();
-    if (rad <= 0) return;
-
-    const auto& grid = m_hexRenderer.grid();
-
-    // Get world extents by sampling corners
-    float wx0, wy0, wx1, wy1;
-    grid.hexToWorld({-rad, 0}, wx0, wy0);
-    grid.hexToWorld({ rad, 0}, wx1, wy1);
-    float cx, cy;
-    grid.hexToWorld({0, 0}, cx, cy);
-
-    // Approximate bounds (hexagonal map — use radius * hexSize)
-    float hexSize = grid.hexSize();
-    float worldSpan = 2.0f * rad * hexSize * 1.8f;
-    float mapCx = cx, mapCy = cy;
-    float minWX = mapCx - worldSpan * 0.5f;
-    float minWY = mapCy - worldSpan * 0.5f;
-    float scaleX = MMW / worldSpan;
-    float scaleY = MMH / worldSpan;
-
-    auto toMM = [&](float wx, float wy, float& px, float& py) {
-        px = MMX + (wx - minWX) * scaleX;
-        py = MMY + (wy - minWY) * scaleY;
-    };
-
-    // Terrain color table
-    auto terrainColor = [](Terrain t) -> ImU32 {
-        switch (t) {
-        case Terrain::Plains:           return IM_COL32( 90,130, 60,255);
-        case Terrain::Forest:           return IM_COL32( 30, 90, 30,255);
-        case Terrain::Highland:         return IM_COL32( 90, 80, 60,255);
-        case Terrain::Corrupted:        return IM_COL32( 60, 40, 70,255);
-        case Terrain::Toxic:            return IM_COL32( 50, 80, 20,255);
-        case Terrain::Sacred:           return IM_COL32(200,190,230,255);
-        case Terrain::Industrial:       return IM_COL32( 80, 80, 80,255);
-        case Terrain::Rocky:            return IM_COL32(100, 90, 70,255);
-        case Terrain::Swamp:            return IM_COL32( 40, 70, 50,255);
-        case Terrain::Water:            return IM_COL32( 30, 50,120,255);
-        case Terrain::Volcanic:         return IM_COL32(110, 40, 20,255);
-        case Terrain::Barren:           return IM_COL32(130,100, 60,255);
-        case Terrain::Wasteland:        return IM_COL32( 90, 70, 50,255);
-        case Terrain::CorruptedForest:  return IM_COL32( 45, 30, 55,255);
-        case Terrain::FleshZone:        return IM_COL32(130, 50, 50,255);
-        default:                        return IM_COL32( 60, 60, 60,255);
-        }
-    };
-
-    // Draw each explored tile as a tiny pixel patch
-    float dotR = std::max(1.0f, std::min(3.0f, MMW / (rad * 2.2f)));
-    for (const auto& coord : m_map.coords()) {
-        const HexTile* tile = m_map.getTile(coord);
-        if (!tile) continue;
-        float wx, wy;
-        grid.hexToWorld(coord, wx, wy);
-        float px, py;
-        toMM(wx, wy, px, py);
-        if (px < MMX || px > MMX + MMW || py < MMY || py > MMY + MMH) continue;
-
-        if (!tile->explored) {
-            dl->AddRectFilled({px - dotR, py - dotR}, {px + dotR, py + dotR},
-                              IM_COL32(15, 15, 25, 255));
-        } else {
-            dl->AddRectFilled({px - dotR, py - dotR}, {px + dotR, py + dotR},
-                              terrainColor(tile->terrain));
-        }
-    }
-
-    // Towns
-    for (const auto& town : m_towns) {
-        float wx, wy;
-        grid.hexToWorld(town.pos, wx, wy);
-        float px, py;
-        toMM(wx, wy, px, py);
-        ImU32 col = town.ownerId == 1 ? IM_COL32(80, 160, 255, 255)
-                  : town.ownerId  > 1 ? IM_COL32(255, 80,  80, 255)
-                                      : IM_COL32(200,160,  50, 255);
-        dl->AddRectFilled({px - 3, py - 3}, {px + 3, py + 3}, col);
-        dl->AddRect({px - 3, py - 3}, {px + 3, py + 3}, IM_COL32(255,255,255,160));
-    }
-
-    // Resource mines (ownership dot)
-    for (const auto& r : m_resources) {
-        const HexTile* t = m_map.getTile(r.pos);
-        if (!t || !t->explored) continue;
-        float wx, wy;
-        grid.hexToWorld(r.pos, wx, wy);
-        float px, py;
-        toMM(wx, wy, px, py);
-        ImU32 col = r.ownedBy == 1 ? IM_COL32(100, 220, 100, 255)
-                  : r.ownedBy  > 1 ? IM_COL32(220, 100, 100, 255)
-                                   : IM_COL32(200, 180, 100, 200);
-        dl->AddCircleFilled({px, py}, 2.0f, col);
-    }
-
-    // Enemy heroes
-    for (const auto& h : m_enemyHeroes) {
-        const HexTile* t = m_map.getTile(h.pos);
-        if (!t || !t->visible) continue;
-        float wx, wy;
-        grid.hexToWorld(h.pos, wx, wy);
-        float px, py;
-        toMM(wx, wy, px, py);
-        dl->AddCircleFilled({px, py}, 4.0f, IM_COL32(220, 60, 60, 255));
-        dl->AddCircle({px, py}, 4.0f, IM_COL32(255, 255, 255, 180));
-    }
-
-    // Player heroes
-    for (const auto& h : m_heroes) {
-        float wx, wy;
-        grid.hexToWorld(h.pos, wx, wy);
-        float px, py;
-        toMM(wx, wy, px, py);
-        dl->AddCircleFilled({px, py}, 4.0f, IM_COL32(80, 200, 80, 255));
-        dl->AddCircle({px, py}, 4.0f, IM_COL32(255, 255, 255, 220));
-    }
-
-    // Camera viewport rectangle
-    {
-        float vx0, vy0, vx1, vy1;
-        m_camera.screenToWorld(0, 0, vx0, vy0);
-        m_camera.screenToWorld((float)m_width, (float)m_height, vx1, vy1);
-        float mmvx0, mmvy0, mmvx1, mmvy1;
-        toMM(vx0, vy0, mmvx0, mmvy0);
-        toMM(vx1, vy1, mmvx1, mmvy1);
-        // Clamp to minimap bounds
-        mmvx0 = std::max(MMX, mmvx0); mmvy0 = std::max(MMY, mmvy0);
-        mmvx1 = std::min(MMX + MMW, mmvx1); mmvy1 = std::min(MMY + MMH, mmvy1);
-        if (mmvx1 > mmvx0 && mmvy1 > mmvy0)
-            dl->AddRect({mmvx0, mmvy0}, {mmvx1, mmvy1},
-                        IM_COL32(255, 255, 255, 130), 0.0f, 0, 1.5f);
-    }
-}
+// Minimap rendering is handled inside renderWorldOverlay(), toggled with M key.
+void Game::renderMinimap() {}
