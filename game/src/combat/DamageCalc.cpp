@@ -170,6 +170,15 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
     int finalDmg = static_cast<int>(baseDmg * modifier);
     finalDmg = std::max(1, finalDmg);
 
+    // Luck roll — each luck point gives +5% chance of a double-damage lucky hit
+    if (!isRetaliation && attacker.luck > 0) {
+        std::uniform_int_distribution<int> d100(1, 100);
+        if (d100(s_rng) <= attacker.luck * 5) {
+            finalDmg *= 2;
+            result.luckTrigger = true;
+        }
+    }
+
     result.damage = finalDmg;
     result.killed = defender.applyDamage(finalDmg);
 

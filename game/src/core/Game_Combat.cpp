@@ -510,6 +510,29 @@ void Game::exitCombat(bool playerWon)
                     }
                 }
             }
+
+            // Apply NECROMANCY: raise % of killed enemies as Skeletons (defId 2001)
+            if (const SkillInstance* s = hero.skills.getSkill(SID::NECROMANCY)) {
+                if (const SkillDef* def = findSkillDef(SID::NECROMANCY)) {
+                    int necroRaise = m_combat.enemyStartCount()
+                                   * def->values[static_cast<int>(s->tier)] / 100;
+                    if (necroRaise > 0) {
+                        constexpr int SKELETON_DEF_ID = 2001;
+                        bool merged = false;
+                        for (auto& stack : hero.army)
+                            if (stack.defId == SKELETON_DEF_ID) {
+                                stack.count += necroRaise; merged = true; break;
+                            }
+                        if (!merged && hero.army.size() < 7)
+                            hero.army.push_back({SKELETON_DEF_ID, necroRaise});
+                        char necroBuf[48];
+                        std::snprintf(necroBuf, sizeof(necroBuf),
+                            "+%d Skeletons (Necromancy)", necroRaise);
+                        pushPickupEffect(hero.pos, necroBuf, IM_COL32(180, 220, 255, 255));
+                        printf("Necromancy: raised %d skeletons\n", necroRaise);
+                    }
+                }
+            }
         }
     }
 

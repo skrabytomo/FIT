@@ -27,6 +27,9 @@ namespace SID {
     constexpr int LOGISTICS     = 106;  // +movement
     constexpr int SCOUTING      = 107;  // +vision
     constexpr int FIRST_AID     = 108;  // heal units between battles
+    constexpr int LUCK          = 109;  // +5/10/15% chance for double-damage lucky hit
+    constexpr int MYSTICISM     = 110;  // +1/2/3 extra mana regen per combat round
+    constexpr int NECROMANCY    = 111;  // raise 10/20/30% of killed enemies as skeletons
 
     // Magic schools
     constexpr int LIGHT_MAGIC   = 201;

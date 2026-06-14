@@ -69,6 +69,9 @@ struct CombatUnit
     int         morale      = 50;
     bool        moraleImmune = false; // Undead, Forge, Fleshcraft
 
+    // Luck (0-5): each point gives +5% chance of a lucky double-damage hit
+    int         luck        = 0;
+
     // Second life (Eternal Empire)
     bool        hasSecondLife  = false;
     bool        secondLifeUsed = false;

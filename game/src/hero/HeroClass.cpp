@@ -93,7 +93,7 @@ void HeroClassRegistry::init()
     addClass(F::EternalEmpire, "Death Herald", S::SoulHarvest,
         "Enemy kills restore hero HP equal to unit tier killed",
         false, false, false, true, false, false, false,
-        {SID::DEATH_MAGIC, SID::ETERNAL_CMD, SID::SCOUTING, SID::LEADERSHIP, SID::FIRST_AID});
+        {SID::DEATH_MAGIC, SID::ETERNAL_CMD, SID::NECROMANCY, SID::LEADERSHIP, SID::FIRST_AID});
 
     addClass(F::EternalEmpire, "Iron General", S::EternalLegion,
         "Reraised units retain their formation bonuses",
@@ -103,28 +103,28 @@ void HeroClassRegistry::init()
     addClass(F::EternalEmpire, "Lich", S::Phylactery,
         "Hero respawns next battle at half stats if killed — once per campaign",
         false, false, false, true, false, false, false,
-        {SID::DEATH_MAGIC, SID::ETERNAL_CMD, SID::OFFENSE, SID::TACTICS, SID::SCOUTING});
+        {SID::DEATH_MAGIC, SID::ETERNAL_CMD, SID::NECROMANCY, SID::TACTICS, SID::MYSTICISM});
 
     addClass(F::EternalEmpire, "Grave Diplomat", S::NegotiatedWeakness,
         "Reveals enemy hero specialty before battle begins",
         true, false, false, true, false, false, false,
-        {SID::ETERNAL_CMD, SID::LEADERSHIP, SID::DEATH_MAGIC, SID::TACTICS, SID::SCOUTING});
+        {SID::ETERNAL_CMD, SID::LEADERSHIP, SID::DEATH_MAGIC, SID::NECROMANCY, SID::SCOUTING});
 
     // ── CRIMSON WARDENS ────────────────────────────────────────────────────────
     addClass(F::CrimsonWardens, "Warden Captain", S::CoordinatedStrike,
         "Marked target takes bonus damage from every attacker same round",
         true, false, false, false, false, false, false,
-        {SID::WARDEN_MARK, SID::OFFENSE, SID::LEADERSHIP, SID::TACTICS, SID::DEFENSE_SKILL});
+        {SID::WARDEN_MARK, SID::OFFENSE, SID::LEADERSHIP, SID::TACTICS, SID::NECROMANCY});
 
     addClass(F::CrimsonWardens, "Blood Sage", S::Elixir,
         "Once per battle fully heal one friendly unit",
         false, false, true, false, false, false, false,
-        {SID::BLOOD_MAGIC, SID::FIRST_AID, SID::WARDEN_MARK, SID::LEADERSHIP, SID::SCOUTING});
+        {SID::BLOOD_MAGIC, SID::FIRST_AID, SID::WARDEN_MARK, SID::MYSTICISM, SID::SCOUTING});
 
     addClass(F::CrimsonWardens, "Oathmaster", S::BloodWeb,
         "Linked units heal when any linked unit makes a kill",
         false, false, true, false, false, false, false,
-        {SID::BLOOD_MAGIC, SID::WARDEN_MARK, SID::LEADERSHIP, SID::FIRST_AID, SID::TACTICS});
+        {SID::BLOOD_MAGIC, SID::WARDEN_MARK, SID::NECROMANCY, SID::FIRST_AID, SID::TACTICS});
 
     addClass(F::CrimsonWardens, "Inquisitor Hunter", S::BloodScent,
         "Always knows exact location of Bloodsworn heroes on world map",

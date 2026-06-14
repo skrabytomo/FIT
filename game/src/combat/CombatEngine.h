@@ -83,6 +83,7 @@ public:
 
     // XP earned this battle (enemy unit-count × 5, awarded on victory)
     int xpEarned() const { return m_enemyStartCount * 5; }
+    int enemyStartCount() const { return m_enemyStartCount; }
 
     // Headless batch simulation — both sides use AI, returns final phase
     void setSilent(bool s) { m_silent = s; }

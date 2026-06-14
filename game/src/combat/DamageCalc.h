@@ -8,6 +8,7 @@ struct DamageResult
     int   killed     = 0;
     bool  retaliated = false;
     bool  moraleTrigger = false;  // attacker got bonus action
+    bool  luckTrigger   = false;  // lucky hit — double damage
 };
 
 class DamageCalc

@@ -75,7 +75,8 @@ std::vector<LevelUpOffer> LevelUpSystem::generateOffers(
         static const int wildcardPool[] = {
             SID::OFFENSE, SID::DEFENSE_SKILL, SID::ARCHERY,
             SID::LEADERSHIP, SID::TACTICS, SID::LOGISTICS,
-            SID::SCOUTING, SID::FIRST_AID
+            SID::SCOUTING, SID::FIRST_AID,
+            SID::LUCK, SID::MYSTICISM, SID::NECROMANCY
         };
         std::vector<int> wc;
         for (int sid : wildcardPool) {

@@ -15,6 +15,9 @@ static const SkillDef SKILL_DEFS[] = {
     {SID::LOGISTICS,    "Logistics",    "+3/5/7 movement pool",                        FactionId::None,  SkillEffectType::MovementBonus,   {3,5,7}, "",            0},
     {SID::SCOUTING,     "Scouting",     "+1/2/3 vision range",                         FactionId::None,  SkillEffectType::VisionBonus,     {1,2,3}, "",            0},
     {SID::FIRST_AID,    "First Aid",    "Restore 10/20/30% unit HP after battle",      FactionId::None,  SkillEffectType::StatBonus,       {10,20,30},"heal",      0},
+    {SID::LUCK,         "Luck",         "Units have 5/10/15% chance to deal double dmg",FactionId::None,  SkillEffectType::UnitStatBonus,   {5,10,15}, "luck",      0},
+    {SID::MYSTICISM,    "Mysticism",    "Hero regenerates +1/2/3 extra mana per round", FactionId::None,  SkillEffectType::StatBonus,       {1,2,3},   "mana",      0},
+    {SID::NECROMANCY,   "Necromancy",   "Raise 10/20/30% of killed enemies as skeletons",FactionId::None, SkillEffectType::SpecialMechanic, {10,20,30},"",          0},
 
     {SID::LIGHT_MAGIC,  "Light Magic",  "+2/4/6 Light Power",                          FactionId::None,  SkillEffectType::MagicSchoolBonus,{2,4,6}, "lightPower",  0},
     {SID::BLOOD_MAGIC,  "Blood Magic",  "+2/4/6 Blood Power",                          FactionId::None,  SkillEffectType::MagicSchoolBonus,{2,4,6}, "bloodPower",  0},

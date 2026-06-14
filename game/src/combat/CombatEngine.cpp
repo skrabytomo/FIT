@@ -123,6 +123,7 @@ void CombatEngine::startBattle(
             applyIf(SID::LEADERSHIP,    [](CombatUnit& u, int v){
                 u.morale = std::min(100, u.morale + v);
             });
+            applyIf(SID::LUCK, [](CombatUnit& u, int v){ u.luck += v; });
             // ARCHERY — only for ranged units
             if (u.range > 0 && u.shotsLeft > 0)
                 applyIf(SID::ARCHERY, [](CombatUnit& u, int v){ u.attack += v; });
@@ -241,6 +242,16 @@ void CombatEngine::advanceTurn()
             // Mana regenerates 3 per round for both heroes
             m_playerHero.mana = std::min(m_playerHero.maxMana, m_playerHero.mana + 3);
             m_enemyHero.mana  = std::min(m_enemyHero.maxMana,  m_enemyHero.mana  + 3);
+            // MYSTICISM: extra mana regen per round
+            auto applyMysticism = [](Hero& h) {
+                if (const SkillInstance* s = h.skills.getSkill(SID::MYSTICISM)) {
+                    if (const SkillDef* def = findSkillDef(SID::MYSTICISM))
+                        h.mana = std::min(h.maxMana,
+                            h.mana + def->values[static_cast<int>(s->tier)]);
+                }
+            };
+            applyMysticism(m_playerHero);
+            applyMysticism(m_enemyHero);
             for (auto& u : m_grid.units()) u.newRound();
             buildTurnOrder();
             processRoundStartEffects();
@@ -302,6 +313,7 @@ bool CombatEngine::submitAction(const CombatAction& action)
         auto result = DamageCalc::attack(*unit, *target, m_grid);
 
         std::ostringstream ss;
+        if (result.luckTrigger) ss << "★ LUCKY HIT! ";
         ss << unit->name << " attacks " << target->name
            << " for " << result.damage << " damage";
         if (result.killed > 0) ss << " (" << result.killed << " killed)";
