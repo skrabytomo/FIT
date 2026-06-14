@@ -237,11 +237,12 @@ void Game::renderCombatBoard()
         auto it = m_combatAnimators.find(u.id);
         if (it != m_combatAnimators.end()) {
             const SpriteAnimator& anim = it->second;
-            int fi = anim.faction;
-            if (fi >= 0 && fi < NUM_FACTIONS && m_spriteAtlas[fi].ok()) {
+            int fi   = anim.faction;
+            int tidx = std::max(0, std::min(NUM_UNIT_TIERS - 1, anim.tier - 1));
+            if (fi >= 0 && fi < NUM_FACTIONS && m_unitTex[fi][tidx].ok()) {
                 float u0, v0, u1, v1;
                 it->second.getUV(u0, v0, u1, v1);
-                ImTextureID tid = (ImTextureID)(uintptr_t)m_spriteAtlas[fi].id();
+                ImTextureID tid = (ImTextureID)(uintptr_t)m_unitTex[fi][tidx].id();
                 dl->AddImage(tid,
                     {sx - sprW, sy - sprH * 0.85f},
                     {sx + sprW, sy + sprH * 0.15f},
@@ -270,11 +271,12 @@ void Game::renderCombatBoard()
         bool drewSprite = false;
         if (it != m_combatAnimators.end()) {
             const SpriteAnimator& anim = it->second;
-            int fi = anim.faction;
-            if (fi >= 0 && fi < NUM_FACTIONS && m_spriteAtlas[fi].ok()) {
+            int fi   = anim.faction;
+            int tidx = std::max(0, std::min(NUM_UNIT_TIERS - 1, anim.tier - 1));
+            if (fi >= 0 && fi < NUM_FACTIONS && m_unitTex[fi][tidx].ok()) {
                 float u0, v0, u1, v1;
                 anim.getUV(u0, v0, u1, v1);
-                ImTextureID tid = (ImTextureID)(uintptr_t)m_spriteAtlas[fi].id();
+                ImTextureID tid = (ImTextureID)(uintptr_t)m_unitTex[fi][tidx].id();
                 ImU32 tint = isGhost ? IM_COL32(200, 230, 255, 110) : IM_COL32(255, 255, 255, 255);
                 dl->AddImage(tid,
                     {sx - sprW, sy - sprH * 0.85f},

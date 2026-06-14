@@ -64,12 +64,14 @@ bool Game::init(const std::string& title, int width, int height)
     if (!m_ui.init(width, height)) { fprintf(stderr, "UIRenderer failed\n"); return false; }
     m_iconTex.load("assets/icons.png", true, false); // flipV=false: ImGui uses top-left UV origin
 
-    // Faction sprite atlases (optional — falls back to circles if missing)
-    for (int i = 0; i < NUM_FACTIONS; ++i) {
-        char path[64];
-        std::snprintf(path, sizeof(path), "assets/sprites/faction_%d.png", i);
-        m_spriteAtlas[i].load(path, false, false); // pixel-art=false, flipV=false
-    }
+    // Per-unit sprite sheets (optional — falls back to circles if missing)
+    // File: assets/sprites/faction_F_tT.png  (F=faction 0-8, T=tier 1-6)
+    for (int i = 0; i < NUM_FACTIONS; ++i)
+        for (int t = 0; t < NUM_UNIT_TIERS; ++t) {
+            char path[80];
+            std::snprintf(path, sizeof(path), "assets/sprites/faction_%d_t%d.png", i, t + 1);
+            m_unitTex[i][t].load(path, false, false);
+        }
 
     // SDL cursors
     m_cursorArrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);

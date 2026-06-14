@@ -220,9 +220,12 @@ private:
     // ── Icon texture atlas (256x96, 8x3 cells of 32x32) ──────────────────────
     Texture           m_iconTex;
 
-    // ── Faction sprite atlases (384×384, 8 frames × 6 tiers per faction) ────
-    static constexpr int NUM_FACTIONS = 9;
-    Texture           m_spriteAtlas[NUM_FACTIONS];
+    // ── Per-unit sprite textures: m_unitTex[faction][tier-1] ─────────────────
+    // File: assets/sprites/faction_F_tT.png  (F=0-8, T=1-6)
+    // Each is a single-row sprite sheet with TOTAL_COLS animation frames.
+    static constexpr int NUM_FACTIONS  = 9;
+    static constexpr int NUM_UNIT_TIERS = 6;
+    Texture           m_unitTex[NUM_FACTIONS][NUM_UNIT_TIERS];
 
     // ── Per-unit combat animators (keyed by CombatUnit id) ───────────────────
     std::unordered_map<uint32_t, SpriteAnimator> m_combatAnimators;

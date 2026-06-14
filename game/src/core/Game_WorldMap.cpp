@@ -1581,10 +1581,10 @@ void Game::renderWorldOverlay()
 
         int fac = std::min(static_cast<int>(hero.faction), NUM_FACTIONS - 1);
         auto ait = m_heroMapAnimators.find(hero.id);
-        if (ait != m_heroMapAnimators.end() && m_spriteAtlas[fac].ok()) {
+        if (ait != m_heroMapAnimators.end() && m_unitTex[fac][0].ok()) {
             float u0, v0, u1, v1;
             ait->second.getUV(u0, v0, u1, v1);
-            ImTextureID tex = (ImTextureID)(uintptr_t)m_spriteAtlas[fac].id();
+            ImTextureID tex = (ImTextureID)(uintptr_t)m_unitTex[fac][0].id();
             dl->AddImage(tex, {sx - 16, sy - 20}, {sx + 16, sy + 12}, {u0,v0}, {u1,v1});
         } else {
             addIcon(ICO_HERO_ENEMY, sx, sy, 13.0f);
@@ -1614,10 +1614,10 @@ void Game::renderWorldOverlay()
 
         int fac = std::min(static_cast<int>(hero.faction), NUM_FACTIONS - 1);
         auto ait = m_heroMapAnimators.find(hero.id);
-        if (ait != m_heroMapAnimators.end() && m_spriteAtlas[fac].ok()) {
+        if (ait != m_heroMapAnimators.end() && m_unitTex[fac][0].ok()) {
             float u0, v0, u1, v1;
             ait->second.getUV(u0, v0, u1, v1);
-            ImTextureID tex = (ImTextureID)(uintptr_t)m_spriteAtlas[fac].id();
+            ImTextureID tex = (ImTextureID)(uintptr_t)m_unitTex[fac][0].id();
             dl->AddImage(tex, {sx - 16, sy - 20}, {sx + 16, sy + 12}, {u0,v0}, {u1,v1});
         } else {
             addIcon(ICO_HERO_PLAYER, sx, sy, 13.0f);
