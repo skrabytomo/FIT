@@ -1,90 +1,155 @@
 #!/usr/bin/env python3
 """
-Convert a ChatGPT/AI-generated image into the game's sprite strip format.
-Usage: python3 tools/fix_sprite.py <input.png> <output_faction_F_tT.png>
+Convert a ChatGPT/AI-generated sprite image into the game's 512×64 strip format.
 
-Handles two common cases:
-  A) Input is already 512×64 (or close) — just resize/pad to exact size
-  B) Input is a square (512×512, 1024×1024) — assumed to be 4×2 grid of
-     8 frames; crops each cell and reassembles as a horizontal 512×64 strip
+Usage: python3 tools/fix_sprite.py <input.png> <faction_F_tT.png>
+
+Handles:
+  - Transparent padding around content (ChatGPT DALL-E output)
+  - White/solid background (removes it)
+  - Square 4×2 grid layout (2 rows of 4 frames)
+  - Already-correct horizontal strip (resizes to 512×64)
 """
 
 import sys
 from pathlib import Path
 from PIL import Image
 
-FRAME_W   = 64
-FRAME_H   = 64
-N_FRAMES  = 8
-STRIP_W   = FRAME_W * N_FRAMES  # 512
-STRIP_H   = FRAME_H             # 64
+FRAME_W  = 64
+FRAME_H  = 64
+N_FRAMES = 8
+STRIP_W  = FRAME_W * N_FRAMES  # 512
+STRIP_H  = FRAME_H             # 64
 
 
-def remove_background(img: Image.Image, threshold: int = 30) -> Image.Image:
-    """Convert near-white or solid-colour background to transparent."""
-    img = img.convert("RGBA")
+def content_bbox(img: Image.Image):
+    """Return (left, top, right, bottom) of non-transparent, non-white pixels."""
+    img = img.convert('RGBA')
     px = img.load()
-    w, h = img.size
-    # Sample corner pixels to guess background colour
-    corners = [px[0,0], px[w-1,0], px[0,h-1], px[w-1,h-1]]
-    bg = max(corners, key=lambda c: c[3])  # most opaque corner
-    br, bg_g, bb = bg[0], bg[1], bg[2]
-    for y in range(h):
-        for x in range(w):
+    W, H = img.size
+    left, top, right, bottom = W, H, 0, 0
+
+    # First try: find non-transparent pixels
+    has_alpha_content = False
+    for y in range(H):
+        for x in range(W):
             r,g,b,a = px[x,y]
-            if abs(r-br)+abs(g-bg_g)+abs(b-bb) < threshold*3:
+            if a > 10:
+                left   = min(left, x)
+                top    = min(top, y)
+                right  = max(right, x)
+                bottom = max(bottom, y)
+                has_alpha_content = True
+
+    if has_alpha_content and (right - left) > 10 and (bottom - top) > 10:
+        return left, top, right, bottom
+
+    # Fallback: remove near-white background, then find bounds
+    bg_r, bg_g, bg_b = px[0,0][:3]
+    left, top, right, bottom = W, H, 0, 0
+    for y in range(H):
+        for x in range(W):
+            r,g,b,a = px[x,y]
+            if abs(r-bg_r)+abs(g-bg_g)+abs(b-bg_b) > 40:
+                left   = min(left, x)
+                top    = min(top, y)
+                right  = max(right, x)
+                bottom = max(bottom, y)
+
+    return left, top, right+1, bottom+1
+
+
+def remove_white_bg(img: Image.Image, tol: int = 20) -> Image.Image:
+    img = img.convert('RGBA')
+    px = img.load()
+    W, H = img.size
+    bg = px[0,0][:3]
+    for y in range(H):
+        for x in range(W):
+            r,g,b,a = px[x,y]
+            if abs(r-bg[0])+abs(g-bg[1])+abs(b-bg[2]) < tol*3:
                 px[x,y] = (r,g,b,0)
     return img
 
 
-def make_strip_from_square(img: Image.Image) -> Image.Image:
-    """Treat square input as 4-col × 2-row grid → horizontal 8-frame strip."""
-    w, h = img.size
-    cell_w = w // 4
-    cell_h = h // 2
-    strip = Image.new("RGBA", (STRIP_W, STRIP_H), (0,0,0,0))
-    idx = 0
-    for row in range(2):
-        for col in range(4):
-            cell = img.crop((col*cell_w, row*cell_h, (col+1)*cell_w, (row+1)*cell_h))
-            cell = cell.resize((FRAME_W, FRAME_H), Image.LANCZOS).convert("RGBA")
-            strip.paste(cell, (idx * FRAME_W, 0), cell)
-            idx += 1
+def make_strip(img: Image.Image) -> Image.Image:
+    W, H = img.size
+    l, t, r, b = content_bbox(img)
+    cW, cH = r - l, b - t
+    ratio = cW / max(cH, 1)
+
+    strip = Image.new('RGBA', (STRIP_W, STRIP_H), (0,0,0,0))
+
+    if ratio > 3.5:
+        # Wide horizontal strip — N frames side by side
+        content = img.crop((l, t, r, b))
+        cell_w = cW // N_FRAMES
+        for i in range(N_FRAMES):
+            cell = content.crop((i*cell_w, 0, (i+1)*cell_w, cH))
+            scale = min(FRAME_W/cell_w, FRAME_H/cH)
+            nw, nh = int(cell_w*scale), int(cH*scale)
+            cell = cell.resize((nw, nh), Image.LANCZOS)
+            frame = Image.new('RGBA', (FRAME_W, FRAME_H), (0,0,0,0))
+            frame.paste(cell, ((FRAME_W-nw)//2, FRAME_H-nh), cell)
+            strip.paste(frame, (i*FRAME_W, 0), frame)
+        print(f"Mode: wide strip ({cW}×{cH}) → 512×64")
+
+    elif 0.7 < ratio < 1.4:
+        # Square 4×2 grid
+        content = img.crop((l, t, r, b))
+        cell_w, cell_h = cW//4, cH//2
+        idx = 0
+        for row in range(2):
+            for col in range(4):
+                cell = content.crop((col*cell_w, row*cell_h,
+                                     (col+1)*cell_w, (row+1)*cell_h))
+                scale = min(FRAME_W/cell_w, FRAME_H/cell_h)
+                nw, nh = int(cell_w*scale), int(cell_h*scale)
+                cell = cell.resize((nw, nh), Image.LANCZOS)
+                frame = Image.new('RGBA', (FRAME_W, FRAME_H), (0,0,0,0))
+                frame.paste(cell, ((FRAME_W-nw)//2, FRAME_H-nh), cell)
+                strip.paste(frame, (idx*FRAME_W, 0), frame)
+                idx += 1
+        print(f"Mode: square 4×2 grid ({cW}×{cH}) → 512×64")
+
+    else:
+        # Full image is content — divide into N equal columns
+        cell_w = W // N_FRAMES
+        for i in range(N_FRAMES):
+            cell = img.crop((i*cell_w, t, (i+1)*cell_w, b))
+            cw, ch = cell.size
+            scale = min(FRAME_W/cw, FRAME_H/ch)
+            nw, nh = int(cw*scale), int(ch*scale)
+            cell = cell.resize((nw, nh), Image.LANCZOS)
+            frame = Image.new('RGBA', (FRAME_W, FRAME_H), (0,0,0,0))
+            frame.paste(cell, ((FRAME_W-nw)//2, FRAME_H-nh), cell)
+            strip.paste(frame, (i*FRAME_W, 0), frame)
+        print(f"Mode: full-width divide ({W}×{H}) → 512×64")
+
     return strip
 
 
-def make_strip_from_wide(img: Image.Image) -> Image.Image:
-    """Input is already a horizontal strip — just resize to 512×64."""
-    return img.resize((STRIP_W, STRIP_H), Image.LANCZOS).convert("RGBA")
-
-
 def process(input_path: str, output_path: str) -> None:
-    img = Image.open(input_path).convert("RGBA")
-    w, h = img.size
-    print(f"Input: {w}×{h}")
+    print(f"Input:  {input_path}")
+    img = Image.open(input_path).convert('RGBA')
+    W, H = img.size
+    print(f"Size:   {W}×{H}")
 
-    # Try to remove solid background if present
-    img = remove_background(img)
-
-    ratio = w / h
-    if ratio > 3:
-        # Wide strip — already in strip format
-        result = make_strip_from_wide(img)
-        print("Mode: wide strip → resize to 512×64")
-    elif 0.8 < ratio < 1.25:
-        # Square — interpret as 4×2 grid
-        result = make_strip_from_square(img)
-        print("Mode: square → 4×2 grid → 512×64 strip")
+    # Remove white/solid background if alpha channel is unused
+    px = img.load()
+    all_opaque = all(px[x,0][3] == 255 for x in range(0, W, 16))
+    if all_opaque:
+        img = remove_white_bg(img)
+        print("Background: removed solid colour")
     else:
-        # Ambiguous — just resize
-        result = img.resize((STRIP_W, STRIP_H), Image.LANCZOS).convert("RGBA")
-        print(f"Mode: resize {w}×{h} → 512×64")
+        print("Background: already transparent")
 
+    result = make_strip(img)
     result.save(output_path)
-    print(f"Saved: {output_path}")
+    print(f"Output: {output_path}  ({result.size[0]}×{result.size[1]} RGBA)")
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     if len(sys.argv) != 3:
         print("Usage: python3 fix_sprite.py <input.png> <faction_F_tT.png>")
         sys.exit(1)
