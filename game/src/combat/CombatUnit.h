@@ -47,6 +47,8 @@ struct CombatUnit
     int         shots       = 0;
     int         shotsLeft   = 0;
     bool        flying      = false;
+    bool        vampiric    = false;  // heals for damage dealt
+    bool        regenerates = false;  // restores full HP at start of own turn
     UnitTag     tags        = UnitTag::Humanoid;
 
     // Position on combat grid

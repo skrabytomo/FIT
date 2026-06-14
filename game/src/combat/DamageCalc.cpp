@@ -182,6 +182,16 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
     result.damage = finalDmg;
     result.killed = defender.applyDamage(finalDmg);
 
+    // Vampiric drain — heal attacker by damage dealt (not during retaliation)
+    if (!isRetaliation && attacker.vampiric && finalDmg > 0) {
+        int heal = finalDmg / std::max(1, attacker.count);
+        heal = std::min(heal, attacker.maxHp - attacker.hp);
+        if (heal > 0) {
+            attacker.hp += heal;
+            result.vampireHeal = heal;
+        }
+    }
+
     // Morale update — attacker gains morale on kill (not during retaliation; at most one surge/round)
     if (result.killed > 0 && !isRetaliation && !attacker.moraleImmune
         && !attacker.moraleSurgedThisRound) {

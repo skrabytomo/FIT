@@ -339,7 +339,9 @@ void BuildingRegistry::init()
     addUnit(2001,"Skeleton",    F::CrimsonWardens,1,P::None,  6,2,1,1, 2,4, gold(40),        T::Undead);
     addUnit(2002,"Bone Archer", F::CrimsonWardens,2,P::None, 10,3,2,2, 4,5, gold(90),        T::Undead);
     addUnit(2003,"Wight",       F::CrimsonWardens,3,P::None, 22,5,4,3, 7,6, goldAndRes(180,ResourceType::FaithStones,1), T::Undead);
+    m_units.back().regenerates = true;   // Wight regenerates full HP at start of turn
     addUnit(2004,"Vampire",     F::CrimsonWardens,4,P::None, 40,8,5,7,13,9, goldAndRes(380,ResourceType::FaithStones,2), T::Undead|T::Flying, true);
+    m_units.back().vampiric = true;      // Vampire drains HP equal to damage dealt
     addUnit(2005,"Lich",        F::CrimsonWardens,5,P::None, 60,11,6,12,20,8,goldAndRes(720,ResourceType::FaithStones,3), T::Undead);
     addUnit(2006,"Bone Dragon", F::CrimsonWardens,6,P::None,140,16,13,20,35,11,goldAndRes(1500,ResourceType::FaithStones,5), T::Undead|T::Flying, true);
 
@@ -385,6 +387,7 @@ void BuildingRegistry::init()
     addUnit(3001,"Sproutling",    F::Thornkin,1,P::None,  7,1,2,1, 2,3, gold(45),        T::Beast);
     addUnit(3002,"Briar",         F::Thornkin,2,P::None, 18,3,4,2, 4,4, goldAndRes(100,ResourceType::VerdantSap,1), T::Beast);
     addUnit(3003,"Vine Crawler",  F::Thornkin,3,P::None, 30,6,5,4, 8,5, goldAndRes(200,ResourceType::VerdantSap,1), T::Beast);
+    m_units.back().regenerates = true;   // Vine Crawler regenerates each turn
     addUnit(3004,"Grove Guardian",F::Thornkin,4,P::None, 55,8,8,8,14,5, goldAndRes(400,ResourceType::VerdantSap,2), T::Beast);
     addUnit(3005,"Ancient Oak",   F::Thornkin,5,P::None, 90,11,11,12,20,6,goldAndRes(750,ResourceType::VerdantSap,3), T::Beast);
     addUnit(3006,"World Thorn",   F::Thornkin,6,P::None,160,15,15,22,35,7,goldAndRes(1500,ResourceType::VerdantSap,5), T::Beast);

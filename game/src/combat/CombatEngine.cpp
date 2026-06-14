@@ -266,6 +266,11 @@ void CombatEngine::advanceTurn()
     // Set phase based on whose turn it is
     auto* next = activeUnit();
     if (next) {
+        // Regeneration: restore full HP of top unit at start of turn
+        if (next->regenerates && next->alive) {
+            next->hp = next->maxHp;
+            addLog(next->name + " regenerates!");
+        }
         m_phase = next->isPlayer ? CombatPhase::PlayerTurn : CombatPhase::EnemyTurn;
         if (!next->isPlayer) processAITurn();
     }
@@ -318,6 +323,8 @@ bool CombatEngine::submitAction(const CombatAction& action)
            << " for " << result.damage << " damage";
         if (result.killed > 0) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
+        if (result.vampireHeal > 0)
+            addLog(unit->name + " drains " + std::to_string(result.vampireHeal) + " HP!");
 
         if (m_dmgCb && result.damage > 0)
             m_dmgCb(targetId, result.damage, targetPos);

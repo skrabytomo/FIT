@@ -109,6 +109,8 @@ static std::vector<CombatUnit> makeHeroUnits(const Hero& hero,
         u.range    = ud->range;
         u.shots    = u.shotsLeft = ud->shots;
         u.flying      = ud->flying;
+        u.vampiric    = ud->vampiric;
+        u.regenerates = ud->regenerates;
         u.tags        = ud->tags;
         u.isPlayer    = isPlayer;
         u.hasSecondLife = (hero.faction == FactionId::EternalEmpire);

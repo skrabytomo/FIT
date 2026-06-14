@@ -47,6 +47,8 @@ struct UnitDef
     int   range       = 0;     // 0 = melee, >0 = ranged hex distance
     int   shots       = 0;     // ranged shots per combat (0 = melee only)
     bool  flying      = false;
+    bool  vampiric    = false;  // heals attacker for damage dealt
+    bool  regenerates = false;  // restores full HP at start of own turn
 
     UnitTag tags = UnitTag::Humanoid;
 

@@ -165,6 +165,15 @@ void CombatHUD::drawUnitInfo(UIRenderer& rdr, const CombatUnit* unit, bool isAct
         y += 13.0f;
     }
 
+    // Special abilities
+    if (unit->vampiric)
+        rdr.drawText("Vampiric", x, y, UIColor::rgba(0.6f, 0.0f, 0.9f), 11.0f), y += 13.0f;
+    if (unit->regenerates)
+        rdr.drawText("Regenerates", x, y, UIColor::rgba(0.2f, 0.9f, 0.5f), 11.0f), y += 13.0f;
+    if (unit->luck > 0)
+        rdr.drawText("Luck: " + std::to_string(unit->luck),
+                     x, y, UIColor::rgba(1.0f, 0.9f, 0.0f), 11.0f), y += 13.0f;
+
     // Shots remaining
     if (unit->range > 0) {
         rdr.drawText("Shots: " + std::to_string(unit->shotsLeft),
