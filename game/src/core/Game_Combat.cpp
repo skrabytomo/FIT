@@ -1132,6 +1132,16 @@ void Game::exitCombat(bool playerWon)
             m_combatResultGold  = 0;
             m_showCombatResult  = true;
             m_showDefeat = true;
+            // Check for unrecoverable defeat: no heroes with armies, no player towns
+            {
+                bool anyUnit = false;
+                for (const auto& h : m_heroes)
+                    if (!h.army.empty()) { anyUnit = true; break; }
+                bool anyTown = false;
+                for (const auto& t : m_towns)
+                    if (t.ownerId == 1) { anyTown = true; break; }
+                m_finalDefeat = !anyUnit && !anyTown;
+            }
             m_audio.playSound("hit");
         }
     }

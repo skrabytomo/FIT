@@ -271,8 +271,9 @@ private:
     int                        m_pendingLevelUps  = 0;  // queued level-ups awaiting skill pick
 
     // ── Victory / defeat ──────────────────────────────────────────────────────
-    bool m_showVictory = false;
-    bool m_showDefeat  = false;
+    bool m_showVictory  = false;
+    bool m_showDefeat   = false;
+    bool m_finalDefeat  = false;  // no heroes with armies and no player towns
 
     // ── Combat result summary popup ───────────────────────────────────────────
     bool        m_showCombatResult  = false;

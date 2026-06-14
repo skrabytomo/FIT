@@ -342,6 +342,7 @@ void Game::startNewGame()
     m_playerResources = Resources{};
     m_showVictory     = false;
     m_showDefeat      = false;
+    m_finalDefeat     = false;
     m_showCapturePopup = false;
     m_showTownLostPopup = false;
     m_showCombatResult = false;

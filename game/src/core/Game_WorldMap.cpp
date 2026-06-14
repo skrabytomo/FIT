@@ -1217,7 +1217,8 @@ void Game::checkTileEvents()
                     if (other.id == obj.linkedId && other.collected) {
                         // Quest complete — reward scales with hero level
                         const_cast<WorldObject&>(obj).questState = 2;
-                        Hero& qHero = m_heroes.empty() ? m_heroes[0] : m_heroes[m_activeHeroIdx];
+                        if (m_heroes.empty()) break;
+                        Hero& qHero = m_heroes[m_activeHeroIdx];
                         int goldReward = 300 + qHero.level * 100;
                         // Bonus: rare resource or XP
                         int xpReward = 50 + qHero.level * 20;
@@ -2308,7 +2309,13 @@ void Game::renderDefeatModal()
     ImGui::SetNextWindowSize(ImVec2(360, 0), ImGuiCond_Always);
 
     if (ImGui::BeginPopupModal("Defeat", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Your army was defeated!");
+        if (m_finalDefeat) {
+            ImGui::TextColored(ImVec4(1.0f, 0.15f, 0.15f, 1.0f), "Total defeat!");
+            ImGui::Spacing();
+            ImGui::TextWrapped("You have no heroes with armies and no towns. There is no way to continue.");
+        } else {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Your army was defeated!");
+        }
         ImGui::Spacing();
         ImGui::TextDisabled("Day %d  Week %d", m_turns.day(), m_turns.week());
         ImGui::Spacing();
@@ -2316,17 +2323,30 @@ void Game::renderDefeatModal()
         ImGui::Spacing();
 
         float bw = ImGui::GetWindowWidth() - 32.0f;
-        if (ImGui::Button("Continue (retreat)", ImVec2(bw * 0.55f, 36))) {
-            m_showDefeat = false;
-            m_audio.playMusic("worldmap_music");
-            ImGui::CloseCurrentPopup();
+        if (!m_finalDefeat) {
+            if (ImGui::Button("Continue (retreat)", ImVec2(bw * 0.55f, 36))) {
+                m_showDefeat  = false;
+                m_finalDefeat = false;
+                m_audio.playMusic("worldmap_music");
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::SameLine();
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Load Last Save", ImVec2(-1, 36))) {
-            m_showDefeat = false;
+        if (ImGui::Button(m_finalDefeat ? "Load Last Save" : "Load Last Save", ImVec2(m_finalDefeat ? bw * 0.6f : -1, 36))) {
+            m_showDefeat  = false;
+            m_finalDefeat = false;
             loadGame("saves/save" + std::to_string(m_activeSlot) + ".json");
             m_audio.playMusic("worldmap_music");
             ImGui::CloseCurrentPopup();
+        }
+        if (m_finalDefeat) {
+            ImGui::SameLine();
+            if (ImGui::Button("Main Menu", ImVec2(-1, 36))) {
+                m_showDefeat  = false;
+                m_finalDefeat = false;
+                m_state = GameState::MainMenu;
+                ImGui::CloseCurrentPopup();
+            }
         }
         ImGui::EndPopup();
     }
