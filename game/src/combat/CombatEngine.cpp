@@ -232,6 +232,30 @@ void CombatEngine::startBattle(
     applyRapidEvolution(m_playerHero, true);
     applyRapidEvolution(m_enemyHero,  false);
 
+    // Collective: at round start, all allied OrganicMech units share the best adaptation bonus
+    // (Implemented as a per-round effect in processRoundStartEffects — see below)
+    // But at battle start, pre-set the flag on units for reference
+    auto applyCollective = [this](const Hero& hero, bool isPlayer) {
+        if (!hero.collectiveSpecialty) return;
+        // Find best adaptation count among allied OrganicMech units
+        int bestAdapt = 0;
+        for (const auto& u : m_grid.units())
+            if (u.isPlayer == isPlayer && u.alive && hasTag(u.tags, UnitTag::OrganicMech))
+                bestAdapt = std::max(bestAdapt, u.adaptationsGained);
+        if (bestAdapt <= 0) return;
+        // Give all OrganicMech units +1 ATK to represent shared knowledge
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive || !hasTag(u.tags, UnitTag::OrganicMech)) continue;
+            if (u.adaptationsGained < bestAdapt) {
+                u.attack++;
+                u.adaptationsGained++;  // count it so future sharing builds on this
+            }
+        }
+        addLog(hero.name + " Collective: OrganicMech units share adaptations (best=" + std::to_string(bestAdapt) + ")");
+    };
+    applyCollective(m_playerHero, true);
+    applyCollective(m_enemyHero,  false);
+
     m_coordinatedStrikeTarget = 0;
     m_wildGrowthGhosted.clear();
 
@@ -640,10 +664,16 @@ bool CombatEngine::submitAction(const CombatAction& action)
         bool freeViaExsanguinate = unit->isPlayer
             && caster.exsanguinate && !caster.exsanguinateUsed
             && spell->school == SpellSchool::Blood;
-        if (!freeViaExsanguinate && caster.mana < spell->manaCost) return false;
+        // PredatorMirror (Shadowlord): first spell cast each battle costs no mana
+        bool freeViaMirror = unit->isPlayer
+            && caster.predatorMirrorSpecialty && !caster.predatorMirrorUsed;
+        if (!freeViaExsanguinate && !freeViaMirror && caster.mana < spell->manaCost) return false;
         if (freeViaExsanguinate) {
             caster.exsanguinateUsed = true;
             addLog(caster.name + " Exsanguinate: " + spell->name + " cast FREE!");
+        } else if (freeViaMirror) {
+            caster.predatorMirrorUsed = true;
+            addLog(caster.name + " PredatorMirror: " + spell->name + " cast FREE (first spell)!");
         } else {
             caster.mana -= spell->manaCost;
         }
@@ -720,26 +750,53 @@ bool CombatEngine::submitAction(const CombatAction& action)
                     ss << " → " << t->name << " healed " << healed;
                     break;
                 }
-                case SpellEffect::AttackBuff:
-                    t->roundAttackBonus  += spell->power;
-                    t->buffAttackRounds   = 2;
-                    ss << " → " << t->name << " +" << spell->power << " atk (2 rounds)";
+                case SpellEffect::AttackBuff: {
+                    int atkBuff = spell->power;
+                    int atkRnds = caster.radianceSpecialty ? 4 : 2;
+                    t->roundAttackBonus  += atkBuff;
+                    t->buffAttackRounds   = atkRnds;
+                    ss << " → " << t->name << " +" << atkBuff << " atk (" << atkRnds << " rounds)";
+                    // Covenant (Oathbound): adjacent allies get half the buff
+                    if (caster.covenantSpecialty) {
+                        for (auto& adj : m_grid.units()) {
+                            if (!adj.alive || adj.isPlayer != unit->isPlayer || adj.id == t->id) continue;
+                            if (HexGrid::distance(adj.pos, t->pos) > 1) continue;
+                            adj.roundAttackBonus += std::max(1, atkBuff / 2);
+                            adj.buffAttackRounds  = std::max(adj.buffAttackRounds, atkRnds);
+                        }
+                    }
                     break;
-                case SpellEffect::DefenseBuff:
-                    t->roundDefenseBonus += spell->power;
-                    t->buffDefenseRounds  = 2;
-                    ss << " → " << t->name << " +" << spell->power << " def (2 rounds)";
+                }
+                case SpellEffect::DefenseBuff: {
+                    int defBuff = spell->power;
+                    int defRnds = caster.radianceSpecialty ? 4 : 2;
+                    t->roundDefenseBonus += defBuff;
+                    t->buffDefenseRounds  = defRnds;
+                    ss << " → " << t->name << " +" << defBuff << " def (" << defRnds << " rounds)";
+                    if (caster.covenantSpecialty) {
+                        for (auto& adj : m_grid.units()) {
+                            if (!adj.alive || adj.isPlayer != unit->isPlayer || adj.id == t->id) continue;
+                            if (HexGrid::distance(adj.pos, t->pos) > 1) continue;
+                            adj.roundDefenseBonus += std::max(1, defBuff / 2);
+                            adj.buffDefenseRounds  = std::max(adj.buffDefenseRounds, defRnds);
+                        }
+                    }
                     break;
-                case SpellEffect::AttackDebuff:
+                }
+                case SpellEffect::AttackDebuff: {
+                    int debuffRnds = caster.radianceSpecialty ? 4 : 2;
                     t->roundAttackBonus  -= spell->power;
-                    t->buffAttackRounds   = 2;
-                    ss << " → " << t->name << " -" << spell->power << " atk (2 rounds)";
+                    t->buffAttackRounds   = debuffRnds;
+                    ss << " → " << t->name << " -" << spell->power << " atk (" << debuffRnds << " rounds)";
                     break;
-                case SpellEffect::DefenseDebuff:
+                }
+                case SpellEffect::DefenseDebuff: {
+                    int debuffRnds = caster.radianceSpecialty ? 4 : 2;
                     t->roundDefenseBonus -= spell->power;
-                    t->buffDefenseRounds  = 2;
-                    ss << " → " << t->name << " -" << spell->power << " def (2 rounds)";
+                    t->buffDefenseRounds  = debuffRnds;
+                    ss << " → " << t->name << " -" << spell->power << " def (" << debuffRnds << " rounds)";
                     break;
+                }
                 case SpellEffect::MoraleBoost:
                     if (!t->moraleImmune)
                         t->morale = std::min(100, t->morale + potency);
@@ -1258,6 +1315,29 @@ void CombatEngine::processRoundStartEffects()
     };
     applyBloodPenanceDrain(m_playerHero);
     applyBloodPenanceDrain(m_enemyHero);
+
+    // Collective: share best adaptation each round
+    auto applyCollectiveRound = [&](const Hero& hero, bool isPlayer) {
+        if (!hero.collectiveSpecialty) return;
+        int bestAdapt = 0;
+        for (const auto& u : m_grid.units())
+            if (u.isPlayer == isPlayer && u.alive && hasTag(u.tags, UnitTag::OrganicMech))
+                bestAdapt = std::max(bestAdapt, u.adaptationsGained);
+        if (bestAdapt <= 0) return;
+        bool shared = false;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive || !hasTag(u.tags, UnitTag::OrganicMech)) continue;
+            if (u.adaptationsGained < bestAdapt) {
+                u.attack++;
+                u.adaptationsGained++;
+                shared = true;
+            }
+        }
+        if (shared)
+            addLog(hero.name + " Collective: OrganicMech share adaptation (best=" + std::to_string(bestAdapt) + ")");
+    };
+    applyCollectiveRound(m_playerHero, true);
+    applyCollectiveRound(m_enemyHero,  false);
 
     spawnWildGrowthGhosts();
     m_grid.removeDeadUnits();

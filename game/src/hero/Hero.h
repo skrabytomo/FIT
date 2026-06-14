@@ -117,6 +117,11 @@ struct Hero
     bool infestationSpecialty         = false; // Flesh Architect — FleshZone spreads each turn on world map
     bool eternalLegionSpecialty       = false; // Iron General — second-life revives at full HP
     bool rapidEvolutionSpecialty      = false; // Evolver (Amalgamate) — OrganicMech adapt on every hit
+    bool radianceSpecialty            = false; // Lightbringer — spell buffs/debuffs last +2 rounds
+    bool predatorMirrorSpecialty      = false; // Shadowlord — first spell each battle costs no mana
+    bool predatorMirrorUsed           = false;
+    bool covenantSpecialty            = false; // Oathbound — when unit buffed, adjacent allies gain half buff
+    bool collectiveSpecialty          = false; // Hive Controller — OrganicMech share best adaptation at round start
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
