@@ -189,6 +189,20 @@ void CombatHUD::drawUnitInfo(UIRenderer& rdr, const CombatUnit* unit, bool isAct
         rdr.drawText("Luck: " + std::to_string(unit->luck),
                      x, y, UIColor::rgba(1.0f, 0.9f, 0.0f), 11.0f), y += 13.0f;
 
+    // OrganicMech adaptation count
+    if (hasTag(unit->tags, UnitTag::OrganicMech) && unit->adaptationsGained > 0) {
+        std::string adaptStr = "Adapted: " + std::to_string(unit->adaptationsGained) + "/6";
+        UIColor adaptCol = unit->adaptationsGained >= 6
+            ? UIColor::rgba(0.3f, 1.0f, 0.8f)   // max — teal glow
+            : UIColor::rgba(0.5f, 0.9f, 0.6f);   // growing — mint
+        rdr.drawText(adaptStr, x, y, adaptCol, 11.0f);
+        float adaptFrac = unit->adaptationsGained / 6.0f;
+        y += 13.0f;
+        rdr.drawBar({x, y, w, 5.0f}, adaptFrac,
+                    adaptCol, UIColor::hex(UITheme::BG_DARK), UIColor::hex(UITheme::BORDER));
+        y += 9.0f;
+    }
+
     // Shots remaining
     if (unit->range > 0) {
         rdr.drawText("Shots: " + std::to_string(unit->shotsLeft),

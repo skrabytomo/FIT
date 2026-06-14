@@ -342,9 +342,7 @@ void Game::doEndTurn()
                         tryGoal(t.pos);
                     }
                     // GhostWalk: enemy AI cannot target the player hero directly
-                    bool playerGhostWalk = false;
-                    if (const HeroClassDef* pCls = m_classRegistry.getClass(playerHero.classId))
-                        playerGhostWalk = (pCls->specialty == SpecialtyType::GhostWalk);
+                    bool playerGhostWalk = playerHero.ghostWalkSpecialty;
 
                     // Player towns / hero (only if aggressive or nothing else to do)
                     if (aggressive || !goalSet) {
@@ -1826,6 +1824,9 @@ void Game::renderHeroInspect()
             ImGui::TextColored(ImVec4(0.7f, 0.5f, 1.0f, 1.0f), "Phylactery consumed");
         if (cls->specialty == SpecialtyType::Elixir && hero.elixirUsed)
             ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Elixir used this battle");
+        if (cls->specialty == SpecialtyType::Recycler && hero.recyclerBonus > 0)
+            ImGui::TextColored(ImVec4(0.7f, 0.85f, 0.4f, 1.0f),
+                               "Recycler: +%d ATK to all units (%d/5)", hero.recyclerBonus, hero.recyclerBonus);
     }
     ImGui::Spacing();
 
@@ -2146,7 +2147,7 @@ void Game::renderDwellingPopup()
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
                             ImGuiCond_Always, {0.5f, 0.5f});
-    ImGui::SetNextWindowSize({360, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({380, 0}, ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.92f);
     ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
                         | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
@@ -2154,11 +2155,19 @@ void Game::renderDwellingPopup()
 
     int tier = obj->value;
     int costPerUnit = tier * 50;
-    ImGui::TextColored({0.9f, 0.7f, 0.2f, 1.0f}, "Unit Dwelling (Tier %d)", tier);
+    FactionId fac = static_cast<FactionId>(obj->faction);
+
+    // Find unit name for display
+    const char* unitName = "Units";
+    for (const auto& ud : m_registry.units())
+        if (ud.faction == fac && ud.tier == tier && ud.path == UpgradePath::None) {
+            unitName = ud.name.c_str(); break;
+        }
+
+    ImGui::TextColored({0.9f, 0.7f, 0.2f, 1.0f}, "Unit Dwelling — Tier %d  [%s]", tier, unitName);
     ImGui::Separator();
-    ImGui::Text("Available: %d units", obj->available);
-    ImGui::Text("Cost: %d gold per unit", costPerUnit);
-    ImGui::Text("Gold: %d", m_playerResources.get(ResourceType::Gold));
+    ImGui::Text("Available: %d units   |   Cost: %d gold each", obj->available, costPerUnit);
+    ImGui::Text("Gold on hand: %d", m_playerResources.get(ResourceType::Gold));
     ImGui::Spacing();
 
     if (m_heroes.empty()) { m_showDwellingPopup = false; ImGui::End(); return; }
@@ -2167,25 +2176,41 @@ void Game::renderDwellingPopup()
     int maxAfford = (costPerUnit > 0) ? m_playerResources.get(ResourceType::Gold) / costPerUnit : obj->available;
     int canBuy    = std::min(maxAfford, obj->available);
 
-    if (canBuy > 0) {
-        if (ImGui::Button("Buy All", {120, 28})) {
-            int total = canBuy * costPerUnit;
-            m_playerResources.add(ResourceType::Gold, -total);
-            // Find a unit def matching this dwelling's faction and tier
-            FactionId fac = static_cast<FactionId>(obj->faction);
-            for (const auto& ud : m_registry.units()) {
-                if (ud.faction == fac && ud.tier == tier && ud.path == UpgradePath::None) {
-                    bool merged = false;
-                    for (auto& s : hero.army)
-                        if (s.defId == ud.id) { s.count += canBuy; merged = true; break; }
-                    if (!merged && hero.army.size() < 7)
-                        hero.army.push_back({ud.id, canBuy});
-                    break;
-                }
+    // Custom quantity slider
+    static int s_dwellingQty = 0;
+    if (ImGui::IsWindowAppearing()) s_dwellingQty = canBuy;
+    s_dwellingQty = std::clamp(s_dwellingQty, 0, canBuy);
+
+    ImGui::SetNextItemWidth(240.0f);
+    ImGui::SliderInt("Quantity", &s_dwellingQty, 0, canBuy);
+    ImGui::Text("Total cost: %d gold", s_dwellingQty * costPerUnit);
+    ImGui::Spacing();
+
+    auto doBuy = [&](int qty) {
+        if (qty <= 0) return;
+        int total = qty * costPerUnit;
+        m_playerResources.add(ResourceType::Gold, -total);
+        for (const auto& ud : m_registry.units()) {
+            if (ud.faction == fac && ud.tier == tier && ud.path == UpgradePath::None) {
+                bool merged = false;
+                for (auto& s : hero.army)
+                    if (s.defId == ud.id) { s.count += qty; merged = true; break; }
+                if (!merged && hero.army.size() < 7)
+                    hero.army.push_back({ud.id, qty});
+                break;
             }
-            obj->available -= canBuy;
-            m_showDwellingPopup = false;
         }
+        obj->available -= qty;
+        char pickBuf[40];
+        std::snprintf(pickBuf, sizeof(pickBuf), "+%d %s", qty, unitName);
+        pushPickupEffect(obj->pos, pickBuf, IM_COL32(120, 220, 120, 255));
+        m_audio.playSound("pickup");
+    };
+
+    if (s_dwellingQty > 0) {
+        if (ImGui::Button("Buy", {100, 28})) { doBuy(s_dwellingQty); m_showDwellingPopup = false; }
+        ImGui::SameLine();
+        if (ImGui::Button("Buy All", {100, 28})) { doBuy(canBuy); m_showDwellingPopup = false; }
         ImGui::SameLine();
     }
     if (ImGui::Button("Close", {80, 28}))
