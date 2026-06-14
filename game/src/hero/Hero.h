@@ -88,9 +88,13 @@ struct Hero
     int specialtyAtk = 0;       // accumulated specialty attack bonus
 
     // Transient per-battle specialty flags (set in enterCombat, not persisted)
-    bool feastSpecialty   = false;  // Blood Prince — drain own units, heal hero per round
-    bool witherSpecialty  = false;  // Fell Druid — enemies -1 ATK per round
-    bool ironDiscipline   = false;  // Warlord Mechanic — own units immune to morale loss
+    bool feastSpecialty      = false;  // Blood Prince — drain own units, heal hero per round
+    bool witherSpecialty     = false;  // Fell Druid — enemies -1 ATK per round
+    bool ironDiscipline      = false;  // Warlord Mechanic — own units immune to morale loss
+    bool exsanguinate        = false;  // Crimson Mage — one Blood spell costs no mana
+    bool exsanguinateUsed    = false;  // tracks if free cast was used this battle
+    bool heresyDetection     = false;  // Inquisitor — negate first enemy spell cast
+    bool heresyDetectionUsed = false;  // tracks if negation was used this battle
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 

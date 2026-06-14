@@ -495,13 +495,19 @@ void Game::enterCombat(Hero& playerHero,
     m_battleStartArmy = playerHero.army;
 
     // Set per-battle specialty flags from class registry
-    playerHero.feastSpecialty  = false;
-    playerHero.witherSpecialty = false;
-    playerHero.ironDiscipline  = false;
+    playerHero.feastSpecialty      = false;
+    playerHero.witherSpecialty     = false;
+    playerHero.ironDiscipline      = false;
+    playerHero.exsanguinate        = false;
+    playerHero.exsanguinateUsed    = false;
+    playerHero.heresyDetection     = false;
+    playerHero.heresyDetectionUsed = false;
     if (const HeroClassDef* cls = m_classRegistry.getClass(playerHero.classId)) {
         playerHero.feastSpecialty  = (cls->specialty == SpecialtyType::Feast);
         playerHero.witherSpecialty = (cls->specialty == SpecialtyType::Wither);
         playerHero.ironDiscipline  = (cls->specialty == SpecialtyType::IronDiscipline);
+        playerHero.exsanguinate    = (cls->specialty == SpecialtyType::Exsanguinate);
+        playerHero.heresyDetection = (cls->specialty == SpecialtyType::HeresyDetection);
     }
 
     // Garrison bonus: garrisoned hero grants +2 defense to all their units

@@ -396,8 +396,16 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         // Deduct mana from the casting hero
         Hero& caster = unit->isPlayer ? m_playerHero : m_enemyHero;
-        if (caster.mana < spell->manaCost) return false;
-        caster.mana -= spell->manaCost;
+        bool freeViaExsanguinate = unit->isPlayer
+            && caster.exsanguinate && !caster.exsanguinateUsed
+            && spell->school == SpellSchool::Blood;
+        if (!freeViaExsanguinate && caster.mana < spell->manaCost) return false;
+        if (freeViaExsanguinate) {
+            caster.exsanguinateUsed = true;
+            addLog(caster.name + " Exsanguinate: " + spell->name + " cast FREE!");
+        } else {
+            caster.mana -= spell->manaCost;
+        }
 
         // School power for scaling
         int schoolPow = 0;
@@ -1088,6 +1096,16 @@ void CombatEngine::tryEnemyHeroSpell()
     }
 
     if (!bestSpell || bestScore <= 0.0f) return;
+
+    // HeresyDetection: player's Inquisitor can negate the first enemy spell cast
+    if (m_playerHero.heresyDetection && !m_playerHero.heresyDetectionUsed) {
+        m_playerHero.heresyDetectionUsed = true;
+        hero.mana -= bestSpell->manaCost;  // spell costs enemy mana but does nothing
+        m_enemyHeroSpellUsed = true;
+        addLog(m_playerHero.name + " Heresy Detection: " +
+               std::string(bestSpell->name) + " NEGATED!");
+        return;
+    }
 
     // Deduct mana and mark as used
     hero.mana -= bestSpell->manaCost;
