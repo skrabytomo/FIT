@@ -356,7 +356,10 @@ void CombatEngine::applyArtifactBonuses(const ArtifactBonus& pb, const ArtifactB
 void CombatEngine::applyPlayerTownBonus(int lightP, int bloodP, int deathP,
                                         int natureP, int forgeP, int fleshP,
                                         int mechSpeedBonus, int holyDespBonus,
-                                        bool eternalMonument)
+                                        bool eternalMonument, bool wardenBrand,
+                                        bool symbiosisWeb, bool warShrine,
+                                        bool voidLens, bool mergeChamber,
+                                        bool resonanceWell, bool mirrorChamber)
 {
     m_playerHero.lightPower  += lightP;
     m_playerHero.bloodPower  += bloodP;
@@ -364,6 +367,9 @@ void CombatEngine::applyPlayerTownBonus(int lightP, int bloodP, int deathP,
     m_playerHero.naturePower += natureP;
     m_playerHero.forgePower  += forgeP;
     m_playerHero.fleshPower  += fleshP;
+
+    m_wardenBrand  = wardenBrand;
+    m_symbiosisWeb = symbiosisWeb;
 
     for (auto& u : m_grid.units()) {
         if (!u.isPlayer) continue;
@@ -373,11 +379,50 @@ void CombatEngine::applyPlayerTownBonus(int lightP, int bloodP, int deathP,
             u.desperationMeter = std::min(100, u.desperationMeter + holyDespBonus);
         if (eternalMonument && (hasTag(u.tags, UnitTag::Undead) || hasTag(u.tags, UnitTag::Holy)))
             u.hasSecondLife = true;
+        // War Shrine: BloodBound start with bonus morale
+        if (warShrine && hasTag(u.tags, UnitTag::BloodBound) && !u.moraleImmune)
+            u.morale = std::min(100, u.morale + 15);
+        // Void Lens: Void units gain +1 ATK at battle start
+        if (voidLens && hasTag(u.tags, UnitTag::Void))
+            u.attack++;
+        // Merge Chamber: OrganicMech units adapt after 2 hits instead of 3
+        if (mergeChamber && hasTag(u.tags, UnitTag::OrganicMech))
+            u.adaptationFast = true;
+        // Resonance Well: Convergence (Humanoid) units start with +1 ATK+DEF
+        if (resonanceWell && hasTag(u.tags, UnitTag::Humanoid)) {
+            u.attack++;
+            u.defense++;
+        }
+        // Mirror Chamber (requires Resonance Well): additional +1 ATK+DEF
+        if (mirrorChamber && hasTag(u.tags, UnitTag::Humanoid)) {
+            u.attack++;
+            u.defense++;
+        }
     }
+    // Mirror Chamber also buffs the hero
+    if (mirrorChamber) {
+        m_playerHero.attack++;
+        m_playerHero.defense++;
+    }
+
     if (holyDespBonus > 0)
         addLog("Reliquary: Holy units +" + std::to_string(holyDespBonus) + " Desperation");
     if (eternalMonument)
         addLog("Eternal Monument: Undead/Holy units gain second life");
+    if (warShrine)
+        addLog("War Shrine: BloodBound units +15 morale");
+    if (voidLens)
+        addLog("Void Lens: Void units +1 ATK");
+    if (mergeChamber)
+        addLog("Merge Chamber: OrganicMech units adapt after 2 hits");
+    if (wardenBrand)
+        addLog("Warden's Brand Chamber: Warden's Mark splashes +1 target");
+    if (symbiosisWeb)
+        addLog("Symbiosis Web: Beast bond bonuses doubled");
+    if (resonanceWell)
+        addLog("Resonance Well: Convergence units +1 ATK+DEF");
+    if (mirrorChamber)
+        addLog("Mirror Chamber: Convergence units +1 ATK+DEF more, hero +1 ATK+DEF");
 }
 
 // ── Turn order ─────────────────────────────────────────────────────────────────
@@ -560,7 +605,8 @@ bool CombatEngine::submitAction(const CombatAction& action)
         if (csBonus && unit->isPlayer) {
             if (const SkillInstance* si = m_playerHero.skills.getSkill(SID::WARDEN_MARK)) {
                 if (const SkillDef* def = findSkillDef(SID::WARDEN_MARK)) {
-                    int splashMax = def->values[static_cast<int>(si->tier)];
+                    int splashMax = def->values[static_cast<int>(si->tier)]
+                                  + (m_wardenBrand ? 1 : 0);
                     int splashDmg = std::max(1, result.damage / 2);
                     int splashHit = 0;
                     for (auto& foe : m_grid.units()) {
@@ -1445,8 +1491,8 @@ void CombatEngine::applySymbiosisRound()
         }
 
         if (hasBond) {
-            constexpr int SYMBIOSIS_CAP = 1;
-            int gain = std::min(val, std::max(0, SYMBIOSIS_CAP - unit.roundAttackBonus));
+            int symbiosisCap = m_symbiosisWeb ? 2 : 1;
+            int gain = std::min(val, std::max(0, symbiosisCap - unit.roundAttackBonus));
             unit.roundAttackBonus  += gain;
             unit.roundDefenseBonus += gain;
         }

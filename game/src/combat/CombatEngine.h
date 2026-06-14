@@ -59,7 +59,14 @@ public:
                               int natureP, int forgeP, int fleshP,
                               int mechSpeedBonus = 0,
                               int holyDespBonus = 0,
-                              bool eternalMonument = false);
+                              bool eternalMonument  = false,
+                              bool wardenBrand       = false,
+                              bool symbiosisWeb      = false,
+                              bool warShrine         = false,
+                              bool voidLens          = false,
+                              bool mergeChamber      = false,
+                              bool resonanceWell     = false,
+                              bool mirrorChamber     = false);
 
     // Process one player action — returns true if action was valid
     bool submitAction(const CombatAction& action);
@@ -159,6 +166,8 @@ private:
 
     uint32_t m_coordinatedStrikeTarget = 0;
     std::unordered_set<uint32_t> m_wildGrowthGhosted;  // unit IDs already ghosted
+    bool     m_wardenBrand   = false;  // CW_WARDEN_BRAND: +1 splash target for Warden's Mark
+    bool     m_symbiosisWeb  = false;  // TK_SYMBIOSIS_WEB: Symbiosis cap raised to 2
 
     Hero m_playerHero;
     Hero m_enemyHero;

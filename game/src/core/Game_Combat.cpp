@@ -737,6 +737,9 @@ void Game::enterCombat(Hero& playerHero,
         int lightP = 0, bloodP = 0, deathP = 0, natureP = 0, forgeP = 0, fleshP = 0;
         int mechSpeed = 0, holyDesp = 0;
         bool eternalMonument = false;
+        bool wardenBrand = false, symbiosisWeb = false, warShrine = false;
+        bool voidLens = false, mergeChamber = false;
+        bool resonanceWell = false, mirrorChamber = false;
         for (const auto& town : m_towns) {
             if (town.ownerId != 1 || town.pos != playerHero.pos) continue;
             // Magic-power support buildings
@@ -752,12 +755,23 @@ void Game::enterCombat(Hero& playerHero,
             if (town.hasBuilding(BID::IA_OVERCLOCK))       mechSpeed    += 1;
             if (town.hasBuilding(BID::HO_RELIQUARY))       holyDesp     += 20;
             if (town.hasBuilding(BID::EE_MONUMENT))        eternalMonument = true;
+            if (town.hasBuilding(BID::CW_WARDEN_BRAND))    wardenBrand  = true;
+            if (town.hasBuilding(BID::TK_SYMBIOSIS_WEB))   symbiosisWeb = true;
+            if (town.hasBuilding(BID::BS_WAR_SHRINE))      warShrine    = true;
+            if (town.hasBuilding(BID::VK_VOID_LENS))       voidLens     = true;
+            if (town.hasBuilding(BID::AM_MERGE_CHAMBER))   mergeChamber = true;
+            if (town.hasBuilding(BID::CV_RESONANCE_WELL))  resonanceWell  = true;
+            if (town.hasBuilding(BID::CV_MIRROR_CHAMBER))  mirrorChamber  = true;
             break;
         }
         if (lightP || bloodP || deathP || natureP || forgeP || fleshP
-            || mechSpeed || holyDesp || eternalMonument)
+            || mechSpeed || holyDesp || eternalMonument
+            || wardenBrand || symbiosisWeb || warShrine || voidLens
+            || mergeChamber || resonanceWell || mirrorChamber)
             m_combat.applyPlayerTownBonus(lightP, bloodP, deathP, natureP, forgeP, fleshP,
-                                          mechSpeed, holyDesp, eternalMonument);
+                                          mechSpeed, holyDesp, eternalMonument,
+                                          wardenBrand, symbiosisWeb, warShrine, voidLens,
+                                          mergeChamber, resonanceWell, mirrorChamber);
     }
 
     m_combat.setLogCallback([](const std::string& msg) {
