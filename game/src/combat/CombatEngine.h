@@ -145,7 +145,10 @@ private:
     void aiActStandard(CombatUnit& unit);
     void aiActTactical(CombatUnit& unit);
     void tryEnemyHeroSpell();
-    void spawnWildGrowthGhosts();  // WildGrowth: respawn dead Beast units as ghosts
+    void spawnWildGrowthGhosts();
+    // Fire all on-death specialty effects (LastRites, VoidLink, BloodWeb, SoulHarvest,
+    // AdaptationMirror) when target is killed; also cleans up dead units.
+    void processKillEvents(CombatUnit& attacker, CombatUnit& target, const DamageResult& result);
 
     CombatGrid  m_grid;
     CombatPhase m_phase     = CombatPhase::Setup;

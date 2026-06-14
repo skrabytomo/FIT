@@ -682,117 +682,7 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
-            // LastRites specialty (Confessor): any death charges nearby Holy ally meters
-            auto applyLastRites = [&](const Hero& hero, bool isPlayer) {
-                if (!hero.lastRitesSpecialty) return;
-                HexCoord deathPos = target->pos;
-                int charged = 0;
-                for (auto& ally : m_grid.units()) {
-                    if (!ally.alive || ally.isPlayer != isPlayer) continue;
-                    if (!hasTag(ally.tags, UnitTag::Holy)) continue;
-                    if (HexGrid::distance(ally.pos, deathPos) > 3) continue;
-                    ally.desperationMeter = std::min(100, ally.desperationMeter + 20);
-                    charged++;
-                }
-                if (charged > 0)
-                    addLog(hero.name + " LastRites: " + std::to_string(charged) +
-                           " Holy units +20 Desperation");
-            };
-            applyLastRites(m_playerHero, true);
-            applyLastRites(m_enemyHero, false);
-            // VoidLink specialty (Void Weaver): Void unit death disrupts adjacent enemies,
-            //   and empowers allied Void units in range 3
-            if (hasTag(target->tags, UnitTag::Void)) {
-                HexCoord deathPos = target->pos;
-                bool targetWasPlayer = target->isPlayer;
-                auto applyVoidLink = [&](const Hero& hero, bool isPlayer) {
-                    if (!hero.voidLinkSpecialty) return;
-                    // Only applies when the dead unit was on THIS hero's side
-                    if (targetWasPlayer != isPlayer) return;
-                    // Disrupt adjacent enemies (-1 ATK for 2 rounds)
-                    int disrupted = 0;
-                    for (auto& foe : m_grid.units()) {
-                        if (!foe.alive || foe.isPlayer == isPlayer) continue;
-                        if (HexGrid::distance(foe.pos, deathPos) > 1) continue;
-                        foe.roundAttackBonus -= 1;
-                        foe.buffAttackRounds = std::max(foe.buffAttackRounds, 2);
-                        disrupted++;
-                    }
-                    // Empower allied Void units in range 3 (+1 ATK for 2 rounds)
-                    int empowered = 0;
-                    for (auto& ally : m_grid.units()) {
-                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
-                        if (!hasTag(ally.tags, UnitTag::Void)) continue;
-                        if (HexGrid::distance(ally.pos, deathPos) > 3) continue;
-                        ally.roundAttackBonus += 1;
-                        ally.buffAttackRounds = std::max(ally.buffAttackRounds, 2);
-                        empowered++;
-                    }
-                    if (disrupted > 0 || empowered > 0)
-                        addLog(hero.name + " VoidLink: " + target->name + " death — "
-                               + std::to_string(disrupted) + " enemies disrupted, "
-                               + std::to_string(empowered) + " Void allies empowered");
-                };
-                applyVoidLink(m_playerHero, true);
-                applyVoidLink(m_enemyHero, false);
-            }
-            // BloodWeb specialty (Oathmaster): all allies heal on a kill
-            if (result.killed > 0) {
-                auto applyBloodWeb = [&](const Hero& hero, bool isPlayer) {
-                    if (!hero.bloodWebSpecialty) return;
-                    int healAmt = result.killed * 4;
-                    int healed = 0;
-                    for (auto& ally : m_grid.units()) {
-                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
-                        int prev = ally.hp;
-                        ally.hp = std::min(ally.maxHp, ally.hp + healAmt);
-                        if (ally.hp > prev) healed++;
-                    }
-                    if (healed > 0)
-                        addLog(hero.name + " BloodWeb: " + std::to_string(healed) +
-                               " allies healed " + std::to_string(healAmt) + " HP from kill");
-                };
-                applyBloodWeb(m_playerHero, unit->isPlayer);
-                applyBloodWeb(m_enemyHero,  !unit->isPlayer);
-            }
-            // SoulHarvest (Death Herald): attacker's hero heals +5 HP per killed enemy unit
-            {
-                bool attackerIsPlayer = unit->isPlayer;
-                bool targetIsEnemy    = !target->isPlayer;
-                auto applySoulHarvest = [&](Hero& hero, bool isPlayer) {
-                    if (!hero.soulHarvestSpecialty) return;
-                    if (isPlayer != attackerIsPlayer) return;
-                    if (!targetIsEnemy) return;  // only heals from enemy kills
-                    int heal = std::min(5 * result.killed, hero.heroMaxHp - hero.heroHp);
-                    if (heal > 0) {
-                        hero.heroHp += heal;
-                        addLog(hero.name + " Soul Harvest: +" + std::to_string(heal) + " HP from kill");
-                    }
-                };
-                applySoulHarvest(m_playerHero, true);
-                applySoulHarvest(m_enemyHero,  false);
-            }
-            // AdaptationMirror (Fleshbinder): when any ally dies, allied OrganicMech gain adaptation
-            {
-                bool targetWasPlayer = target->isPlayer;
-                auto applyAdaptationMirror = [&](const Hero& hero, bool isPlayer) {
-                    if (!hero.adaptationMirrorSpecialty) return;
-                    if (targetWasPlayer != isPlayer) return;  // only own ally deaths trigger it
-                    for (auto& ally : m_grid.units()) {
-                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
-                        if (!hasTag(ally.tags, UnitTag::OrganicMech)) continue;
-                        if (ally.adaptationsGained >= 6) continue;
-                        if (ally.adaptationsGained % 2 == 0) ally.attack++;
-                        else                                   ally.defense++;
-                        ally.adaptationsGained++;
-                    }
-                    addLog(hero.name + " AdaptationMirror: OrganicMech adapt from ally death");
-                };
-                applyAdaptationMirror(m_playerHero, true);
-                applyAdaptationMirror(m_enemyHero,  false);
-            }
-            spawnWildGrowthGhosts();
-            m_grid.removeDeadUnits();
+            processKillEvents(*unit, *target, result);
         }
 
         if (result.moraleTrigger)
@@ -854,78 +744,7 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
-            {
-                HexCoord deathPos = target->pos;
-                auto applyLastRitesShot = [&](const Hero& hero, bool isPlayer) {
-                    if (!hero.lastRitesSpecialty) return;
-                    int charged = 0;
-                    for (auto& ally : m_grid.units()) {
-                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
-                        if (!hasTag(ally.tags, UnitTag::Holy)) continue;
-                        if (HexGrid::distance(ally.pos, deathPos) > 3) continue;
-                        ally.desperationMeter = std::min(100, ally.desperationMeter + 20);
-                        charged++;
-                    }
-                    if (charged > 0)
-                        addLog(hero.name + " LastRites: " + std::to_string(charged) +
-                               " Holy units +20 Desperation");
-                };
-                applyLastRitesShot(m_playerHero, true);
-                applyLastRitesShot(m_enemyHero, false);
-            }
-            if (result.killed > 0) {
-                auto applyBloodWebShot = [&](const Hero& hero, bool isPlayer) {
-                    if (!hero.bloodWebSpecialty) return;
-                    int healAmt = result.killed * 4;
-                    int healed = 0;
-                    for (auto& ally : m_grid.units()) {
-                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
-                        int prev = ally.hp;
-                        ally.hp = std::min(ally.maxHp, ally.hp + healAmt);
-                        if (ally.hp > prev) healed++;
-                    }
-                    if (healed > 0)
-                        addLog(hero.name + " BloodWeb: " + std::to_string(healed) +
-                               " allies healed " + std::to_string(healAmt) + " HP from kill");
-                };
-                applyBloodWebShot(m_playerHero, unit->isPlayer);
-                applyBloodWebShot(m_enemyHero,  !unit->isPlayer);
-            }
-            // SoulHarvest on ranged kill
-            {
-                bool attackerIsPlayer = unit->isPlayer;
-                auto applySoulHarvestShot = [&](Hero& hero, bool isPlayer) {
-                    if (!hero.soulHarvestSpecialty || isPlayer != attackerIsPlayer) return;
-                    if (target->isPlayer == attackerIsPlayer) return;  // only enemy kills
-                    int heal = std::min(5 * result.killed, hero.heroMaxHp - hero.heroHp);
-                    if (heal > 0) {
-                        hero.heroHp += heal;
-                        addLog(hero.name + " Soul Harvest: +" + std::to_string(heal) + " HP from kill");
-                    }
-                };
-                applySoulHarvestShot(m_playerHero, true);
-                applySoulHarvestShot(m_enemyHero,  false);
-            }
-            // AdaptationMirror on ranged kill — if the dying target was an ally, trigger
-            {
-                bool targetWasPlayer = target->isPlayer;
-                auto applyAdaptMirrorShot = [&](const Hero& hero, bool isPlayer) {
-                    if (!hero.adaptationMirrorSpecialty || targetWasPlayer != isPlayer) return;
-                    for (auto& ally : m_grid.units()) {
-                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
-                        if (!hasTag(ally.tags, UnitTag::OrganicMech)) continue;
-                        if (ally.adaptationsGained >= 6) continue;
-                        if (ally.adaptationsGained % 2 == 0) ally.attack++;
-                        else                                   ally.defense++;
-                        ally.adaptationsGained++;
-                    }
-                    addLog(hero.name + " AdaptationMirror: OrganicMech adapt from ally death");
-                };
-                applyAdaptMirrorShot(m_playerHero, true);
-                applyAdaptMirrorShot(m_enemyHero,  false);
-            }
-            spawnWildGrowthGhosts();
-            m_grid.removeDeadUnits();
+            processKillEvents(*unit, *target, result);
         }
 
         unit->hasActed = true;
@@ -1183,7 +1002,7 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
         std::ostringstream ss;
         ss << unit.name << " shoots " << target->name << " for " << result.damage;
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -1196,7 +1015,7 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
         std::ostringstream ss;
         ss << unit.name << " attacks " << target->name << " for " << result.damage;
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -1217,7 +1036,7 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
                 std::ostringstream ss;
                 ss << unit.name << " attacks " << target->name << " for " << result.damage;
                 addLog(ss.str());
-                if (!target->alive) { addLog(target->name + " destroyed!"); }
+                if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
                 if (result.moraleTrigger) {
                     addLog(unit.name + " morale surge — bonus action!");
                     unit.hasActed = false; unit.hasMoved = false; return;
@@ -1249,7 +1068,7 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
         ss << unit.name << " shoots " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -1263,7 +1082,7 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
         ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -1289,7 +1108,7 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
                 ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
                 if (result.killed) ss << " (" << result.killed << " killed)";
                 addLog(ss.str());
-                if (!target->alive) { addLog(target->name + " destroyed!"); }
+                if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
                 if (result.moraleTrigger) {
                     addLog(unit.name + " morale surge — bonus action!");
                     unit.hasActed = false; unit.hasMoved = false; return;
@@ -1347,7 +1166,7 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
             std::ostringstream ss;
             ss << unit.name << " shoots " << shtTarget->name << " for " << result.damage;
             addLog(ss.str());
-            if (!shtTarget->alive) { addLog(shtTarget->name + " destroyed!"); }
+            if (!shtTarget->alive) { addLog(shtTarget->name + " destroyed!"); processKillEvents(unit, *shtTarget, result); }
             if (result.moraleTrigger) {
                 addLog(unit.name + " morale surge — bonus action!");
                 unit.hasActed = false; unit.hasMoved = false; return;
@@ -1376,7 +1195,7 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
         ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
-        if (!target->alive) { addLog(target->name + " destroyed!"); }
+        if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
             unit.hasActed = false; unit.hasMoved = false; return;
@@ -1422,7 +1241,7 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
                 std::ostringstream ss;
                 ss << unit.name << " moves+shoots " << target->name << " for " << result.damage;
                 addLog(ss.str());
-                if (!target->alive) { addLog(target->name + " destroyed!"); }
+                if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
                 if (result.moraleTrigger) {
                     addLog(unit.name + " morale surge — bonus action!");
                     unit.hasActed = false; unit.hasMoved = false; return;
@@ -1435,7 +1254,7 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
                 ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
                 if (result.killed) ss << " (" << result.killed << " killed)";
                 addLog(ss.str());
-                if (!target->alive) { addLog(target->name + " destroyed!"); }
+                if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
                 if (result.moraleTrigger) {
                     addLog(unit.name + " morale surge — bonus action!");
                     unit.hasActed = false; unit.hasMoved = false; return;
@@ -2100,6 +1919,127 @@ void CombatEngine::tryEnemyHeroSpell()
     addLog(ss.str());
     m_grid.removeDeadUnits();
     checkVictory();
+}
+
+// ── Kill event processing: fires all on-death specialties ─────────────────────
+// Called whenever an attack reduces target to 0 HP, from any attack path.
+// BloodWeb fires when an ENEMY of the hero's side dies (heals own allies).
+// SoulHarvest fires only when the attacker's hero kills an enemy of that hero.
+// AdaptationMirror fires when an ALLY of the hero's side dies.
+void CombatEngine::processKillEvents(CombatUnit& attacker, CombatUnit& target,
+                                      const DamageResult& result)
+{
+    HexCoord deathPos      = target.pos;
+    bool     targetIsPlayer = target.isPlayer;
+
+    // LastRites (Confessor): any nearby death charges Holy ally Desperation meters
+    auto applyLastRites = [&](const Hero& hero, bool heroIsPlayer) {
+        if (!hero.lastRitesSpecialty) return;
+        int charged = 0;
+        for (auto& ally : m_grid.units()) {
+            if (!ally.alive || ally.isPlayer != heroIsPlayer) continue;
+            if (!hasTag(ally.tags, UnitTag::Holy)) continue;
+            if (HexGrid::distance(ally.pos, deathPos) > 3) continue;
+            ally.desperationMeter = std::min(100, ally.desperationMeter + 20);
+            charged++;
+        }
+        if (charged > 0)
+            addLog(hero.name + " LastRites: " + std::to_string(charged) +
+                   " Holy units +20 Desperation");
+    };
+    applyLastRites(m_playerHero, true);
+    applyLastRites(m_enemyHero,  false);
+
+    // VoidLink (Void Weaver): dead Void ally disrupts adjacent foes, empowers nearby Void allies
+    if (hasTag(target.tags, UnitTag::Void)) {
+        auto applyVoidLink = [&](const Hero& hero, bool heroIsPlayer) {
+            if (!hero.voidLinkSpecialty) return;
+            if (targetIsPlayer != heroIsPlayer) return;  // only own Void unit deaths trigger it
+            int disrupted = 0;
+            for (auto& foe : m_grid.units()) {
+                if (!foe.alive || foe.isPlayer == heroIsPlayer) continue;
+                if (HexGrid::distance(foe.pos, deathPos) > 1) continue;
+                foe.roundAttackBonus -= 1;
+                foe.buffAttackRounds  = std::max(foe.buffAttackRounds, 2);
+                disrupted++;
+            }
+            int empowered = 0;
+            for (auto& ally : m_grid.units()) {
+                if (!ally.alive || ally.isPlayer != heroIsPlayer) continue;
+                if (!hasTag(ally.tags, UnitTag::Void)) continue;
+                if (HexGrid::distance(ally.pos, deathPos) > 3) continue;
+                ally.roundAttackBonus += 1;
+                ally.buffAttackRounds  = std::max(ally.buffAttackRounds, 2);
+                empowered++;
+            }
+            if (disrupted > 0 || empowered > 0)
+                addLog(hero.name + " VoidLink: " + target.name + " death — "
+                       + std::to_string(disrupted) + " enemies disrupted, "
+                       + std::to_string(empowered) + " Void allies empowered");
+        };
+        applyVoidLink(m_playerHero, true);
+        applyVoidLink(m_enemyHero,  false);
+    }
+
+    // BloodWeb (Oathmaster): allies heal when an enemy of this hero's side dies
+    if (result.killed > 0) {
+        auto applyBloodWeb = [&](const Hero& hero, bool heroIsPlayer) {
+            if (!hero.bloodWebSpecialty) return;
+            if (targetIsPlayer == heroIsPlayer) return;  // only enemy deaths trigger it
+            int healAmt = result.killed * 4;
+            int healed  = 0;
+            for (auto& ally : m_grid.units()) {
+                if (!ally.alive || ally.isPlayer != heroIsPlayer) continue;
+                int prev = ally.hp;
+                ally.hp  = std::min(ally.maxHp, ally.hp + healAmt);
+                if (ally.hp > prev) healed++;
+            }
+            if (healed > 0)
+                addLog(hero.name + " BloodWeb: " + std::to_string(healed) +
+                       " allies healed " + std::to_string(healAmt) + " HP from kill");
+        };
+        applyBloodWeb(m_playerHero, true);
+        applyBloodWeb(m_enemyHero,  false);
+    }
+
+    // SoulHarvest (Death Herald): attacker's hero heals +5 HP per enemy unit killed
+    if (result.killed > 0) {
+        bool attackerIsPlayer = attacker.isPlayer;
+        auto applySoulHarvest = [&](Hero& hero, bool heroIsPlayer) {
+            if (!hero.soulHarvestSpecialty) return;
+            if (heroIsPlayer != attackerIsPlayer) return;  // only the attacker's hero benefits
+            if (targetIsPlayer == attackerIsPlayer) return;  // only from enemy kills
+            int heal = std::min(5 * result.killed, hero.heroMaxHp - hero.heroHp);
+            if (heal > 0) {
+                hero.heroHp += heal;
+                addLog(hero.name + " Soul Harvest: +" + std::to_string(heal) + " HP from kill");
+            }
+        };
+        applySoulHarvest(m_playerHero, true);
+        applySoulHarvest(m_enemyHero,  false);
+    }
+
+    // AdaptationMirror (Fleshbinder): ally death grants friendly OrganicMech an adaptation
+    {
+        auto applyAdaptationMirror = [&](const Hero& hero, bool heroIsPlayer) {
+            if (!hero.adaptationMirrorSpecialty) return;
+            if (targetIsPlayer != heroIsPlayer) return;  // only own ally deaths trigger it
+            for (auto& ally : m_grid.units()) {
+                if (!ally.alive || ally.isPlayer != heroIsPlayer) continue;
+                if (!hasTag(ally.tags, UnitTag::OrganicMech)) continue;
+                if (ally.adaptationsGained >= 6) continue;
+                if (ally.adaptationsGained % 2 == 0) ally.attack++;
+                else                                   ally.defense++;
+                ally.adaptationsGained++;
+            }
+            addLog(hero.name + " AdaptationMirror: OrganicMech adapt from ally death");
+        };
+        applyAdaptationMirror(m_playerHero, true);
+        applyAdaptationMirror(m_enemyHero,  false);
+    }
+
+    spawnWildGrowthGhosts();
+    m_grid.removeDeadUnits();
 }
 
 // ── WildGrowth: dead Beast units respawn as ghost at half stats ───────────────
