@@ -29,6 +29,11 @@ public:
     static float weaknessBonus(UnitTag attackerTags, UnitTag defenderTags,
                                 bool attackerIsHolyFaction, bool defenderIsUndeadFaction);
 
+    // Damage preview: returns (minDmg, maxDmg) estimate without RNG or side effects
+    struct DamageEstimate { int minDmg = 0; int maxDmg = 0; int minKills = 0; int maxKills = 0; };
+    static DamageEstimate estimate(const CombatUnit& attacker, const CombatUnit& defender,
+                                    const CombatGrid& grid);
+
     // Morale bonus action threshold
     static constexpr int MORALE_THRESHOLD = 160;
 

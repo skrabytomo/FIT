@@ -15,6 +15,8 @@ public:
     bool onMouseDown(float x, float y);
     bool onMouseUp(float x, float y);
 
+    void setHoveredUnit(const CombatUnit* u) { m_hoveredUnit = u; }
+
     // Action callbacks — wired to game logic
     UICallback onWait;
     UICallback onDefend;

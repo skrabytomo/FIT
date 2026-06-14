@@ -2,6 +2,7 @@
 #include "../hero/SkillRegistry.h"
 #include "../hero/HeroClass.h"
 #include "../magic/SpellRegistry.h"
+#include "../combat/DamageCalc.h"
 #include <imgui.h>
 #include <stdio.h>
 #include <sstream>
@@ -355,7 +356,7 @@ void Game::renderCombatBoard()
         dl->AddText({lx, ly}, IM_COL32(255, 255, 255, 255), buf);
     }
 
-    // Coordinate hint for hovered hex (debug feel)
+    // Coordinate hint for hovered hex + damage estimate tooltip
     const auto& mouse = m_input.mouse();
     float mwx = (mouse.x - m_combatBoardOffX) / m_combatBoardScale;
     float mwy = (mouse.y - m_combatBoardOffY) / m_combatBoardScale;
@@ -370,6 +371,35 @@ void Game::renderCombatBoard()
         }
         dl->AddPolyline(pts, 6, IM_COL32(220, 220, 120, 180),
                         ImDrawFlags_Closed, 1.5f);
+
+        // Damage preview: active player unit vs enemy unit on hovered hex
+        const CombatUnit* hovered = grid.getUnitAt(mh);
+        if (hovered && !hovered->isPlayer && hovered->alive) {
+            m_combatHUD.setHoveredUnit(hovered);
+            const CombatUnit* act = const_cast<CombatEngine&>(m_combat).activeUnit();
+            if (act && act->isPlayer && act->alive) {
+                auto est = DamageCalc::estimate(*act, *hovered, grid);
+                if (est.maxDmg > 0) {
+                    char tipBuf[80];
+                    std::snprintf(tipBuf, sizeof(tipBuf),
+                        "Damage: %d-%d  Kills: %d-%d",
+                        est.minDmg, est.maxDmg, est.minKills, est.maxKills);
+                    // Draw tooltip near mouse
+                    float tx = mouse.x + 12.0f;
+                    float ty = mouse.y - 24.0f;
+                    ImVec2 ts2 = ImGui::CalcTextSize(tipBuf);
+                    dl->AddRectFilled({tx - 4, ty - 3}, {tx + ts2.x + 4, ty + ts2.y + 3},
+                                      IM_COL32(15, 15, 30, 220), 3.0f);
+                    dl->AddRect({tx - 4, ty - 3}, {tx + ts2.x + 4, ty + ts2.y + 3},
+                                IM_COL32(180, 100, 60, 180), 3.0f);
+                    dl->AddText({tx, ty}, IM_COL32(255, 200, 100, 255), tipBuf);
+                }
+            }
+        } else if (hovered && hovered->isPlayer) {
+            m_combatHUD.setHoveredUnit(hovered);
+        } else {
+            m_combatHUD.setHoveredUnit(nullptr);
+        }
     }
 
     // Floating damage numbers

@@ -132,6 +132,50 @@ float DamageCalc::weaknessBonus(UnitTag attackerTags, UnitTag defenderTags,
     return bonus;
 }
 
+// ── Damage estimate (no RNG, no side effects) ─────────────────────────────────
+DamageCalc::DamageEstimate DamageCalc::estimate(const CombatUnit& atk, const CombatUnit& def,
+                                                  const CombatGrid& grid)
+{
+    DamageEstimate est;
+    if (!atk.alive || !def.alive || atk.count <= 0) return est;
+
+    int diff = (atk.attack + atk.roundAttackBonus)
+             - (def.defense + def.roundDefenseBonus);
+    float modifier = 1.0f;
+    if (diff > 0)
+        modifier = 1.0f + std::min(diff * 0.05f, 3.0f);
+    else if (diff < 0)
+        modifier = std::max(1.0f + diff * 0.025f, 0.30f);
+
+    const CombatTile* atkTile = grid.getTile(atk.pos);
+    const CombatTile* defTile = grid.getTile(def.pos);
+    modifier *= tileAttackMod(atkTile);
+    modifier *= tileDefenseMod(defTile);
+    modifier *= weaknessBonus(atk.tags, def.tags,
+                              hasTag(atk.tags, UnitTag::Holy),
+                              hasTag(def.tags, UnitTag::Undead));
+
+    int dmin = static_cast<int>(atk.damageMin * atk.count * modifier);
+    int dmax = static_cast<int>(atk.damageMax * atk.count * modifier);
+    dmin = std::max(1, dmin);
+    dmax = std::max(dmin, dmax);
+
+    est.minDmg = dmin;
+    est.maxDmg = dmax;
+
+    // Estimate kills from damage range
+    // Kills = (damage - top_hp_offset) / maxHp, roughly
+    if (def.maxHp > 0) {
+        int topHpOffset = def.hp;  // hp of the top unit
+        est.minKills = std::max(0, (dmin - topHpOffset + def.maxHp - 1) / def.maxHp);
+        est.maxKills = std::max(0, (dmax - topHpOffset + def.maxHp - 1) / def.maxHp);
+        est.minKills = std::min(est.minKills, def.count);
+        est.maxKills = std::min(est.maxKills, def.count);
+    }
+
+    return est;
+}
+
 // ── Main attack formula ────────────────────────────────────────────────────────
 // HoMM3-style: damage = (attacker.attack - defender.defense) modifier * roll
 // attack > defense: +5% per point (max +300%)
