@@ -59,6 +59,8 @@ private:
         Button btn;
         int    tier       = 0;
         int    available  = 0;
+        int    defId      = 0;
+        std::string statTip;  // prebuilt tooltip string with unit stats
     };
     std::vector<RecruitBtn> m_recruitBtns;
 

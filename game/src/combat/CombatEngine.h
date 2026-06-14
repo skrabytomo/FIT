@@ -135,6 +135,8 @@ private:
     AIDifficulty           m_playerAI = AIDifficulty::Standard;
     AIDifficulty           m_enemyAI  = AIDifficulty::Standard;
 
+    uint32_t m_coordinatedStrikeTarget = 0;  // enemy unit ID currently marked
+
     Hero m_playerHero;
     Hero m_enemyHero;
 };

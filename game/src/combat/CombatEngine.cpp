@@ -144,6 +144,41 @@ void CombatEngine::startBattle(
     applySkills(m_playerHero, true);
     applySkills(m_enemyHero,  false);
 
+    // Harmony specialty (Warsinger) — each unit adjacent to an ally gets +1 ATK/DEF
+    auto applyHarmony = [this](const Hero& hero, bool isPlayer) {
+        if (!hero.harmonySpecialty) return;
+        int bonusCount = 0;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive) continue;
+            for (const auto& other : m_grid.units()) {
+                if (other.id == u.id || !other.alive || other.isPlayer != isPlayer) continue;
+                if (HexGrid::distance(u.pos, other.pos) <= 1) {
+                    u.attack++;
+                    u.defense++;
+                    bonusCount++;
+                    break;
+                }
+            }
+        }
+        if (bonusCount > 0)
+            addLog(hero.name + " Harmony: " + std::to_string(bonusCount) +
+                   " units in pairs gain +1 ATK/DEF");
+    };
+    applyHarmony(m_playerHero, true);
+    applyHarmony(m_enemyHero,  false);
+
+    // BloodPenance specialty (Flagellant Marshal) — units start with +2 ATK; hero bleeds each round
+    auto applyBloodPenance = [this](const Hero& hero, bool isPlayer) {
+        if (!hero.bloodPenanceSpecialty) return;
+        for (auto& u : m_grid.units())
+            if (u.isPlayer == isPlayer && u.alive) u.attack += 2;
+        addLog(hero.name + " Blood Penance: all units +2 ATK (hero will bleed each round)");
+    };
+    applyBloodPenance(m_playerHero, true);
+    applyBloodPenance(m_enemyHero,  false);
+
+    m_coordinatedStrikeTarget = 0;
+
     auto* firstUnit = activeUnit();
     m_phase = (firstUnit && !firstUnit->isPlayer) ? CombatPhase::EnemyTurn
                                                   : CombatPhase::PlayerTurn;
@@ -181,7 +216,8 @@ void CombatEngine::applyArtifactBonuses(const ArtifactBonus& pb, const ArtifactB
 // ── Turn order ─────────────────────────────────────────────────────────────────
 void CombatEngine::buildTurnOrder()
 {
-    m_enemyHeroSpellUsed = false;   // hero gets one cast per round
+    m_enemyHeroSpellUsed = false;
+    m_coordinatedStrikeTarget = 0;  // mark expires each round
     m_turnOrder.clear();
     for (auto& u : m_grid.units())
         if (u.alive) m_turnOrder.push_back(u.id);
@@ -321,10 +357,26 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         HexCoord targetPos = target->pos;
         uint32_t targetId  = target->id;
+
+        // CoordinatedStrike: mark target; all player attacks on the marked unit get +2 ATK
+        bool csBonus = false;
+        if (m_playerHero.coordinatedStrikeSpecialty) {
+            if (m_coordinatedStrikeTarget == target->id) {
+                unit->attack += 2;
+                csBonus = true;
+            } else {
+                if (m_coordinatedStrikeTarget == 0)
+                    addLog(m_playerHero.name + " CoordinatedStrike: " + target->name + " marked!");
+                m_coordinatedStrikeTarget = target->id;
+            }
+        }
+
         auto result = DamageCalc::attack(*unit, *target, m_grid);
+        if (csBonus) unit->attack -= 2;
 
         std::ostringstream ss;
         if (result.luckTrigger) ss << "★ LUCKY HIT! ";
+        if (csBonus) ss << "[Coordinated +2] ";
         ss << unit->name << " attacks " << target->name
            << " for " << result.damage << " damage";
         if (result.killed > 0) ss << " (" << result.killed << " killed)";
@@ -373,9 +425,25 @@ bool CombatEngine::submitAction(const CombatAction& action)
         if (HexGrid::distance(unit->pos, target->pos) > unit->range) return false;
 
         unit->shotsLeft--;
+
+        // CoordinatedStrike applies to ranged attacks too
+        bool csShotBonus = false;
+        if (m_playerHero.coordinatedStrikeSpecialty) {
+            if (m_coordinatedStrikeTarget == target->id) {
+                unit->attack += 2;
+                csShotBonus = true;
+            } else {
+                if (m_coordinatedStrikeTarget == 0)
+                    addLog(m_playerHero.name + " CoordinatedStrike: " + target->name + " marked!");
+                m_coordinatedStrikeTarget = target->id;
+            }
+        }
+
         auto result = DamageCalc::attack(*unit, *target, m_grid);
+        if (csShotBonus) unit->attack -= 2;
 
         std::ostringstream ss;
+        if (csShotBonus) ss << "[Coordinated +2] ";
         ss << unit->name << " shoots " << target->name
            << " for " << result.damage << " damage";
         if (result.killed > 0) ss << " (" << result.killed << " killed)";
@@ -986,6 +1054,37 @@ void CombatEngine::processRoundStartEffects()
     applyWither(m_playerHero, true);
     applyWither(m_enemyHero,  false);
 
+    // Elixir specialty (Blood Sage) — at round 2 start, fully restore the most damaged unit
+    auto applyElixir = [&](Hero& hero, bool isPlayer) {
+        if (!hero.elixirSpecialty || hero.elixirUsed || m_round != 2) return;
+        CombatUnit* worst = nullptr;
+        float lowestRatio = 1.0f;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive) continue;
+            float ratio = static_cast<float>(u.hp) / static_cast<float>(std::max(1, u.maxHp));
+            if (ratio < lowestRatio) { lowestRatio = ratio; worst = &u; }
+        }
+        if (!worst) return;
+        int healed = worst->maxHp - worst->hp;
+        worst->hp = worst->maxHp;
+        hero.elixirUsed = true;
+        addLog(hero.name + " Elixir: " + worst->name + " fully restored (+" +
+               std::to_string(healed) + " HP)!");
+    };
+    applyElixir(m_playerHero, true);
+    applyElixir(m_enemyHero,  false);
+
+    // BloodPenance specialty — hero bleeds 5 HP per round after round 1
+    auto applyBloodPenanceDrain = [&](Hero& hero) {
+        if (!hero.bloodPenanceSpecialty || m_round <= 1) return;
+        int drain = std::min(5, hero.heroHp - 1);
+        if (drain <= 0) return;
+        hero.heroHp -= drain;
+        addLog(hero.name + " Blood Penance: -" + std::to_string(drain) + " HP");
+    };
+    applyBloodPenanceDrain(m_playerHero);
+    applyBloodPenanceDrain(m_enemyHero);
+
     m_grid.removeDeadUnits();
     checkVictory();
 }
@@ -1100,10 +1199,72 @@ void CombatEngine::tryEnemyHeroSpell()
     // HeresyDetection: player's Inquisitor can negate the first enemy spell cast
     if (m_playerHero.heresyDetection && !m_playerHero.heresyDetectionUsed) {
         m_playerHero.heresyDetectionUsed = true;
-        hero.mana -= bestSpell->manaCost;  // spell costs enemy mana but does nothing
+        hero.mana -= bestSpell->manaCost;
         m_enemyHeroSpellUsed = true;
         addLog(m_playerHero.name + " Heresy Detection: " +
                std::string(bestSpell->name) + " NEGATED!");
+        return;
+    }
+
+    // LightningRod: player's Stormbark reflects the first enemy spell back at the caster's side
+    if (m_playerHero.lightningRodSpecialty && !m_playerHero.lightningRodUsed) {
+        m_playerHero.lightningRodUsed = true;
+        hero.mana -= bestSpell->manaCost;
+        m_enemyHeroSpellUsed = true;
+
+        int spow = 0;
+        switch (bestSpell->school) {
+            case SpellSchool::Light:  spow = hero.lightPower;  break;
+            case SpellSchool::Blood:  spow = hero.bloodPower;  break;
+            case SpellSchool::Death:  spow = hero.deathPower;  break;
+            case SpellSchool::Nature: spow = hero.naturePower; break;
+            case SpellSchool::Forge:  spow = hero.forgePower;  break;
+            case SpellSchool::Flesh:  spow = hero.fleshPower;  break;
+        }
+        int potency2 = bestSpell->power + spow;
+
+        std::vector<CombatUnit*> reflTargets;
+        switch (bestSpell->target) {
+            case SpellTarget::SingleEnemy:
+                for (auto& u : m_grid.units())
+                    if (u.alive && !u.isPlayer) { reflTargets.push_back(&u); break; }
+                break;
+            case SpellTarget::AllEnemies:
+                for (auto& u : m_grid.units())
+                    if (u.alive && !u.isPlayer) reflTargets.push_back(&u);
+                break;
+            default: break;
+        }
+
+        std::ostringstream rss;
+        rss << m_playerHero.name << " Lightning Rod: " << bestSpell->name << " REFLECTED!";
+        for (CombatUnit* t : reflTargets) {
+            switch (bestSpell->effect) {
+                case SpellEffect::Damage: {
+                    int dmg = std::max(1, potency2);
+                    HexCoord tp = t->pos; uint32_t tid = t->id;
+                    t->applyDamage(dmg);
+                    rss << " → " << t->name << " -" << dmg;
+                    if (m_dmgCb) m_dmgCb(tid, dmg, tp);
+                    if (!t->alive) rss << " (destroyed)";
+                    break;
+                }
+                case SpellEffect::Poison:
+                    if (potency2 > t->poisonDamage) t->poisonDamage = potency2;
+                    t->poisonRounds = std::max(t->poisonRounds, 3);
+                    rss << " → " << t->name << " poisoned";
+                    break;
+                case SpellEffect::Burn:
+                    if (potency2 > t->burnDamage) t->burnDamage = potency2;
+                    t->burnRounds = std::max(t->burnRounds, 2);
+                    rss << " → " << t->name << " burned";
+                    break;
+                default: break;
+            }
+        }
+        addLog(rss.str());
+        m_grid.removeDeadUnits();
+        checkVictory();
         return;
     }
 

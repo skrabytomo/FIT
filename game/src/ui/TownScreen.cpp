@@ -153,6 +153,27 @@ void TownScreen::rebuildRecruitButtons()
         rb.tier      = dw.tier;
         rb.available = dw.available;
 
+        // Build stat tooltip
+        if (m_registry) {
+            for (const auto& ud : m_registry->units()) {
+                if (ud.faction == m_town->faction && ud.tier == dw.tier && ud.path == dw.path) {
+                    rb.defId = ud.id;
+                    std::ostringstream ts;
+                    ts << ud.name << "  |  ";
+                    ts << "ATK " << ud.attack << "  DEF " << ud.defense;
+                    ts << "  HP " << ud.hp << "  Dmg " << ud.damage_min << "-" << ud.damage_max;
+                    ts << "  Spd " << ud.speed;
+                    if (ud.range > 0) ts << "  Rng " << ud.range << " (" << ud.shots << " shots)";
+                    if (ud.flying)     ts << "  [Flying]";
+                    if (ud.vampiric)   ts << "  [Vampiric]";
+                    if (ud.regenerates) ts << "  [Regenerates]";
+                    ts << "  |  " << costPerUnit << "g each";
+                    rb.statTip = ts.str();
+                    break;
+                }
+            }
+        }
+
         std::string label = unitName
             + "  x" + std::to_string(dw.available)
             + "  (" + std::to_string(costPerUnit * dw.available) + "g)";
@@ -293,7 +314,11 @@ bool TownScreen::onMouseMove(float x, float y) {
         }
     }
 
-    for (auto& rb : m_recruitBtns) rb.btn.onMouseMove(x, y);
+    for (auto& rb : m_recruitBtns) {
+        rb.btn.onMouseMove(x, y);
+        if (!rb.statTip.empty() && rb.btn.bounds.contains(x, y))
+            m_tooltip.show(rb.statTip, x, y - 10.0f);
+    }
     return m_mainPanel.bounds.contains(x, y);
 }
 

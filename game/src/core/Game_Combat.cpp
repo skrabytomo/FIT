@@ -495,19 +495,31 @@ void Game::enterCombat(Hero& playerHero,
     m_battleStartArmy = playerHero.army;
 
     // Set per-battle specialty flags from class registry
-    playerHero.feastSpecialty      = false;
-    playerHero.witherSpecialty     = false;
-    playerHero.ironDiscipline      = false;
-    playerHero.exsanguinate        = false;
-    playerHero.exsanguinateUsed    = false;
-    playerHero.heresyDetection     = false;
-    playerHero.heresyDetectionUsed = false;
+    playerHero.feastSpecialty        = false;
+    playerHero.witherSpecialty       = false;
+    playerHero.ironDiscipline        = false;
+    playerHero.exsanguinate          = false;
+    playerHero.exsanguinateUsed      = false;
+    playerHero.heresyDetection       = false;
+    playerHero.heresyDetectionUsed   = false;
+    playerHero.lightningRodSpecialty      = false;
+    playerHero.lightningRodUsed           = false;
+    playerHero.harmonySpecialty           = false;
+    playerHero.elixirSpecialty            = false;
+    playerHero.elixirUsed                 = false;
+    playerHero.coordinatedStrikeSpecialty = false;
+    playerHero.bloodPenanceSpecialty      = false;
     if (const HeroClassDef* cls = m_classRegistry.getClass(playerHero.classId)) {
-        playerHero.feastSpecialty  = (cls->specialty == SpecialtyType::Feast);
-        playerHero.witherSpecialty = (cls->specialty == SpecialtyType::Wither);
-        playerHero.ironDiscipline  = (cls->specialty == SpecialtyType::IronDiscipline);
-        playerHero.exsanguinate    = (cls->specialty == SpecialtyType::Exsanguinate);
-        playerHero.heresyDetection = (cls->specialty == SpecialtyType::HeresyDetection);
+        playerHero.feastSpecialty        = (cls->specialty == SpecialtyType::Feast);
+        playerHero.witherSpecialty       = (cls->specialty == SpecialtyType::Wither);
+        playerHero.ironDiscipline        = (cls->specialty == SpecialtyType::IronDiscipline);
+        playerHero.exsanguinate          = (cls->specialty == SpecialtyType::Exsanguinate);
+        playerHero.heresyDetection       = (cls->specialty == SpecialtyType::HeresyDetection);
+        playerHero.lightningRodSpecialty       = (cls->specialty == SpecialtyType::LightningRod);
+        playerHero.harmonySpecialty            = (cls->specialty == SpecialtyType::Harmony);
+        playerHero.elixirSpecialty             = (cls->specialty == SpecialtyType::Elixir);
+        playerHero.coordinatedStrikeSpecialty  = (cls->specialty == SpecialtyType::CoordinatedStrike);
+        playerHero.bloodPenanceSpecialty       = (cls->specialty == SpecialtyType::BloodPenance);
     }
 
     // Garrison bonus: garrisoned hero grants +2 defense to all their units

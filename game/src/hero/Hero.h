@@ -95,6 +95,13 @@ struct Hero
     bool exsanguinateUsed    = false;  // tracks if free cast was used this battle
     bool heresyDetection     = false;  // Inquisitor — negate first enemy spell cast
     bool heresyDetectionUsed = false;  // tracks if negation was used this battle
+    bool lightningRodSpecialty = false; // Stormbark — first enemy spell reflected back
+    bool lightningRodUsed      = false;
+    bool harmonySpecialty      = false; // Warsinger — adjacent same-side pairs +1 ATK/DEF
+    bool elixirSpecialty       = false; // Blood Sage — once per battle fully heal one unit
+    bool elixirUsed            = false;
+    bool coordinatedStrikeSpecialty = false; // Warden Captain — marked target +2 ATK for all player attacks
+    bool bloodPenanceSpecialty      = false; // Flagellant Marshal — units +2 ATK, hero -5 HP/round
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
