@@ -2,6 +2,7 @@
 #include "../hero/LevelUpSystem.h"
 #include "../hero/SkillRegistry.h"
 #include "../hero/HeroClass.h"
+#include "../hero/Artifacts.h"
 #include "../magic/SpellRegistry.h"
 #include "../world/HexGrid.h"
 #include "../town/UnitDef.h"
@@ -1752,14 +1753,37 @@ void Game::renderHeroInspect()
         }
     }
     ImGui::TextDisabled("Level %d  —  XP %d / %d", hero.level, hero.xp, hero.xpToNext);
-    if (hero.battlesWon > 0)
-        ImGui::TextDisabled("Battles won: %d", hero.battlesWon);
+    ImGui::TextDisabled("Battles won: %d", hero.battlesWon);
+    if (hero.isGarrisoned)
+        ImGui::TextColored(ImVec4(0.5f, 0.8f, 0.5f, 1.0f), "[Garrisoned — +2 DEF in combat]");
     ImGui::Separator();
 
     ImGui::Text("ATK %d   DEF %d   Vision %d", hero.attack, hero.defense, hero.visionRange);
     ImGui::Text("Mana %d / %d   Move %d / %d",
                 hero.mana, hero.maxMana, hero.movePool, hero.maxMove);
     ImGui::Text("HP   %d / %d", hero.heroHp, hero.heroMaxHp);
+
+    // Specialty progression stats
+    if (cls) {
+        bool showProgression = false;
+        switch (cls->specialty) {
+            case SpecialtyType::Veteran:
+            case SpecialtyType::Predator:
+            case SpecialtyType::LivingRune:
+                showProgression = true; break;
+            default: break;
+        }
+        if (showProgression && hero.specialtyAtk > 0) {
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.4f, 1.0f),
+                               "Specialty bonus: +%d ATK%s",
+                               hero.specialtyAtk,
+                               cls->specialty == SpecialtyType::LivingRune ? "/DEF" : "");
+        }
+        if (cls->specialty == SpecialtyType::Phylactery && hero.phylacteryUsed)
+            ImGui::TextColored(ImVec4(0.7f, 0.5f, 1.0f, 1.0f), "Phylactery consumed");
+        if (cls->specialty == SpecialtyType::Elixir && hero.elixirUsed)
+            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "Elixir used this battle");
+    }
     ImGui::Spacing();
 
     ImGui::Text("Casting Power:");
@@ -1795,6 +1819,31 @@ void Game::renderHeroInspect()
         }
     }
 
+    // Artifacts equipped
+    {
+        ImGui::Spacing();
+        ImGui::Text("Artifacts:");
+        ImGui::Separator();
+        bool anyEquipped = false;
+        static const char* kSlotLabel[] = { "Helm","Armor","Wpn","Shld","Ring","Boots","Cloak","Misc" };
+        for (int s = 0; s < static_cast<int>(ArtifactSlot::COUNT); ++s) {
+            int artId = hero.artifacts.equippedIds[s];
+            if (artId == 0) continue;
+            const ArtifactDef* art = m_artifactRegistry.getDef(artId);
+            if (!art) continue;
+            ImGui::Text("  [%-5s] %s", kSlotLabel[s], art->name.c_str());
+            if (ImGui::IsItemHovered() && !art->description.empty())
+                ImGui::SetTooltip("%s", art->description.c_str());
+            anyEquipped = true;
+        }
+        if (!anyEquipped)
+            ImGui::TextDisabled("  — none equipped —");
+        if (!hero.artifactInventory.empty()) {
+            ImGui::TextDisabled("  Inventory: %zu artifact(s) unequipped",
+                                hero.artifactInventory.size());
+        }
+    }
+
     if (!hero.army.empty()) {
         ImGui::Spacing();
         ImGui::Text("Army:");
@@ -1804,9 +1853,13 @@ void Game::renderHeroInspect()
         for (const auto& stack : hero.army) {
             if (stack.count <= 0) continue;
             const char* uname = "Unknown";
+            int ud_atk = 0, ud_def = 0;
             for (const auto& ud : unitDefs)
-                if (ud.id == stack.defId) { uname = ud.name.c_str(); break; }
-            ImGui::Text("  %-24s x%d", uname, stack.count);
+                if (ud.id == stack.defId) {
+                    uname = ud.name.c_str();
+                    ud_atk = ud.attack; ud_def = ud.defense; break;
+                }
+            ImGui::Text("  %-24s x%-5d  ATK %d  DEF %d", uname, stack.count, ud_atk, ud_def);
             totalStrength += stack.count;
         }
         ImGui::Spacing();

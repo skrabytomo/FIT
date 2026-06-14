@@ -131,6 +131,20 @@ void CombatHUD::drawUnitInfo(UIRenderer& rdr, const CombatUnit* unit, bool isAct
         y += 9.0f;
     }
 
+    // Desperation meter for Holy units
+    if (hasTag(unit->tags, UnitTag::Holy) && unit->desperationMeter > 0) {
+        float despFrac = unit->desperationMeter / 100.0f;
+        std::string despStr = "Desperation: " + std::to_string(unit->desperationMeter) + "/100";
+        UIColor despCol = unit->desperationMeter >= 100
+            ? UIColor::rgba(1.0f, 0.5f, 0.1f)   // full — orange glow
+            : UIColor::rgba(0.9f, 0.8f, 0.3f);   // charging — gold
+        rdr.drawText(despStr, x, y, despCol, 11.0f);
+        y += 13.0f;
+        rdr.drawBar({x, y, w, 5.0f}, despFrac,
+                    despCol, UIColor::hex(UITheme::BG_DARK), UIColor::hex(UITheme::BORDER));
+        y += 9.0f;
+    }
+
     // Stats
     std::string stats = "ATK:" + std::to_string(unit->attack) +
                         " DEF:" + std::to_string(unit->defense) +
