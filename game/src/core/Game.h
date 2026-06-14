@@ -328,8 +328,10 @@ private:
     // ── Main menu sub-state & save slots ─────────────────────────────────────
     int  m_menuMode      = 0;   // 0=main, 1=newgame, 2=loadgame, 3=settings
     int  m_activeSlot    = 0;   // which save slot (0-2) is currently in use
-    int  m_newGameMapSize   = 0;   // 0=Small, 1=Medium, 2=Large, 3=XLarge
-    int  m_newGameFaction   = 0;   // 0=HolyOrder ... 8=Convergence
+    int  m_newGameMapSize    = 0;   // 0=Small, 1=Medium, 2=Large, 3=XLarge
+    int  m_newGameFaction    = 0;   // 0=HolyOrder ... 8=Convergence
+    int  m_newGameDifficulty = 1;   // 0=Easy, 1=Normal, 2=Hard
+    int  m_newGameClassId    = 0;   // classId of chosen hero class (0=auto)
 
     // ── Persisted display / audio settings ───────────────────────────────────
     float m_settingsSfxVol     = 0.7f;

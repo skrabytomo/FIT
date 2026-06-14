@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "../data/SaveLoad.h"
+#include "../hero/HeroClass.h"
 #include <imgui.h>
 #include <string>
 #include <cstdio>
@@ -92,7 +93,53 @@ void Game::renderMainMenu()
             bool sel = (m_newGameFaction == i);
             if (sel) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.4f, 0.3f, 0.1f, 1.f));
             char fLbl[40]; std::snprintf(fLbl, sizeof(fLbl), "%s##fc%d", kFacNames[i], i);
-            if (ImGui::Button(fLbl, ImVec2((bw - 4) / 3.f, 26))) m_newGameFaction = i;
+            if (ImGui::Button(fLbl, ImVec2((bw - 4) / 3.f, 26))) {
+                m_newGameFaction = i;
+                m_newGameClassId = 0;  // reset class selection on faction change
+            }
+            if (sel) ImGui::PopStyleColor();
+        }
+        ImGui::Spacing();
+
+        // Hero class selection for chosen faction
+        {
+            FactionId f = static_cast<FactionId>(m_newGameFaction);
+            auto classes = m_classRegistry.getClassesForFaction(f);
+            if (!classes.empty()) {
+                ImGui::Text("Hero Class:");
+                // Ensure m_newGameClassId is valid
+                bool classValid = false;
+                for (auto* c : classes) if (c->id == m_newGameClassId) { classValid = true; break; }
+                if (!classValid) m_newGameClassId = classes[0]->id;
+
+                for (int ci = 0; ci < static_cast<int>(classes.size()); ++ci) {
+                    const HeroClassDef* cls = classes[ci];
+                    if (ci % 2 != 0) ImGui::SameLine();
+                    bool sel = (m_newGameClassId == cls->id);
+                    if (sel) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.4f, 0.2f, 1.f));
+                    char clbl[48]; std::snprintf(clbl, sizeof(clbl), "%s##cl%d", cls->name.c_str(), cls->id);
+                    if (ImGui::Button(clbl, ImVec2((bw - 4) / 2.f, 26)))
+                        m_newGameClassId = cls->id;
+                    if (ImGui::IsItemHovered() && !cls->specialtyDesc.empty())
+                        ImGui::SetTooltip("Specialty: %s", cls->specialtyDesc.c_str());
+                    if (sel) ImGui::PopStyleColor();
+                }
+            }
+        }
+        ImGui::Spacing();
+
+        // Difficulty
+        ImGui::Text("Difficulty:");
+        static const char* kDiffNames[] = { "Easy", "Normal", "Hard" };
+        for (int i = 0; i < 3; ++i) {
+            if (i > 0) ImGui::SameLine();
+            bool sel = (m_newGameDifficulty == i);
+            if (sel) ImGui::PushStyleColor(ImGuiCol_Button,
+                i == 0 ? ImVec4(0.1f, 0.4f, 0.1f, 1.f) :
+                i == 1 ? ImVec4(0.4f, 0.3f, 0.1f, 1.f) :
+                         ImVec4(0.5f, 0.1f, 0.1f, 1.f));
+            char dlbl[24]; std::snprintf(dlbl, sizeof(dlbl), "%s##df%d", kDiffNames[i], i);
+            if (ImGui::Button(dlbl, ImVec2((bw - 4) / 3.f, 26))) m_newGameDifficulty = i;
             if (sel) ImGui::PopStyleColor();
         }
         ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();

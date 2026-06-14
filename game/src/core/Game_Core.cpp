@@ -378,21 +378,45 @@ void Game::startNewGame()
     hero.movePool = hero.maxMove;
     hero.lightPower = (fi == 0 || fi == 8) ? 3 : 0;
     hero.knownSpells = { kFactionStartSpell[fi] };
+
+    // Assign chosen hero class (or first available for faction)
+    {
+        const HeroClassDef* chosenCls = nullptr;
+        if (m_newGameClassId != 0)
+            chosenCls = m_classRegistry.getClass(m_newGameClassId);
+        if (!chosenCls) {
+            auto cls4fac = m_classRegistry.getClassesForFaction(hero.faction);
+            if (!cls4fac.empty()) chosenCls = cls4fac[0];
+        }
+        if (chosenCls) {
+            hero.classId = chosenCls->id;
+            // Grant first skill from class pool at Basic tier
+            if (!chosenCls->skillPool.empty())
+                hero.skills.learn(chosenCls->skillPool[0]);
+        }
+    }
+
     m_heroes.push_back(hero);
     if (HexTile* ht = m_map.getTile(hero.pos)) ht->heroId = hero.id;
 
-    auto giveStartingArmy = [&](Hero& h) {
+    // Army sizes scale with difficulty: Easy=small, Normal=base, Hard=base
+    static const int kT1Count[] = {14, 20, 20};
+    static const int kT2Count[] = {5,   8,  8};
+    int diff = std::clamp(m_newGameDifficulty, 0, 2);
+
+    auto giveStartingArmy = [&](Hero& h, int t1, int t2) {
         for (int tier : {1, 2}) {
+            int cnt = (tier == 1) ? t1 : t2;
             for (const auto& ud : m_registry.units()) {
                 if (ud.faction == h.faction && ud.tier == tier
                     && ud.path == UpgradePath::None) {
-                    h.army.push_back({ud.id, (tier == 1) ? 20 : 8});
+                    h.army.push_back({ud.id, cnt});
                     break;
                 }
             }
         }
     };
-    giveStartingArmy(m_heroes[0]);
+    giveStartingArmy(m_heroes[0], kT1Count[diff], kT2Count[diff]);
 
     // Faction-appropriate enemy hero names (9 factions × 3 names each)
     static const char* kEnemyHeroNames[9][3] = {
@@ -419,9 +443,11 @@ void Game::startNewGame()
         eHero.faction  = ef;
         eHero.pos      = wgResult.startPositions[i];
         eHero.movePool = eHero.maxMove;
-        // Give enemy heroes a starting attack/defense boost scaled by difficulty
-        eHero.attack  += 1;
-        eHero.defense += 1;
+        // Stats scale with difficulty: Easy +0, Normal +1, Hard +2/+2
+        static const int kDiffAtkBonus[] = {0, 1, 2};
+        static const int kDiffDefBonus[] = {0, 1, 2};
+        eHero.attack  += kDiffAtkBonus[diff];
+        eHero.defense += kDiffDefBonus[diff];
         // Faction-specific spells and school power for the enemy hero
         // Two spells: one offensive/debuff + one DoT or heavy hitter
         static const int kEnemySpells[9][2] = {
@@ -451,7 +477,11 @@ void Game::startNewGame()
             case FactionId::Convergence:    eHero.lightPower  = 1; eHero.forgePower = 1; break;
             default: break;
         }
-        giveStartingArmy(eHero);
+        // Enemy army scales opposite to player: Easy=large (harder enemies), Hard=large too
+        // Easy: enemy has bigger army to compensate for weaker player start
+        static const int kEnemyT1[] = {20, 20, 25};
+        static const int kEnemyT2[] = { 8,  8, 10};
+        giveStartingArmy(eHero, kEnemyT1[diff], kEnemyT2[diff]);
         m_enemyHeroes.push_back(eHero);
         if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;
     }
