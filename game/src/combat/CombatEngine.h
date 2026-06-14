@@ -149,6 +149,8 @@ private:
     // Fire all on-death specialty effects (LastRites, VoidLink, BloodWeb, SoulHarvest,
     // AdaptationMirror) when target is killed; also cleans up dead units.
     void processKillEvents(CombatUnit& attacker, CombatUnit& target, const DamageResult& result);
+    // Apply Warden's Mark melee cleave splash for the attacker's hero (both sides).
+    void applyWardenMarkSplash(CombatUnit& attacker, HexCoord targetPos, uint32_t targetId, int damage);
 
     CombatGrid  m_grid;
     CombatPhase m_phase     = CombatPhase::Setup;

@@ -9,7 +9,7 @@ static const SkillDef SKILL_DEFS[] = {
     // id                    name               description                                    faction              effectType                          values          statName        prereq
     {SID::OFFENSE,      "Offense",      "Units deal +1/2/3 attack",                    FactionId::None,  SkillEffectType::UnitStatBonus,   {1,2,3}, "attack",      0},
     {SID::DEFENSE_SKILL,"Defense",      "Units gain +1/2/3 defense",                   FactionId::None,  SkillEffectType::UnitStatBonus,   {1,2,3}, "defense",     0},
-    {SID::ARCHERY,      "Archery",      "Ranged units deal +1/2/2 attack",             FactionId::None,  SkillEffectType::UnitStatBonus,   {1,2,2}, "attack",      0},
+    {SID::ARCHERY,      "Archery",      "Ranged units deal +1/2/3 attack",             FactionId::None,  SkillEffectType::UnitStatBonus,   {1,2,3}, "attack",      0},
     {SID::LEADERSHIP,   "Leadership",   "Units start with +10/20/30 morale",           FactionId::None,  SkillEffectType::UnitStatBonus,   {10,20,30},"morale",    0},
     {SID::TACTICS,      "Tactics",      "Hero attack/defense bonus +1/2/3",            FactionId::None,  SkillEffectType::StatBonus,       {1,2,3}, "attack",      0},
     {SID::LOGISTICS,    "Logistics",    "+3/5/7 movement pool",                        FactionId::None,  SkillEffectType::MovementBonus,   {3,5,7}, "",            0},
@@ -31,7 +31,7 @@ static const SkillDef SKILL_DEFS[] = {
     {SID::BLOOD_POOL,   "Blood Pool",   "BloodBound units gain +10/20/40 Morale at battle start",FactionId::Bloodsworn,SkillEffectType::SpecialMechanic,{10,20,40},"",0},
     {SID::POSSESSION,   "Possession",   "Void units start battle with +1/2/3 Luck",     FactionId::Voidkin,        SkillEffectType::SpecialMechanic, {1,2,3},    "",0},
     {SID::BLUEPRINT,    "Blueprint",    "Constructs unlocked 1/2/3 weeks earlier",      FactionId::IronAssembly,   SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
-    {SID::ADAPTATION,   "Adaptation",   "OrganicMech adapt after 2 hits / +2 stat per adapt / every hit", FactionId::Amalgamate, SkillEffectType::SpecialMechanic, {2,2,1},"",  0},
+    {SID::ADAPTATION,   "Adaptation",   "OrganicMech adapt after 2 hits; Advanced: +2 stat; Master: every hit", FactionId::Amalgamate, SkillEffectType::SpecialMechanic, {2,2,1},"",  0},
     {SID::ETERNAL_CMD,  "Eternal Command","Reraised units 10/20/30% stronger",          FactionId::EternalEmpire,  SkillEffectType::SpecialMechanic, {10,20,30},"",  0},
     {SID::SYMBIOSIS,    "Symbiosis",    "Bond pairs gain +1/2/3 to all stats",          FactionId::Thornkin,       SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
     {SID::WARDEN_MARK,  "Warden's Mark","Mark hits 1/2/3 additional targets",           FactionId::CrimsonWardens, SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},

@@ -653,29 +653,8 @@ bool CombatEngine::submitAction(const CombatAction& action)
             addLog(unit->name + " drains " + std::to_string(result.vampireHeal) + " HP!");
 
         // WARDEN_MARK skill: melee hit splashes to N adjacent enemies (cleave)
-        if (unit->isPlayer && unit->range == 0) {
-            if (const SkillInstance* si = m_playerHero.skills.getSkill(SID::WARDEN_MARK)) {
-                if (const SkillDef* def = findSkillDef(SID::WARDEN_MARK)) {
-                    int splashMax = def->values[static_cast<int>(si->tier)]
-                                  + (m_wardenBrand ? 1 : 0);
-                    int splashDmg = std::max(1, result.damage / 2);
-                    int splashHit = 0;
-                    for (auto& foe : m_grid.units()) {
-                        if (splashHit >= splashMax) break;
-                        if (!foe.alive || foe.isPlayer || foe.id == targetId) continue;
-                        if (HexGrid::distance(foe.pos, targetPos) > 1) continue;
-                        foe.applyDamage(splashDmg);
-                        addLog("  Warden's Mark: " + foe.name + " hit for " +
-                               std::to_string(splashDmg));
-                        if (!foe.alive) addLog("  " + foe.name + " destroyed!");
-                        splashHit++;
-                    }
-                    if (splashHit > 0)
-                        addLog(m_playerHero.name + " Warden's Mark: " +
-                               std::to_string(splashHit) + " adjacent unit(s) splashed");
-                }
-            }
-        }
+        if (unit->range == 0)
+            applyWardenMarkSplash(*unit, targetPos, targetId, result.damage);
 
         if (m_dmgCb && result.damage > 0)
             m_dmgCb(targetId, result.damage, targetPos);
@@ -1011,10 +990,12 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
     }
 
     if (dist == 1) {
+        HexCoord tpos = target->pos; uint32_t tid = target->id;
         auto result = DamageCalc::attack(unit, *target, m_grid);
         std::ostringstream ss;
         ss << unit.name << " attacks " << target->name << " for " << result.damage;
         addLog(ss.str());
+        applyWardenMarkSplash(unit, tpos, tid, result.damage);
         if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
@@ -1032,10 +1013,12 @@ void CombatEngine::aiActPassive(CombatUnit& unit)
             unit.hasMoved = true;
             // Attack immediately if movement reached melee range
             if (target->alive && HexGrid::distance(unit.pos, target->pos) == 1) {
+                HexCoord tpos = target->pos; uint32_t tid = target->id;
                 auto result = DamageCalc::attack(unit, *target, m_grid);
                 std::ostringstream ss;
                 ss << unit.name << " attacks " << target->name << " for " << result.damage;
                 addLog(ss.str());
+                applyWardenMarkSplash(unit, tpos, tid, result.damage);
                 if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
                 if (result.moraleTrigger) {
                     addLog(unit.name + " morale surge — bonus action!");
@@ -1077,11 +1060,13 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
     }
 
     if (bestDist == 1) {
+        HexCoord tpos = target->pos; uint32_t tid = target->id;
         auto result = DamageCalc::attack(unit, *target, m_grid);
         std::ostringstream ss;
         ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
+        applyWardenMarkSplash(unit, tpos, tid, result.damage);
         if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
@@ -1103,11 +1088,13 @@ void CombatEngine::aiActStandard(CombatUnit& unit)
             addLog(unit.name + " moves toward " + target->name);
             // Attack immediately if movement reached melee range
             if (target->alive && HexGrid::distance(unit.pos, target->pos) == 1) {
+                HexCoord tpos = target->pos; uint32_t tid = target->id;
                 auto result = DamageCalc::attack(unit, *target, m_grid);
                 std::ostringstream ss;
                 ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
                 if (result.killed) ss << " (" << result.killed << " killed)";
                 addLog(ss.str());
+                applyWardenMarkSplash(unit, tpos, tid, result.damage);
                 if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
                 if (result.moraleTrigger) {
                     addLog(unit.name + " morale surge — bonus action!");
@@ -1190,11 +1177,13 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
     if (!target) { skipUnit(); return; }
 
     if (bestDist == 1) {
+        HexCoord tpos = target->pos; uint32_t tid = target->id;
         auto result = DamageCalc::attack(unit, *target, m_grid);
         std::ostringstream ss;
         ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
         if (result.killed) ss << " (" << result.killed << " killed)";
         addLog(ss.str());
+        applyWardenMarkSplash(unit, tpos, tid, result.damage);
         if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
         if (result.moraleTrigger) {
             addLog(unit.name + " morale surge — bonus action!");
@@ -1249,11 +1238,13 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
                 unit.hasActed = true; advanceTurn(); return;
             }
             if (target->alive && nowDist == 1) {
+                HexCoord tpos = target->pos; uint32_t tid = target->id;
                 auto result = DamageCalc::attack(unit, *target, m_grid);
                 std::ostringstream ss;
                 ss << unit.name << " attacks " << target->name << " for " << result.damage << " dmg";
                 if (result.killed) ss << " (" << result.killed << " killed)";
                 addLog(ss.str());
+                applyWardenMarkSplash(unit, tpos, tid, result.damage);
                 if (!target->alive) { addLog(target->name + " destroyed!"); processKillEvents(unit, *target, result); }
                 if (result.moraleTrigger) {
                     addLog(unit.name + " morale surge — bonus action!");
@@ -1877,30 +1868,54 @@ void CombatEngine::tryEnemyHeroSpell()
                 t->burnRounds = std::max(t->burnRounds, 2);
                 ss << " → " << t->name << " burned (" << potency << "/round)";
                 break;
-            case SpellEffect::AttackDebuff:
+            case SpellEffect::AttackDebuff: {
+                int debuffRnds = hero.radianceSpecialty ? 4 : 2;
                 t->roundAttackBonus  -= bestSpell->power;
-                t->buffAttackRounds   = 2;
-                ss << " → " << t->name << " -" << bestSpell->power << " atk";
+                t->buffAttackRounds   = debuffRnds;
+                ss << " → " << t->name << " -" << bestSpell->power << " atk (" << debuffRnds << " rounds)";
                 break;
-            case SpellEffect::DefenseDebuff:
+            }
+            case SpellEffect::DefenseDebuff: {
+                int debuffRnds = hero.radianceSpecialty ? 4 : 2;
                 t->roundDefenseBonus -= bestSpell->power;
-                t->buffDefenseRounds  = 2;
-                ss << " → " << t->name << " -" << bestSpell->power << " def";
+                t->buffDefenseRounds  = debuffRnds;
+                ss << " → " << t->name << " -" << bestSpell->power << " def (" << debuffRnds << " rounds)";
                 break;
+            }
             case SpellEffect::MoraleDrain:
                 if (!t->moraleImmune) t->morale = std::max(0, t->morale - potency);
                 ss << " → " << t->name << " morale -" << potency;
                 break;
-            case SpellEffect::AttackBuff:
+            case SpellEffect::AttackBuff: {
+                int atkRnds = hero.radianceSpecialty ? 4 : 2;
                 t->roundAttackBonus += bestSpell->power;
-                t->buffAttackRounds  = std::max(t->buffAttackRounds, 2);
-                ss << " → " << t->name << " +" << bestSpell->power << " atk";
+                t->buffAttackRounds  = std::max(t->buffAttackRounds, atkRnds);
+                ss << " → " << t->name << " +" << bestSpell->power << " atk (" << atkRnds << " rounds)";
+                if (hero.covenantSpecialty) {
+                    for (auto& adj : m_grid.units()) {
+                        if (!adj.alive || adj.isPlayer || adj.id == t->id) continue;
+                        if (HexGrid::distance(adj.pos, t->pos) > 1) continue;
+                        adj.roundAttackBonus += std::max(1, bestSpell->power / 2);
+                        adj.buffAttackRounds  = std::max(adj.buffAttackRounds, atkRnds);
+                    }
+                }
                 break;
-            case SpellEffect::DefenseBuff:
+            }
+            case SpellEffect::DefenseBuff: {
+                int defRnds = hero.radianceSpecialty ? 4 : 2;
                 t->roundDefenseBonus += bestSpell->power;
-                t->buffDefenseRounds  = std::max(t->buffDefenseRounds, 2);
-                ss << " → " << t->name << " +" << bestSpell->power << " def";
+                t->buffDefenseRounds  = std::max(t->buffDefenseRounds, defRnds);
+                ss << " → " << t->name << " +" << bestSpell->power << " def (" << defRnds << " rounds)";
+                if (hero.covenantSpecialty) {
+                    for (auto& adj : m_grid.units()) {
+                        if (!adj.alive || adj.isPlayer || adj.id == t->id) continue;
+                        if (HexGrid::distance(adj.pos, t->pos) > 1) continue;
+                        adj.roundDefenseBonus += std::max(1, bestSpell->power / 2);
+                        adj.buffDefenseRounds  = std::max(adj.buffDefenseRounds, defRnds);
+                    }
+                }
                 break;
+            }
             case SpellEffect::Heal: {
                 int healed = std::min(potency, t->maxHp - t->hp);
                 if (healed > 0) t->hp += healed;
@@ -1919,6 +1934,34 @@ void CombatEngine::tryEnemyHeroSpell()
     addLog(ss.str());
     m_grid.removeDeadUnits();
     checkVictory();
+}
+
+// ── Warden's Mark melee cleave splash ─────────────────────────────────────────
+void CombatEngine::applyWardenMarkSplash(CombatUnit& attacker, HexCoord targetPos,
+                                          uint32_t targetId, int damage)
+{
+    const Hero& hero = attacker.isPlayer ? m_playerHero : m_enemyHero;
+    const SkillInstance* si = hero.skills.getSkill(SID::WARDEN_MARK);
+    if (!si) return;
+    const SkillDef* def = findSkillDef(SID::WARDEN_MARK);
+    if (!def) return;
+
+    int splashMax = def->values[static_cast<int>(si->tier)]
+                  + (attacker.isPlayer && m_wardenBrand ? 1 : 0);
+    int splashDmg = std::max(1, damage / 2);
+    int splashHit = 0;
+    for (auto& foe : m_grid.units()) {
+        if (splashHit >= splashMax) break;
+        if (!foe.alive || foe.isPlayer == attacker.isPlayer || foe.id == targetId) continue;
+        if (HexGrid::distance(foe.pos, targetPos) > 1) continue;
+        foe.applyDamage(splashDmg);
+        addLog("  Warden's Mark: " + foe.name + " hit for " + std::to_string(splashDmg));
+        if (!foe.alive) addLog("  " + foe.name + " destroyed!");
+        splashHit++;
+    }
+    if (splashHit > 0)
+        addLog(hero.name + " Warden's Mark: " + std::to_string(splashHit) +
+               " adjacent unit(s) splashed");
 }
 
 // ── Kill event processing: fires all on-death specialties ─────────────────────
