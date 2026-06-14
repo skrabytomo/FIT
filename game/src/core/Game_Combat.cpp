@@ -464,6 +464,16 @@ void Game::enterCombat(Hero& playerHero,
     // Snapshot hero army for FIRST_AID post-combat calculation
     m_battleStartArmy = playerHero.army;
 
+    // Set per-battle specialty flags from class registry
+    playerHero.feastSpecialty  = false;
+    playerHero.witherSpecialty = false;
+    playerHero.ironDiscipline  = false;
+    if (const HeroClassDef* cls = m_classRegistry.getClass(playerHero.classId)) {
+        playerHero.feastSpecialty  = (cls->specialty == SpecialtyType::Feast);
+        playerHero.witherSpecialty = (cls->specialty == SpecialtyType::Wither);
+        playerHero.ironDiscipline  = (cls->specialty == SpecialtyType::IronDiscipline);
+    }
+
     // Garrison bonus: garrisoned hero grants +2 defense to all their units
     std::vector<CombatUnit> pUnitsGarr = playerUnits;
     if (playerHero.isGarrisoned)

@@ -85,6 +85,10 @@ public:
     int xpEarned() const { return m_enemyStartCount * 5; }
     int enemyStartCount() const { return m_enemyStartCount; }
 
+    // Hero state accessors (for HUD display)
+    const Hero& playerHero() const { return m_playerHero; }
+    const Hero& enemyHero()  const { return m_enemyHero; }
+
     // Headless batch simulation — both sides use AI, returns final phase
     void setSilent(bool s) { m_silent = s; }
     CombatPhase runHeadless(int maxRounds = 60);

@@ -25,6 +25,7 @@ private:
     void buildLayout(int sw, int sh);
     void drawUnitInfo(UIRenderer& rdr, const CombatUnit* unit, bool isActive);
     void drawTurnOrder(UIRenderer& rdr, const CombatEngine& engine);
+    void drawHeroInfo(UIRenderer& rdr, const CombatEngine& engine);
     void drawCombatLog(UIRenderer& rdr, const CombatEngine& engine);
     void drawActionBar(UIRenderer& rdr);
 

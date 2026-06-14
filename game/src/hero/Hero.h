@@ -87,6 +87,11 @@ struct Hero
     int battlesWon = 0;         // total combat victories (Veteran specialty)
     int specialtyAtk = 0;       // accumulated specialty attack bonus
 
+    // Transient per-battle specialty flags (set in enterCombat, not persisted)
+    bool feastSpecialty   = false;  // Blood Prince — drain own units, heal hero per round
+    bool witherSpecialty  = false;  // Fell Druid — enemies -1 ATK per round
+    bool ironDiscipline   = false;  // Warlord Mechanic — own units immune to morale loss
+
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
     // Returns true if the hero leveled up

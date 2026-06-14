@@ -54,6 +54,7 @@ void CombatHUD::buildLayout(int sw, int sh)
 void CombatHUD::draw(UIRenderer& rdr, const CombatEngine& engine)
 {
     drawTurnOrder(rdr, engine);
+    drawHeroInfo(rdr, engine);
 
     // Bottom HUD background
     rdr.drawRect(m_bottomBar,
@@ -179,6 +180,57 @@ void CombatHUD::drawUnitInfo(UIRenderer& rdr, const CombatUnit* unit, bool isAct
         rdr.drawText("Shots: " + std::to_string(unit->shotsLeft),
                      x, y, UIColor::hex(UITheme::MANA_BLUE), 11.0f);
     }
+}
+
+void CombatHUD::drawHeroInfo(UIRenderer& rdr, const CombatEngine& engine)
+{
+    // Right side of the turn order bar — two hero stat strips
+    const Hero& ph = engine.playerHero();
+    const Hero& eh = engine.enemyHero();
+
+    float panelW = 310.0f;
+    float px = m_screenW - panelW - 4.0f;
+    float py = 2.0f;
+    float barW = 130.0f;
+
+    auto drawHeroStrip = [&](const Hero& h, float oy, UIColor nameCol) {
+        float tx = px;
+        float ty = py + oy;
+
+        // Name
+        rdr.drawText(h.name, tx, ty, nameCol, 11.0f);
+        tx += 90.0f;
+
+        // HP bar
+        float hpFrac = h.heroMaxHp > 0
+            ? static_cast<float>(h.heroHp) / h.heroMaxHp : 1.0f;
+        UIColor hpCol = hpFrac > 0.5f ? UIColor::hex(UITheme::HP_GREEN) :
+                        hpFrac > 0.25f ? UIColor::hex(UITheme::MORALE_GOLD) :
+                                         UIColor::hex(UITheme::HP_LOW);
+        rdr.drawText("HP", tx, ty, UIColor::hex(UITheme::TEXT_SECONDARY), 10.0f);
+        tx += 18.0f;
+        rdr.drawBar({tx, ty+1.0f, barW * 0.45f, 8.0f}, hpFrac,
+                    hpCol, UIColor::hex(UITheme::BG_DARK), UIColor::hex(UITheme::BORDER));
+        tx += barW * 0.45f + 4.0f;
+
+        // Mana bar
+        float mpFrac = h.maxMana > 0
+            ? static_cast<float>(h.mana) / h.maxMana : 1.0f;
+        rdr.drawText("MP", tx, ty, UIColor::hex(UITheme::TEXT_SECONDARY), 10.0f);
+        tx += 18.0f;
+        rdr.drawBar({tx, ty+1.0f, barW * 0.45f, 8.0f}, mpFrac,
+                    UIColor::hex(UITheme::MANA_BLUE),
+                    UIColor::hex(UITheme::BG_DARK),
+                    UIColor::hex(UITheme::BORDER));
+        tx += barW * 0.45f + 4.0f;
+
+        // Numeric mana
+        std::string mpStr = std::to_string(h.mana) + "/" + std::to_string(h.maxMana);
+        rdr.drawText(mpStr, tx, ty, UIColor::hex(UITheme::MANA_BLUE), 10.0f);
+    };
+
+    drawHeroStrip(ph, 5.0f,  UIColor::hex(UITheme::NATURE_GREEN));
+    drawHeroStrip(eh, 23.0f, UIColor::hex(UITheme::BLOOD_RED));
 }
 
 void CombatHUD::drawTurnOrder(UIRenderer& rdr, const CombatEngine& engine)

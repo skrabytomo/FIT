@@ -134,6 +134,12 @@ void CombatEngine::startBattle(
             for (auto& u : m_grid.units())
                 if (u.isPlayer == isPlayer && u.alive) u.hasSecondLife = true;
         }
+
+        // IronDiscipline specialty: Warlord Mechanic's constructs ignore morale loss
+        if (hero.ironDiscipline) {
+            for (auto& u : m_grid.units())
+                if (u.isPlayer == isPlayer && u.alive) u.moraleImmune = true;
+        }
     };
     applySkills(m_playerHero, true);
     applySkills(m_enemyHero,  false);
@@ -938,6 +944,40 @@ void CombatEngine::processRoundStartEffects()
             if (u.burnRounds == 0) u.burnDamage = 0;
         }
     }
+
+    // Feast specialty (Blood Prince) — drain 2 HP from largest own unit, heal hero
+    auto applyFeast = [&](Hero& hero, bool isPlayer) {
+        if (!hero.feastSpecialty) return;
+        CombatUnit* biggest = nullptr;
+        for (auto& u : m_grid.units())
+            if (u.isPlayer == isPlayer && u.alive && u.count > 0)
+                if (!biggest || u.count > biggest->count) biggest = &u;
+        if (!biggest) return;
+        int drain = std::min(2, biggest->hp - 1);
+        if (drain <= 0) return;
+        biggest->hp -= drain;
+        int heal = std::min(drain, hero.heroMaxHp - hero.heroHp);
+        if (heal > 0) {
+            hero.heroHp += heal;
+            addLog(hero.name + " Feast: drained " + std::to_string(drain) +
+                   " HP from " + biggest->name + ", hero +HP");
+        }
+    };
+    applyFeast(m_playerHero, true);
+    applyFeast(m_enemyHero,  false);
+
+    // Wither specialty (Fell Druid) — enemies lose 1 ATK each round
+    auto applyWither = [&](const Hero& hero, bool isPlayer) {
+        if (!hero.witherSpecialty) return;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer == isPlayer || !u.alive) continue;
+            u.attack = std::max(0, u.attack - 1);
+        }
+        addLog(hero.name + " Wither: enemy units lose 1 ATK");
+    };
+    applyWither(m_playerHero, true);
+    applyWither(m_enemyHero,  false);
+
     m_grid.removeDeadUnits();
     checkVictory();
 }

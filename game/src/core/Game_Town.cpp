@@ -5,6 +5,7 @@
 #include "../world/HexGrid.h"
 #include "../world/FogOfWar.h"
 #include "../hero/Artifacts.h"
+#include "../hero/HeroClass.h"
 #include <imgui.h>
 #include <stdio.h>
 #include <unordered_map>
@@ -274,6 +275,18 @@ void Game::renderTavern()
         hired.faction  = town->faction;
         hired.pos      = spawnPos;
         hired.movePool = hired.maxMove;
+
+        // Assign a random class from the faction's pool
+        {
+            auto classes = m_classRegistry.getClassesForFaction(town->faction);
+            if (!classes.empty()) {
+                int pick = static_cast<int>((m_heroes.size() + m_turns.day()) % classes.size());
+                const HeroClassDef* cls = classes[pick];
+                hired.classId = cls->id;
+                if (!cls->skillPool.empty())
+                    hired.skills.learn(cls->skillPool[0]);
+            }
+        }
 
         // Starting spell for faction
         static const int kStartSpell[] = {
