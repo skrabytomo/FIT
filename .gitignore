@@ -4,3 +4,5 @@ build/
 *.a
 *.so
 .claude/
+__pycache__/
+*.py[cod]
