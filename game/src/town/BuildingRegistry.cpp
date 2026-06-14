@@ -610,7 +610,7 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(1500,ResourceType::BloodEssence,2);
       b.prerequisites={BID::AM_GRAFTING_HALL}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::AM_MERGE_CHAMBER; b.name="Merge Chamber";
-      b.description="Adaptation traits acquired 20% faster";
+      b.description="OrganicMech units adapt after 2 hits instead of 3";
       b.category=BuildingCategory::Support; b.faction=F::Amalgamate;
       b.cost=goldAndRes(2500,ResourceType::Iron,3);
       b.prerequisites={BID::AM_FLESH_VAULT}; m_buildings.push_back(b); }
