@@ -1543,8 +1543,9 @@ void CombatEngine::applySymbiosisRound()
         }
 
         if (hasBond) {
-            int symbiosisCap = m_symbiosisWeb ? 2 : 1;
-            int gain = std::min(val, std::max(0, symbiosisCap - unit.roundAttackBonus));
+            // Without building: cap at 1 (basic bond). With building: full val (1/2/3 by tier).
+            int cap = m_symbiosisWeb ? val : 1;
+            int gain = std::min(val, std::max(0, cap - unit.roundAttackBonus));
             unit.roundAttackBonus  += gain;
             unit.roundDefenseBonus += gain;
         }
