@@ -28,7 +28,7 @@ static const SpellDef ALL_SPELLS[] = {
     {SPL::ENTANGLE,       "Entangle",        "Roots reduce enemy attack this round",         SpellSchool::Nature,SpellTarget::SingleEnemy,   SpellEffect::AttackDebuff,   5,  3 },
     {SPL::CALL_LIGHTNING, "Call Lightning",  "Lightning strikes one enemy",                  SpellSchool::Nature,SpellTarget::SingleEnemy,   SpellEffect::Damage,         6,  16},
     {SPL::REGROWTH,       "Regrowth",        "Restores HP to an allied unit",                SpellSchool::Nature,SpellTarget::SingleAlly,    SpellEffect::Heal,           5,  20},
-    {SPL::SERPENT_VENOM,  "Serpent Venom",   "Injects venom — 12 poison damage/round for 3 rounds", SpellSchool::Nature, SpellTarget::SingleEnemy, SpellEffect::Poison, 6, 12},
+    {SPL::SERPENT_VENOM,  "Serpent Venom",   "Injects venom — poisons one enemy for 3 rounds",    SpellSchool::Nature, SpellTarget::SingleEnemy, SpellEffect::Poison, 6, 12},
 
     // ── FORGE ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {SPL::REINFORCE,      "Reinforce",       "Constructs gain +defense this round",          SpellSchool::Forge, SpellTarget::SingleAlly,    SpellEffect::DefenseBuff,    4,  4 },
@@ -42,7 +42,7 @@ static const SpellDef ALL_SPELLS[] = {
     {SPL::MEND_FLESH,     "Mend Flesh",      "Regenerates HP of an allied unit",             SpellSchool::Flesh, SpellTarget::SingleAlly,    SpellEffect::Heal,           5,  18},
     {SPL::TOXIN,          "Toxin",           "Toxic cloud drains enemy morale",              SpellSchool::Flesh, SpellTarget::SingleEnemy,   SpellEffect::MoraleDrain,    4,  20},
     {SPL::GROWTH,         "Growth",          "All allies surge with life — morale boost",    SpellSchool::Flesh, SpellTarget::AllAllies,     SpellEffect::MoraleBoost,    7,  15},
-    {SPL::ACID_SPRAY,     "Acid Spray",      "Corrosive acid — burns one enemy for 2 rounds (12 dmg/round)", SpellSchool::Flesh, SpellTarget::SingleEnemy, SpellEffect::Burn, 7, 12},
+    {SPL::ACID_SPRAY,     "Acid Spray",      "Corrosive acid — burns one enemy for 2 rounds",              SpellSchool::Flesh, SpellTarget::SingleEnemy, SpellEffect::Burn, 7, 12},
 };
 // clang-format on
 

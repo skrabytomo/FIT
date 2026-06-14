@@ -50,11 +50,13 @@ void CombatUnit::newRound()
     canRetaliate      = true;
     moraleSurgedThisRound = false;
 
-    // Tick buff durations; clear bonus when it expires
-    if (buffAttackRounds > 0)  --buffAttackRounds;
-    else                        roundAttackBonus  = 0;
-    if (buffDefenseRounds > 0) --buffDefenseRounds;
-    else                        roundDefenseBonus = 0;
+    // Tick buff durations; clear bonus when counter reaches zero
+    if (buffAttackRounds > 0) {
+        if (--buffAttackRounds == 0) roundAttackBonus  = 0;
+    }
+    if (buffDefenseRounds > 0) {
+        if (--buffDefenseRounds == 0) roundDefenseBonus = 0;
+    }
 
     // Tick defend buff down; remove it when it expires
     if (defendRoundsLeft > 0) {
