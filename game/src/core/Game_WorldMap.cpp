@@ -13,22 +13,6 @@
 
 static constexpr float MOVE_SPEED = 4.0f;
 
-// Apply a hero's UnitStatBonus skills to their combat units
-static void applyHeroSkillsToUnits(const Hero& hero, std::vector<CombatUnit>& units)
-{
-    for (const auto& si : hero.skills.slots) {
-        const SkillDef* def = findSkillDef(si.defId);
-        if (!def || def->effectType != SkillEffectType::UnitStatBonus) continue;
-        int val = def->values[static_cast<int>(si.tier)];
-        for (auto& u : units) {
-            // Archery only boosts ranged units
-            if (def->id == SID::ARCHERY && u.range == 0) continue;
-            if (def->statName == "attack")  u.attack  += val;
-            if (def->statName == "defense") u.defense += val;
-            if (def->statName == "speed")   u.speed   += val;
-        }
-    }
-}
 
 // ── Per-faction combat unit templates ─────────────────────────────────────────
 static std::vector<CombatUnit> makeFactionUnits(FactionId faction, bool isPlayer)
@@ -401,7 +385,6 @@ void Game::doEndTurn()
                     if (eHero.pos == playerHero.pos) {
                         m_lastCombatEnemyId = eHero.id;
                         auto pUnits = makeHeroUnits(playerHero, unitDefs, true);
-                        applyHeroSkillsToUnits(playerHero, pUnits);
                         auto eUnits = makeHeroUnits(eHero, unitDefs, false);
                         enterCombat(playerHero, pUnits, eHero, eUnits);
                         combatTriggered = true;
@@ -1162,7 +1145,6 @@ void Game::checkTileEvents()
                 m_lastCombatEnemyId = 0;
                 m_pendingTownCaptureId = 0;
                 auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
-                applyHeroSkillsToUnits(hero, pUnits);
                 enterCombat(hero, pUnits, banditHero, banditUnits);
                 return;
             }
@@ -1334,7 +1316,6 @@ void Game::checkTileEvents()
                     m_lastCombatEnemyId = 0; // no real enemy hero
                     m_pendingTownCaptureId = t.id;
                     auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
-                    applyHeroSkillsToUnits(hero, pUnits);
                     auto gUnits = makeHeroUnits(garrisonHero, m_registry.units(), false);
                     enterCombat(hero, pUnits, garrisonHero, gUnits);
                     return;
@@ -1370,7 +1351,6 @@ void Game::checkTileEvents()
         if (enemyPtr) {
             m_lastCombatEnemyId = enemyPtr->id;
             auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
-            applyHeroSkillsToUnits(hero, pUnits);
             auto eUnits = makeHeroUnits(*enemyPtr, m_registry.units(), false);
             enterCombat(hero, pUnits, *enemyPtr, eUnits);
         }

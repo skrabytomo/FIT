@@ -491,6 +491,30 @@ bool CombatEngine::submitAction(const CombatAction& action)
         if (result.vampireHeal > 0)
             addLog(unit->name + " drains " + std::to_string(result.vampireHeal) + " HP!");
 
+        // WARDEN_MARK skill: melee hit on the marked target splashes to N adjacent enemies
+        if (csBonus && unit->isPlayer) {
+            if (const SkillInstance* si = m_playerHero.skills.getSkill(SID::WARDEN_MARK)) {
+                if (const SkillDef* def = findSkillDef(SID::WARDEN_MARK)) {
+                    int splashMax = def->values[static_cast<int>(si->tier)];
+                    int splashDmg = std::max(1, result.damage / 2);
+                    int splashHit = 0;
+                    for (auto& foe : m_grid.units()) {
+                        if (splashHit >= splashMax) break;
+                        if (!foe.alive || foe.isPlayer || foe.id == targetId) continue;
+                        if (HexGrid::distance(foe.pos, targetPos) > 1) continue;
+                        foe.applyDamage(splashDmg);
+                        addLog("  Warden's Mark: " + foe.name + " hit for " +
+                               std::to_string(splashDmg));
+                        if (!foe.alive) addLog("  " + foe.name + " destroyed!");
+                        splashHit++;
+                    }
+                    if (splashHit > 0)
+                        addLog(m_playerHero.name + " Warden's Mark: " +
+                               std::to_string(splashHit) + " adjacent unit(s) splashed");
+                }
+            }
+        }
+
         if (m_dmgCb && result.damage > 0)
             m_dmgCb(targetId, result.damage, targetPos);
 

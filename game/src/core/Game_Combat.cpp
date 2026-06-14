@@ -935,14 +935,15 @@ void Game::exitCombat(bool playerWon)
                         pushPickupEffect(hero.pos, buf, IM_COL32(180, 255, 200, 255));
                     }
                 }
-                // Veteran (Crusader): +1 attack per battle won, max +5
+                // Veteran (Crusader): +1 ATK+DEF per battle won, max +5 each
                 if (cls->specialty == SpecialtyType::Veteran) {
                     hero.battlesWon++;
                     if (hero.specialtyAtk < 5) {
                         hero.specialtyAtk++;
                         hero.attack++;
-                        char buf[40];
-                        std::snprintf(buf, sizeof(buf), "+1 ATK (Veteran, total %d)", hero.specialtyAtk);
+                        hero.defense++;
+                        char buf[48];
+                        std::snprintf(buf, sizeof(buf), "+1 ATK+DEF (Veteran, total %d)", hero.specialtyAtk);
                         pushPickupEffect(hero.pos, buf, IM_COL32(255, 200, 80, 255));
                     }
                 }
