@@ -89,6 +89,9 @@ public:
     const Hero& playerHero() const { return m_playerHero; }
     const Hero& enemyHero()  const { return m_enemyHero; }
 
+    // Push an extra log entry externally (e.g. pre-battle intel)
+    void pushLog(const std::string& msg) { addLog(msg); }
+
     // Headless batch simulation — both sides use AI, returns final phase
     void setSilent(bool s) { m_silent = s; }
     CombatPhase runHeadless(int maxRounds = 60);

@@ -100,8 +100,9 @@ struct Hero
     bool harmonySpecialty      = false; // Warsinger — adjacent same-side pairs +1 ATK/DEF
     bool elixirSpecialty       = false; // Blood Sage — once per battle fully heal one unit
     bool elixirUsed            = false;
-    bool coordinatedStrikeSpecialty = false; // Warden Captain — marked target +2 ATK for all player attacks
-    bool bloodPenanceSpecialty      = false; // Flagellant Marshal — units +2 ATK, hero -5 HP/round
+    bool coordinatedStrikeSpecialty   = false; // Warden Captain — marked target +2 ATK for all player attacks
+    bool bloodPenanceSpecialty        = false; // Flagellant Marshal — units +2 ATK, hero -5 HP/round
+    bool negotiatedWeaknessSpecialty  = false; // Grave Diplomat — reveals enemy specialty before battle
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 

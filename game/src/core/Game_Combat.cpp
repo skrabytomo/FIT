@@ -507,19 +507,21 @@ void Game::enterCombat(Hero& playerHero,
     playerHero.harmonySpecialty           = false;
     playerHero.elixirSpecialty            = false;
     playerHero.elixirUsed                 = false;
-    playerHero.coordinatedStrikeSpecialty = false;
-    playerHero.bloodPenanceSpecialty      = false;
+    playerHero.coordinatedStrikeSpecialty  = false;
+    playerHero.bloodPenanceSpecialty       = false;
+    playerHero.negotiatedWeaknessSpecialty = false;
     if (const HeroClassDef* cls = m_classRegistry.getClass(playerHero.classId)) {
-        playerHero.feastSpecialty        = (cls->specialty == SpecialtyType::Feast);
-        playerHero.witherSpecialty       = (cls->specialty == SpecialtyType::Wither);
-        playerHero.ironDiscipline        = (cls->specialty == SpecialtyType::IronDiscipline);
-        playerHero.exsanguinate          = (cls->specialty == SpecialtyType::Exsanguinate);
-        playerHero.heresyDetection       = (cls->specialty == SpecialtyType::HeresyDetection);
+        playerHero.feastSpecialty              = (cls->specialty == SpecialtyType::Feast);
+        playerHero.witherSpecialty             = (cls->specialty == SpecialtyType::Wither);
+        playerHero.ironDiscipline              = (cls->specialty == SpecialtyType::IronDiscipline);
+        playerHero.exsanguinate                = (cls->specialty == SpecialtyType::Exsanguinate);
+        playerHero.heresyDetection             = (cls->specialty == SpecialtyType::HeresyDetection);
         playerHero.lightningRodSpecialty       = (cls->specialty == SpecialtyType::LightningRod);
         playerHero.harmonySpecialty            = (cls->specialty == SpecialtyType::Harmony);
         playerHero.elixirSpecialty             = (cls->specialty == SpecialtyType::Elixir);
         playerHero.coordinatedStrikeSpecialty  = (cls->specialty == SpecialtyType::CoordinatedStrike);
         playerHero.bloodPenanceSpecialty       = (cls->specialty == SpecialtyType::BloodPenance);
+        playerHero.negotiatedWeaknessSpecialty = (cls->specialty == SpecialtyType::NegotiatedWeakness);
     }
 
     // Garrison bonus: garrisoned hero grants +2 defense to all their units
@@ -537,6 +539,15 @@ void Game::enterCombat(Hero& playerHero,
     m_combat.setLogCallback([](const std::string& msg) {
         printf("[Combat] %s\n", msg.c_str());
     });
+
+    // NegotiatedWeakness: Grave Diplomat reveals enemy specialty at battle start
+    if (playerHero.negotiatedWeaknessSpecialty) {
+        if (const HeroClassDef* eCls = m_classRegistry.getClass(enemyHero.classId)) {
+            m_combat.pushLog("[Intel] Enemy is a " + eCls->name +
+                             " — " + eCls->specialtyDesc);
+        }
+    }
+
     m_combatDmgEffects.clear();
     m_combat.setDamageCallback([this](uint32_t targetId, int dmg, HexCoord pos) {
         // Convert hex pos to board pixel pos for floating text

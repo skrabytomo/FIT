@@ -464,6 +464,14 @@ void Game::startNewGame()
         eHero.knownSpells = { kEnemySpells[efi][0], kEnemySpells[efi][1] };
         eHero.mana    = 20;
         eHero.maxMana = 20;
+        // Assign a random class from the enemy's faction pool
+        {
+            auto eCls = m_classRegistry.getClassesForFaction(ef);
+            if (!eCls.empty()) {
+                int pick = static_cast<int>(i % eCls.size());
+                eHero.classId = eCls[pick]->id;
+            }
+        }
         // School power scales enemy hero spells (roughly half player's starting tier)
         switch (ef) {
             case FactionId::HolyOrder:      eHero.lightPower  = 2; break;

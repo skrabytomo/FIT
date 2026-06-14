@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "../hero/LevelUpSystem.h"
 #include "../hero/SkillRegistry.h"
+#include "../hero/HeroClass.h"
 #include "../magic/SpellRegistry.h"
 #include "../world/HexGrid.h"
 #include "../town/UnitDef.h"
@@ -339,9 +340,14 @@ void Game::doEndTurn()
                         if (t.ownerId != 0) continue;
                         tryGoal(t.pos);
                     }
+                    // GhostWalk: enemy AI cannot target the player hero directly
+                    bool playerGhostWalk = false;
+                    if (const HeroClassDef* pCls = m_classRegistry.getClass(playerHero.classId))
+                        playerGhostWalk = (pCls->specialty == SpecialtyType::GhostWalk);
+
                     // Player towns / hero (only if aggressive or nothing else to do)
                     if (aggressive || !goalSet) {
-                        tryGoal(playerHero.pos);
+                        if (!playerGhostWalk) tryGoal(playerHero.pos);
                         // Also target player towns when aggressive
                         if (aggressive) {
                             for (const auto& t : m_towns)
@@ -435,6 +441,29 @@ void Game::doEndTurn()
                     }
                 }
                 if (combatTriggered) return;
+            }
+        }
+
+        // BlightAura specialty (Blight Caller/Voidkin): Sacred terrain near the hero
+        // is passively corrupted each turn.
+        for (auto& hero : m_heroes) {
+            const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+            if (!cls || cls->specialty != SpecialtyType::BlightAura) continue;
+            constexpr int BLIGHT_RADIUS = 3;
+            int corrupted = 0;
+            for (const auto& coord : m_map.coords()) {
+                if (HexGrid::distance(hero.pos, coord) > BLIGHT_RADIUS) continue;
+                HexTile* t = m_map.getTile(coord);
+                if (t && t->terrain == Terrain::Sacred) {
+                    t->terrain = Terrain::Corrupted;
+                    corrupted++;
+                }
+            }
+            if (corrupted > 0) {
+                char buf[64];
+                std::snprintf(buf, sizeof(buf),
+                    "BlightAura: %d Sacred → Corrupted", corrupted);
+                pushPickupEffect(hero.pos, buf, IM_COL32(160, 80, 200, 255));
             }
         }
 
