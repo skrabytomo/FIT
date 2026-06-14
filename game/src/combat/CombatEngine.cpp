@@ -178,6 +178,7 @@ void CombatEngine::startBattle(
     applyBloodPenance(m_enemyHero,  false);
 
     m_coordinatedStrikeTarget = 0;
+    m_wildGrowthGhosted.clear();
 
     auto* firstUnit = activeUnit();
     m_phase = (firstUnit && !firstUnit->isPlayer) ? CombatPhase::EnemyTurn
@@ -259,7 +260,8 @@ CombatUnit* CombatEngine::activeUnit()
 // ── Advance to next unit ───────────────────────────────────────────────────────
 void CombatEngine::advanceTurn()
 {
-    // Free tiles and purge units killed since last advance (safe point — no live unit refs held)
+    // Spawn WildGrowth ghosts before removing dead units
+    spawnWildGrowthGhosts();
     m_grid.removeDeadUnits();
 
     m_turnIndex++;
@@ -389,6 +391,7 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
+            spawnWildGrowthGhosts();
             m_grid.removeDeadUnits();
         }
 
@@ -451,6 +454,7 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
+            spawnWildGrowthGhosts();
             m_grid.removeDeadUnits();
         }
 
@@ -591,6 +595,7 @@ bool CombatEngine::submitAction(const CombatAction& action)
             }
         }
         addLog(ss.str());
+        spawnWildGrowthGhosts();
         m_grid.removeDeadUnits();
         checkVictory();
 
@@ -1085,6 +1090,7 @@ void CombatEngine::processRoundStartEffects()
     applyBloodPenanceDrain(m_playerHero);
     applyBloodPenanceDrain(m_enemyHero);
 
+    spawnWildGrowthGhosts();
     m_grid.removeDeadUnits();
     checkVictory();
 }
@@ -1344,6 +1350,52 @@ void CombatEngine::tryEnemyHeroSpell()
     addLog(ss.str());
     m_grid.removeDeadUnits();
     checkVictory();
+}
+
+// ── WildGrowth: dead Beast units respawn as ghost at half stats ───────────────
+void CombatEngine::spawnWildGrowthGhosts()
+{
+    auto trySpawn = [&](const Hero& hero, bool isPlayer) {
+        if (!hero.wildGrowthSpecialty) return;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || u.alive) continue;
+            if (!hasTag(u.tags, UnitTag::Beast)) continue;
+            if (m_wildGrowthGhosted.count(u.id)) continue;
+            m_wildGrowthGhosted.insert(u.id);
+
+            int ghostCount = std::max(1, u.count / 2);
+            CombatUnit ghost = u;
+            ghost.alive    = true;
+            ghost.count    = ghostCount;
+            ghost.hp       = std::max(1, ghost.maxHp / 2);
+            ghost.attack   = std::max(1, ghost.attack  / 2);
+            ghost.defense  = std::max(1, ghost.defense / 2);
+            ghost.name     = "Ghost " + u.name;
+            ghost.hasActed = true;  // ghosts don't act on the turn they spawn
+            ghost.hasMoved = true;
+
+            uint32_t gid = m_grid.addUnit(ghost);
+            CombatUnit* placed = m_grid.getUnit(gid);
+            if (!placed) continue;
+
+            // Try to place on the same tile first, then adjacent free tiles
+            bool ok = m_grid.placeUnit(*placed, u.pos);
+            if (!ok) {
+                for (const auto& nb : HexGrid::neighbors(u.pos)) {
+                    if (!m_grid.inBounds(nb)) continue;
+                    auto* t = m_grid.getTile(nb);
+                    if (!t || t->occupied) continue;
+                    ok = m_grid.placeUnit(*placed, nb);
+                    if (ok) break;
+                }
+            }
+            if (ok)
+                addLog(hero.name + " WildGrowth: " + u.name + " → " + ghost.name +
+                       " (x" + std::to_string(ghostCount) + ")!");
+        }
+    };
+    trySpawn(m_playerHero, true);
+    trySpawn(m_enemyHero,  false);
 }
 
 // ── Victory check ──────────────────────────────────────────────────────────────

@@ -510,6 +510,7 @@ void Game::enterCombat(Hero& playerHero,
     playerHero.coordinatedStrikeSpecialty  = false;
     playerHero.bloodPenanceSpecialty       = false;
     playerHero.negotiatedWeaknessSpecialty = false;
+    playerHero.wildGrowthSpecialty         = false;
     if (const HeroClassDef* cls = m_classRegistry.getClass(playerHero.classId)) {
         playerHero.feastSpecialty              = (cls->specialty == SpecialtyType::Feast);
         playerHero.witherSpecialty             = (cls->specialty == SpecialtyType::Wither);
@@ -522,6 +523,7 @@ void Game::enterCombat(Hero& playerHero,
         playerHero.coordinatedStrikeSpecialty  = (cls->specialty == SpecialtyType::CoordinatedStrike);
         playerHero.bloodPenanceSpecialty       = (cls->specialty == SpecialtyType::BloodPenance);
         playerHero.negotiatedWeaknessSpecialty = (cls->specialty == SpecialtyType::NegotiatedWeakness);
+        playerHero.wildGrowthSpecialty         = (cls->specialty == SpecialtyType::WildGrowth);
     }
 
     // Garrison bonus: garrisoned hero grants +2 defense to all their units

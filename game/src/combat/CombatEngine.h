@@ -1,6 +1,7 @@
 #pragma once
 #include <vector>
 #include <functional>
+#include <unordered_set>
 #include "CombatPhase.h"
 #include "CombatGrid.h"
 #include "DamageCalc.h"
@@ -116,10 +117,11 @@ private:
 
     // AI dispatch — delegates to difficulty-specific implementation
     void aiActUnit(CombatUnit& unit);
-    void aiActPassive(CombatUnit& unit);   // random target, no priority
-    void aiActStandard(CombatUnit& unit);  // nearest enemy (current behaviour)
-    void aiActTactical(CombatUnit& unit);  // weakest stack first, protect ranged
-    void tryEnemyHeroSpell();              // enemy hero casts one spell per round
+    void aiActPassive(CombatUnit& unit);
+    void aiActStandard(CombatUnit& unit);
+    void aiActTactical(CombatUnit& unit);
+    void tryEnemyHeroSpell();
+    void spawnWildGrowthGhosts();  // WildGrowth: respawn dead Beast units as ghosts
 
     CombatGrid  m_grid;
     CombatPhase m_phase     = CombatPhase::Setup;
@@ -138,7 +140,8 @@ private:
     AIDifficulty           m_playerAI = AIDifficulty::Standard;
     AIDifficulty           m_enemyAI  = AIDifficulty::Standard;
 
-    uint32_t m_coordinatedStrikeTarget = 0;  // enemy unit ID currently marked
+    uint32_t m_coordinatedStrikeTarget = 0;
+    std::unordered_set<uint32_t> m_wildGrowthGhosted;  // unit IDs already ghosted
 
     Hero m_playerHero;
     Hero m_enemyHero;

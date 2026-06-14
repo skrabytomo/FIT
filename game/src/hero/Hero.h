@@ -103,6 +103,7 @@ struct Hero
     bool coordinatedStrikeSpecialty   = false; // Warden Captain — marked target +2 ATK for all player attacks
     bool bloodPenanceSpecialty        = false; // Flagellant Marshal — units +2 ATK, hero -5 HP/round
     bool negotiatedWeaknessSpecialty  = false; // Grave Diplomat — reveals enemy specialty before battle
+    bool wildGrowthSpecialty          = false; // Beastcaller — dead Beast units respawn as Ghosts
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
