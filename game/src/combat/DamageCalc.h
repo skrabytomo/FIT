@@ -6,10 +6,11 @@ struct DamageResult
 {
     int   damage     = 0;
     int   killed     = 0;
-    bool  retaliated    = false;
-    bool  moraleTrigger = false;  // attacker got bonus action
-    bool  luckTrigger   = false;  // lucky hit — double damage
-    int   vampireHeal   = 0;      // HP healed by vampiric drain
+    bool  retaliated      = false;
+    bool  moraleTrigger   = false;  // attacker got bonus action
+    bool  luckTrigger     = false;  // lucky hit — double damage
+    int   vampireHeal     = 0;      // HP healed by vampiric drain
+    bool  desperationSurge = false; // Holy attacker had full meter — got bonus ATK
 };
 
 class DamageCalc

@@ -415,6 +415,7 @@ bool CombatEngine::submitAction(const CombatAction& action)
         if (csBonus) unit->attack -= 2;
 
         std::ostringstream ss;
+        if (result.desperationSurge) ss << "[Desperation!+3] ";
         if (result.luckTrigger) ss << "★ LUCKY HIT! ";
         if (csBonus) ss << "[Coordinated +2] ";
         ss << unit->name << " attacks " << target->name
@@ -429,6 +430,24 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
+            // LastRites specialty (Confessor): any death charges nearby Holy ally meters
+            auto applyLastRites = [&](const Hero& hero, bool isPlayer) {
+                if (!hero.lastRitesSpecialty) return;
+                HexCoord deathPos = target->pos;
+                int charged = 0;
+                for (auto& ally : m_grid.units()) {
+                    if (!ally.alive || ally.isPlayer != isPlayer) continue;
+                    if (!hasTag(ally.tags, UnitTag::Holy)) continue;
+                    if (HexGrid::distance(ally.pos, deathPos) > 3) continue;
+                    ally.desperationMeter = std::min(100, ally.desperationMeter + 20);
+                    charged++;
+                }
+                if (charged > 0)
+                    addLog(hero.name + " LastRites: " + std::to_string(charged) +
+                           " Holy units +20 Desperation");
+            };
+            applyLastRites(m_playerHero, true);
+            applyLastRites(m_enemyHero, false);
             // BloodWeb specialty (Oathmaster): all allies heal on a kill
             if (result.killed > 0) {
                 auto applyBloodWeb = [&](const Hero& hero, bool isPlayer) {
@@ -511,6 +530,25 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
+            {
+                HexCoord deathPos = target->pos;
+                auto applyLastRitesShot = [&](const Hero& hero, bool isPlayer) {
+                    if (!hero.lastRitesSpecialty) return;
+                    int charged = 0;
+                    for (auto& ally : m_grid.units()) {
+                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
+                        if (!hasTag(ally.tags, UnitTag::Holy)) continue;
+                        if (HexGrid::distance(ally.pos, deathPos) > 3) continue;
+                        ally.desperationMeter = std::min(100, ally.desperationMeter + 20);
+                        charged++;
+                    }
+                    if (charged > 0)
+                        addLog(hero.name + " LastRites: " + std::to_string(charged) +
+                               " Holy units +20 Desperation");
+                };
+                applyLastRitesShot(m_playerHero, true);
+                applyLastRitesShot(m_enemyHero, false);
+            }
             if (result.killed > 0) {
                 auto applyBloodWebShot = [&](const Hero& hero, bool isPlayer) {
                     if (!hero.bloodWebSpecialty) return;

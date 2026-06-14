@@ -185,11 +185,20 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
 {
     DamageResult result;
 
+    // Desperation surge (Holy Order): full meter → +3 effective ATK for this strike
+    int desperationAtkBonus = 0;
+    if (!isRetaliation && hasTag(attacker.tags, UnitTag::Holy)
+        && attacker.desperationMeter >= 100) {
+        attacker.desperationMeter = 0;
+        desperationAtkBonus = 3;
+        result.desperationSurge = true;
+    }
+
     // Base damage roll
     int baseDmg = rollDamage(attacker.damageMin, attacker.damageMax, attacker.count);
 
-    // Attack vs defense modifier (include per-round bonuses)
-    int diff = (attacker.attack + attacker.roundAttackBonus)
+    // Attack vs defense modifier (include per-round bonuses + desperation bonus)
+    int diff = (attacker.attack + attacker.roundAttackBonus + desperationAtkBonus)
              - (defender.defense + defender.roundDefenseBonus);
     float modifier = 1.0f;
     if (diff > 0)
@@ -225,6 +234,14 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
 
     result.damage = finalDmg;
     result.killed = defender.applyDamage(finalDmg);
+
+    // Desperation meter charging: Holy defenders build meter when taking damage
+    if (finalDmg > 0 && defender.alive && hasTag(defender.tags, UnitTag::Holy)) {
+        int stackHp = std::max(1, defender.count * defender.maxHp);
+        int gain    = std::max(5, finalDmg * 30 / stackHp);
+        gain = std::min(gain, 25);
+        defender.desperationMeter = std::min(100, defender.desperationMeter + gain);
+    }
 
     // Vampiric drain — heal attacker by damage dealt (not during retaliation)
     if (!isRetaliation && attacker.vampiric && finalDmg > 0) {

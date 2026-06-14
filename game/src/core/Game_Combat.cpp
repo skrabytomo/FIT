@@ -537,6 +537,7 @@ void Game::enterCombat(Hero& playerHero,
     playerHero.bloodWebSpecialty           = false;
     playerHero.phylacterySpecialty         = false;
     playerHero.bloodScentSpecialty         = false;
+    playerHero.lastRitesSpecialty          = false;
     if (const HeroClassDef* cls = m_classRegistry.getClass(playerHero.classId)) {
         playerHero.feastSpecialty              = (cls->specialty == SpecialtyType::Feast);
         playerHero.witherSpecialty             = (cls->specialty == SpecialtyType::Wither);
@@ -557,6 +558,7 @@ void Game::enterCombat(Hero& playerHero,
         playerHero.bloodWebSpecialty           = (cls->specialty == SpecialtyType::BloodWeb);
         playerHero.phylacterySpecialty         = (cls->specialty == SpecialtyType::Phylactery);
         playerHero.bloodScentSpecialty         = (cls->specialty == SpecialtyType::BloodScent);
+        playerHero.lastRitesSpecialty          = (cls->specialty == SpecialtyType::LastRites);
     }
 
     // Garrison bonus: garrisoned hero grants +2 defense to all their units

@@ -112,6 +112,7 @@ struct Hero
     bool phylacterySpecialty          = false; // Lich — escape one defeat per campaign at half stats
     bool phylacteryUsed               = false; // persistent: tracks if Phylactery was consumed
     bool bloodScentSpecialty          = false; // Inquisitor Hunter — Bloodsworn heroes always visible
+    bool lastRitesSpecialty           = false; // Confessor — friendly deaths charge Holy units' Desperation
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
