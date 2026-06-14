@@ -149,6 +149,40 @@ python3 tools/fix_sprite.py input.png faction_0_t1.png
 
 ---
 
+## Recommended workflow — single character per image
+
+Instead of generating sprite sheets (which require splitting and often cut through characters), generate **one character per image** and let the script auto-generate all 8 frames:
+
+### ChatGPT prompt (paste this, replace CHARACTER line)
+
+```
+Pixel art character, full body, facing RIGHT, standing idle pose.
+Style: 16-bit, HoMM3 / Final Fantasy Tactics, clean dark outlines,
+       limited palette (~24 colours), no anti-aliasing.
+Background: solid flat colour #614537 (dark brown).
+Single character only, centered, feet at bottom edge.
+Size: 256×256 pixels.
+CHARACTER: [description from table above]
+```
+
+### Processing
+
+```bash
+python3 tools/make_strip.py <downloaded.png> game/assets/sprites/faction_F_tT.png
+```
+
+The script:
+- Flood-fills and removes the #614537 background
+- Tight-crops to the character
+- Scales to fit a 64×64 frame (bottom-aligned)
+- Auto-generates 8 animation frames (idle bob, attack lunge, hurt recoil, dead flatten)
+- Saves the 512×64 strip directly to the assets folder
+- Also saves a `_preview.png` at 8× scale for quick review
+
+No splitting, no sheet processing, no cutting artifacts.
+
+---
+
 ## Tips for better ChatGPT results
 
 - **Ask for one unit at a time** — quality drops with multiple characters
