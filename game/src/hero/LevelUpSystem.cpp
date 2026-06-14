@@ -68,8 +68,8 @@ std::vector<LevelUpOffer> LevelUpSystem::generateOffers(
         picked++;
     }
 
-    // Wildcard every 4 levels — pick from general pool outside class
-    bool addWildcard = (heroLevel % 4 == 0) && picked < 2;
+    // Wildcard every 4 levels — offer a 3rd choice from outside the class pool
+    bool addWildcard = (heroLevel % 4 == 0);
     if (addWildcard) {
         // General combat skills as wildcards
         static const int wildcardPool[] = {

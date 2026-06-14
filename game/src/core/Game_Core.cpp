@@ -644,9 +644,12 @@ void Game::startNewGame()
 void Game::saveSettings()
 {
     nlohmann::json j;
-    j["sfxVol"]    = m_settingsSfxVol;
-    j["musVol"]    = m_settingsMasVol;
-    j["fullscreen"] = m_settingsFullscreen;
+    j["sfxVol"]        = m_settingsSfxVol;
+    j["musVol"]        = m_settingsMasVol;
+    j["fullscreen"]    = m_settingsFullscreen;
+    j["autoSave"]      = m_settingsAutoSave;
+    j["animSpeed"]     = m_settingsAnimSpeed;
+    j["showDmgNums"]   = m_settingsShowDmgNums;
     std::ofstream f("settings.json");
     if (f) f << j.dump(2);
 }
@@ -657,9 +660,12 @@ void Game::loadSettings()
     if (!f) return;
     try {
         nlohmann::json j = nlohmann::json::parse(f);
-        m_settingsSfxVol     = j.value("sfxVol",     0.7f);
-        m_settingsMasVol     = j.value("musVol",      0.35f);
-        m_settingsFullscreen = j.value("fullscreen",  false);
+        m_settingsSfxVol        = j.value("sfxVol",      0.7f);
+        m_settingsMasVol        = j.value("musVol",       0.35f);
+        m_settingsFullscreen    = j.value("fullscreen",   false);
+        m_settingsAutoSave      = j.value("autoSave",     true);
+        m_settingsAnimSpeed     = j.value("animSpeed",    1.0f);
+        m_settingsShowDmgNums   = j.value("showDmgNums",  true);
         m_audio.setSfxVolume(m_settingsSfxVol);
         m_audio.setMusicVolume(m_settingsMasVol);
         if (m_settingsFullscreen)

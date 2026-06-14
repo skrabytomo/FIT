@@ -2043,6 +2043,11 @@ void Game::renderHeroInspect()
         }
     }
     ImGui::TextDisabled("Level %d  —  XP %d / %d", hero.level, hero.xp, hero.xpToNext);
+    {
+        float xpFrac = hero.xpToNext > 0 ? static_cast<float>(hero.xp) / hero.xpToNext : 1.0f;
+        char xpLabel[32]; std::snprintf(xpLabel, sizeof(xpLabel), "XP %.0f%%", xpFrac * 100.0f);
+        ImGui::ProgressBar(xpFrac, ImVec2(-1, 10), xpLabel);
+    }
     ImGui::TextDisabled("Battles won: %d", hero.battlesWon);
     if (hero.isGarrisoned)
         ImGui::TextColored(ImVec4(0.5f, 0.8f, 0.5f, 1.0f), "[Garrisoned — +2 DEF in combat]");
@@ -2077,13 +2082,21 @@ void Game::renderHeroInspect()
     }
     ImGui::Spacing();
 
-    ImGui::Text("Casting Power:");
-    if (hero.lightPower)  ImGui::Text("  Light  +%d", hero.lightPower);
-    if (hero.bloodPower)  ImGui::Text("  Blood  +%d", hero.bloodPower);
-    if (hero.deathPower)  ImGui::Text("  Death  +%d", hero.deathPower);
-    if (hero.naturePower) ImGui::Text("  Nature +%d", hero.naturePower);
-    if (hero.forgePower)  ImGui::Text("  Forge  +%d", hero.forgePower);
-    if (hero.fleshPower)  ImGui::Text("  Flesh  +%d", hero.fleshPower);
+    {
+        bool anyPower = hero.lightPower || hero.bloodPower || hero.deathPower ||
+                        hero.naturePower || hero.forgePower || hero.fleshPower;
+        ImGui::Text("Casting Power:");
+        if (anyPower) {
+            if (hero.lightPower)  ImGui::Text("  Light  +%d", hero.lightPower);
+            if (hero.bloodPower)  ImGui::Text("  Blood  +%d", hero.bloodPower);
+            if (hero.deathPower)  ImGui::Text("  Death  +%d", hero.deathPower);
+            if (hero.naturePower) ImGui::Text("  Nature +%d", hero.naturePower);
+            if (hero.forgePower)  ImGui::Text("  Forge  +%d", hero.forgePower);
+            if (hero.fleshPower)  ImGui::Text("  Flesh  +%d", hero.fleshPower);
+        } else {
+            ImGui::TextDisabled("  (no school specialisation)");
+        }
+    }
 
     if (!hero.skills.slots.empty()) {
         ImGui::Spacing();
@@ -2140,21 +2153,23 @@ void Game::renderHeroInspect()
         ImGui::Text("Army:");
         ImGui::Separator();
         const auto& unitDefs = m_registry.units();
-        int totalStrength = 0;
+        int totalUnits = 0, totalHp = 0;
         for (const auto& stack : hero.army) {
             if (stack.count <= 0) continue;
             const char* uname = "Unknown";
-            int ud_atk = 0, ud_def = 0;
+            int ud_atk = 0, ud_def = 0, ud_hp = 0;
             for (const auto& ud : unitDefs)
                 if (ud.id == stack.defId) {
                     uname = ud.name.c_str();
-                    ud_atk = ud.attack; ud_def = ud.defense; break;
+                    ud_atk = ud.attack; ud_def = ud.defense; ud_hp = ud.hp; break;
                 }
-            ImGui::Text("  %-24s x%-5d  ATK %d  DEF %d", uname, stack.count, ud_atk, ud_def);
-            totalStrength += stack.count;
+            ImGui::Text("  %-22s x%-4d  ATK %d  DEF %d  HP %d",
+                        uname, stack.count, ud_atk, ud_def, ud_hp * stack.count);
+            totalUnits += stack.count;
+            totalHp    += ud_hp * stack.count;
         }
         ImGui::Spacing();
-        ImGui::TextDisabled("  Total units: %d", totalStrength);
+        ImGui::TextDisabled("  Total: %d units, %d HP", totalUnits, totalHp);
     }
     ImGui::End();
 }
