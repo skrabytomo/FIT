@@ -358,6 +358,17 @@ void Game::renderCombatBoard()
         if (u.hasSecondLife && !u.secondLifeUsed) {
             dl->AddCircle({sx, sy}, hexR * 0.6f, IM_COL32(255, 215, 0, 180), 0, 1.5f);  // gold inner ring
         }
+        // Morale indicator: pulsing ring when morale is extreme
+        if (!u.moraleImmune) {
+            if (u.morale >= 80) {
+                // High morale — bright gold ring
+                dl->AddCircle({sx, sy}, hexR * 1.18f, IM_COL32(255, 200, 30, 120), 0, 1.5f);
+            } else if (u.morale < 20) {
+                // Fear — red jagged outline (double circle slightly offset)
+                dl->AddCircle({sx, sy}, hexR * 1.18f, IM_COL32(200, 30, 30, 140), 0, 1.5f);
+                dl->AddCircle({sx, sy}, hexR * 1.10f, IM_COL32(200, 30, 30,  80), 0, 1.0f);
+            }
+        }
         // OrganicMech adaptation indicator: small teal gems below the unit, one per 2 adaptations
         if (hasTag(u.tags, UnitTag::OrganicMech) && u.adaptationsGained > 0) {
             int gemCount = (u.adaptationsGained + 1) / 2;  // show 1 gem per 2 adaptations (max 3)
@@ -432,6 +443,42 @@ void Game::renderCombatBoard()
             m_combatHUD.setHoveredUnit(hovered);
         } else {
             m_combatHUD.setHoveredUnit(nullptr);
+        }
+
+        // Tile-type tooltip for special terrain (shown on empty tiles)
+        if (!hovered) {
+            const CombatTile* mt = grid.getTile(mh);
+            const char* tileTip = nullptr;
+            if (mt) {
+                switch (mt->type) {
+                case CombatTileType::Attack:
+                    tileTip = "Power Ground\n+2 ATK when a unit enters this tile";
+                    break;
+                case CombatTileType::Defense:
+                    tileTip = "Fortified Ground\n+2 DEF when a unit enters this tile";
+                    break;
+                case CombatTileType::Speed:
+                    tileTip = "Sacred Ground\n+5 Morale when a unit enters (bonus action threshold)";
+                    break;
+                case CombatTileType::SpeedPenalty:
+                    tileTip = "Hazard Ground\n-5 Morale when a unit enters this tile";
+                    break;
+                case CombatTileType::Wall:
+                    tileTip = "Fort Wall\nBlocks movement; destroyed when HP reaches 0";
+                    break;
+                default: break;
+                }
+            }
+            if (tileTip) {
+                float tx = mouse.x + 12.0f;
+                float ty = mouse.y - 24.0f;
+                ImVec2 ts2 = ImGui::CalcTextSize(tileTip);
+                dl->AddRectFilled({tx - 4, ty - 3}, {tx + ts2.x + 4, ty + ts2.y + 3},
+                                   IM_COL32(15, 20, 35, 220), 3.0f);
+                dl->AddRect({tx - 4, ty - 3}, {tx + ts2.x + 4, ty + ts2.y + 3},
+                             IM_COL32(100, 160, 200, 180), 3.0f);
+                dl->AddText({tx, ty}, IM_COL32(200, 230, 255, 255), tileTip);
+            }
         }
     }
 

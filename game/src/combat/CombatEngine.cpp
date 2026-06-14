@@ -957,6 +957,19 @@ void CombatEngine::processAITurn()
 
 void CombatEngine::aiActUnit(CombatUnit& unit)
 {
+    // Low-morale hesitation: if morale < 20 and not immune, 30% chance to defend
+    if (!unit.moraleImmune && unit.morale < 20) {
+        uint32_t roll = static_cast<uint32_t>(m_round * 7919u + unit.id * 1000003u + m_turnIndex * 31337u);
+        if ((roll % 10) < 3) {
+            unit.defendDefenseBonus = 2;
+            unit.defendRoundsLeft   = 1;
+            addLog(unit.name + " hesitates in fear! (Defends)");
+            unit.hasActed = true;
+            advanceTurn();
+            return;
+        }
+    }
+
     AIDifficulty diff = unit.isPlayer ? m_playerAI : m_enemyAI;
     switch (diff) {
     case AIDifficulty::Passive:  aiActPassive(unit);  break;

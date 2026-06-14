@@ -1999,6 +1999,9 @@ void Game::renderHeroInspect()
         if (cls->specialty == SpecialtyType::Recycler && hero.recyclerBonus > 0)
             ImGui::TextColored(ImVec4(0.7f, 0.85f, 0.4f, 1.0f),
                                "Recycler: +%d ATK to all units (%d/5)", hero.recyclerBonus, hero.recyclerBonus);
+        if (cls->specialty == SpecialtyType::LivingRune && hero.livingRuneBonus > 0)
+            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f),
+                               "Living Rune: +%d ATK/DEF to hero (%d/5)", hero.livingRuneBonus, hero.livingRuneBonus);
     }
     ImGui::Spacing();
 
