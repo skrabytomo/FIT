@@ -59,6 +59,7 @@ public:
     void onWeekStart(const std::vector<BuildingDef>& defs);
 
     // Recruit units from a dwelling — returns actual count recruited
+    // costMult: multiplier applied to total cost (e.g. 0.8 for 20% discount)
     int recruit(int tier, int count, Resources& playerRes,
-                const std::vector<UnitDef>& unitDefs);
+                const std::vector<UnitDef>& unitDefs, float costMult = 1.0f);
 };

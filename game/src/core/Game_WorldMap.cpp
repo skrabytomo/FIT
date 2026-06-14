@@ -1234,10 +1234,17 @@ void Game::renderWorldOverlay()
         dl->AddRect({sx - 10, sy - 10}, {sx + 10, sy + 10}, ring, 2.0f, 0, 1.2f);
     }
 
-    // ── Enemy heroes (only if tile is visible) ────────────────────────────────
+    // BloodScent: any player hero with this specialty reveals Bloodsworn enemies
+    bool playerHasBloodScent = false;
+    for (const auto& ph : m_heroes) {
+        if (ph.bloodScentSpecialty) { playerHasBloodScent = true; break; }
+    }
+
+    // ── Enemy heroes (only if tile is visible, or revealed by BloodScent) ─────
     for (const auto& hero : m_enemyHeroes) {
         const HexTile* etile = m_map.getTile(hero.pos);
-        if (!etile || !etile->visible) continue;
+        bool revealedByBloodScent = playerHasBloodScent && hero.faction == FactionId::Bloodsworn;
+        if (!etile || (!etile->visible && !revealedByBloodScent)) continue;
         float sx, sy;
         project(hero.pos, sx, sy);
 

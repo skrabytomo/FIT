@@ -90,6 +90,9 @@ public:
     const Hero& playerHero() const { return m_playerHero; }
     const Hero& enemyHero()  const { return m_enemyHero; }
 
+    // CoordinatedStrike: current marked enemy unit ID (0 = none)
+    uint32_t coordinatedStrikeTarget() const { return m_coordinatedStrikeTarget; }
+
     // Push an extra log entry externally (e.g. pre-battle intel)
     void pushLog(const std::string& msg) { addLog(msg); }
 

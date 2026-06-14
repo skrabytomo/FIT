@@ -177,6 +177,44 @@ void CombatEngine::startBattle(
     applyBloodPenance(m_playerHero, true);
     applyBloodPenance(m_enemyHero,  false);
 
+    // Overgrowth specialty (Pathfinder) — place 3 Speed tiles on caster's side
+    auto applyOvergrowth = [this](const Hero& hero, bool isPlayer) {
+        if (!hero.overgrowthSpecialty) return;
+        int placed = 0;
+        for (const auto& coord : m_grid.allCoords()) {
+            if (placed >= 3) break;
+            bool inZone = isPlayer ? (coord.q <= 3) : (coord.q >= CombatGrid::COLS - 4);
+            if (!inZone) continue;
+            CombatTile* t = m_grid.getTile(coord);
+            if (t && t->type == CombatTileType::Normal && !t->occupied) {
+                m_grid.setTileType(coord, CombatTileType::Speed);
+                placed++;
+            }
+        }
+        if (placed > 0)
+            addLog(hero.name + " Overgrowth: " + std::to_string(placed) + " forest tiles placed");
+    };
+    applyOvergrowth(m_playerHero, true);
+    applyOvergrowth(m_enemyHero,  false);
+
+    // Swarm specialty (Thrall Master) — BloodBound units begin at full morale
+    auto applySwarm = [this](const Hero& hero, bool isPlayer) {
+        if (!hero.swarmSpecialty) return;
+        int boosted = 0;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive) continue;
+            if (hasTag(u.tags, UnitTag::BloodBound)) {
+                u.morale = 100;
+                boosted++;
+            }
+        }
+        if (boosted > 0)
+            addLog(hero.name + " Swarm: " + std::to_string(boosted) +
+                   " BloodBound units start at full morale");
+    };
+    applySwarm(m_playerHero, true);
+    applySwarm(m_enemyHero,  false);
+
     m_coordinatedStrikeTarget = 0;
     m_wildGrowthGhosted.clear();
 
@@ -391,6 +429,25 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
+            // BloodWeb specialty (Oathmaster): all allies heal on a kill
+            if (result.killed > 0) {
+                auto applyBloodWeb = [&](const Hero& hero, bool isPlayer) {
+                    if (!hero.bloodWebSpecialty) return;
+                    int healAmt = result.killed * 4;
+                    int healed = 0;
+                    for (auto& ally : m_grid.units()) {
+                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
+                        int prev = ally.hp;
+                        ally.hp = std::min(ally.maxHp, ally.hp + healAmt);
+                        if (ally.hp > prev) healed++;
+                    }
+                    if (healed > 0)
+                        addLog(hero.name + " BloodWeb: " + std::to_string(healed) +
+                               " allies healed " + std::to_string(healAmt) + " HP from kill");
+                };
+                applyBloodWeb(m_playerHero, unit->isPlayer);
+                applyBloodWeb(m_enemyHero,  !unit->isPlayer);
+            }
             spawnWildGrowthGhosts();
             m_grid.removeDeadUnits();
         }
@@ -454,6 +511,24 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
         if (!target->alive) {
             addLog(target->name + " destroyed!");
+            if (result.killed > 0) {
+                auto applyBloodWebShot = [&](const Hero& hero, bool isPlayer) {
+                    if (!hero.bloodWebSpecialty) return;
+                    int healAmt = result.killed * 4;
+                    int healed = 0;
+                    for (auto& ally : m_grid.units()) {
+                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
+                        int prev = ally.hp;
+                        ally.hp = std::min(ally.maxHp, ally.hp + healAmt);
+                        if (ally.hp > prev) healed++;
+                    }
+                    if (healed > 0)
+                        addLog(hero.name + " BloodWeb: " + std::to_string(healed) +
+                               " allies healed " + std::to_string(healAmt) + " HP from kill");
+                };
+                applyBloodWebShot(m_playerHero, unit->isPlayer);
+                applyBloodWebShot(m_enemyHero,  !unit->isPlayer);
+            }
             spawnWildGrowthGhosts();
             m_grid.removeDeadUnits();
         }

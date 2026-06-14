@@ -250,6 +250,9 @@ void Game::renderCombatBoard()
         }
     }
 
+    // CoordinatedStrike marked target ID
+    uint32_t csTarget = m_combat.coordinatedStrikeTarget();
+
     // Draw alive units
     for (const auto& u : grid.units()) {
         if (!u.alive) continue;
@@ -259,6 +262,7 @@ void Game::renderCombatBoard()
         float sy = wy * scale + m_combatBoardOffY;
 
         bool  isActive = (active && u.id == active->id);
+        bool  isGhost  = (u.name.rfind("Ghost ", 0) == 0);
         ImU32 rimCol   = isActive ? IM_COL32(255, 205, 50, 255)
                                   : IM_COL32(210, 210, 210, 160);
 
@@ -271,22 +275,37 @@ void Game::renderCombatBoard()
                 float u0, v0, u1, v1;
                 anim.getUV(u0, v0, u1, v1);
                 ImTextureID tid = (ImTextureID)(uintptr_t)m_spriteAtlas[fi].id();
+                ImU32 tint = isGhost ? IM_COL32(200, 230, 255, 110) : IM_COL32(255, 255, 255, 255);
                 dl->AddImage(tid,
                     {sx - sprW, sy - sprH * 0.85f},
                     {sx + sprW, sy + sprH * 0.15f},
-                    {u0, v0}, {u1, v1});
+                    {u0, v0}, {u1, v1}, tint);
                 drewSprite = true;
             }
         }
         if (!drewSprite) {
             // Circle fallback if no sprite atlas loaded
-            ImU32 fillCol = u.isPlayer ? IM_COL32(55, 155, 55, 230)
-                                       : IM_COL32(185, 45, 45, 230);
+            uint8_t alpha = isGhost ? 110 : 230;
+            ImU32 fillCol = u.isPlayer ? IM_COL32(55, 155, 55, alpha)
+                                       : IM_COL32(185, 45, 45, alpha);
             dl->AddCircleFilled({sx, sy}, hexR, fillCol);
         }
 
         // Activity ring
         dl->AddCircle({sx, sy}, hexR * 1.05f, rimCol, 0, isActive ? 2.5f : 1.2f);
+
+        // CoordinatedStrike reticle: orange double-ring on marked enemy
+        if (!u.isPlayer && u.id == csTarget) {
+            dl->AddCircle({sx, sy}, hexR * 1.28f, IM_COL32(255, 140, 0, 230), 0, 2.5f);
+            dl->AddCircle({sx, sy}, hexR * 1.42f, IM_COL32(255, 200, 50, 110), 0, 1.5f);
+            // Small crosshair lines
+            float ch = hexR * 0.22f;
+            dl->AddLine({sx - hexR*1.42f, sy}, {sx - hexR*1.15f, sy}, IM_COL32(255, 160, 30, 200), 1.5f);
+            dl->AddLine({sx + hexR*1.15f, sy}, {sx + hexR*1.42f, sy}, IM_COL32(255, 160, 30, 200), 1.5f);
+            dl->AddLine({sx, sy - hexR*1.42f}, {sx, sy - hexR*1.15f}, IM_COL32(255, 160, 30, 200), 1.5f);
+            dl->AddLine({sx, sy + hexR*1.15f}, {sx, sy + hexR*1.42f}, IM_COL32(255, 160, 30, 200), 1.5f);
+            (void)ch;
+        }
 
         // HP bar — shows total stack HP as a fraction of starting HP for this stack
         int   stackMaxHp = u.count * u.maxHp + (u.maxHp - u.hp);  // approximate starting max
@@ -511,6 +530,13 @@ void Game::enterCombat(Hero& playerHero,
     playerHero.bloodPenanceSpecialty       = false;
     playerHero.negotiatedWeaknessSpecialty = false;
     playerHero.wildGrowthSpecialty         = false;
+    playerHero.overgrowthSpecialty         = false;
+    playerHero.swarmSpecialty              = false;
+    playerHero.livingRuneSpecialty         = false;
+    playerHero.efficientSpecialty          = false;
+    playerHero.bloodWebSpecialty           = false;
+    playerHero.phylacterySpecialty         = false;
+    playerHero.bloodScentSpecialty         = false;
     if (const HeroClassDef* cls = m_classRegistry.getClass(playerHero.classId)) {
         playerHero.feastSpecialty              = (cls->specialty == SpecialtyType::Feast);
         playerHero.witherSpecialty             = (cls->specialty == SpecialtyType::Wither);
@@ -524,6 +550,13 @@ void Game::enterCombat(Hero& playerHero,
         playerHero.bloodPenanceSpecialty       = (cls->specialty == SpecialtyType::BloodPenance);
         playerHero.negotiatedWeaknessSpecialty = (cls->specialty == SpecialtyType::NegotiatedWeakness);
         playerHero.wildGrowthSpecialty         = (cls->specialty == SpecialtyType::WildGrowth);
+        playerHero.overgrowthSpecialty         = (cls->specialty == SpecialtyType::Overgrowth);
+        playerHero.swarmSpecialty              = (cls->specialty == SpecialtyType::Swarm);
+        playerHero.livingRuneSpecialty         = (cls->specialty == SpecialtyType::LivingRune);
+        playerHero.efficientSpecialty          = (cls->specialty == SpecialtyType::Efficient);
+        playerHero.bloodWebSpecialty           = (cls->specialty == SpecialtyType::BloodWeb);
+        playerHero.phylacterySpecialty         = (cls->specialty == SpecialtyType::Phylactery);
+        playerHero.bloodScentSpecialty         = (cls->specialty == SpecialtyType::BloodScent);
     }
 
     // Garrison bonus: garrisoned hero grants +2 defense to all their units
@@ -758,6 +791,18 @@ void Game::exitCombat(bool playerWon)
                         pushPickupEffect(hero.pos, buf, IM_COL32(255, 200, 80, 255));
                     }
                 }
+                // LivingRune (Runesmith): +1 hero ATK and DEF per battle won, max +5
+                if (cls->specialty == SpecialtyType::LivingRune) {
+                    if (hero.specialtyAtk < 5) {
+                        hero.specialtyAtk++;
+                        hero.attack++;
+                        hero.defense++;
+                        char buf[48];
+                        std::snprintf(buf, sizeof(buf), "+1 ATK/DEF (Living Rune, total %d)",
+                                      hero.specialtyAtk);
+                        pushPickupEffect(hero.pos, buf, IM_COL32(100, 200, 255, 255));
+                    }
+                }
                 // Predator (Assassin Lord): permanent +1 attack for each enemy hero killed
                 if (cls->specialty == SpecialtyType::Predator && m_lastCombatEnemyId != 0) {
                     if (hero.specialtyAtk < 10) {
@@ -793,8 +838,27 @@ void Game::exitCombat(bool playerWon)
         m_pendingTownCaptureId = 0;
         m_lastBanditCampId = 0;
         m_triggers.fire(TriggerType::BattleLost, ctx);
-        m_showDefeat = true;
-        m_audio.playSound("hit");   // thud indicates loss
+
+        // Phylactery (Lich): escape one defeat — hero returns at half stats
+        bool phylacteryEscape = false;
+        if (!m_heroes.empty()) {
+            Hero& hero = m_heroes[m_activeHeroIdx];
+            if (hero.phylacterySpecialty && !hero.phylacteryUsed) {
+                hero.phylacteryUsed = true;
+                hero.attack  = std::max(1, hero.attack  / 2);
+                hero.defense = std::max(1, hero.defense / 2);
+                hero.mana    = hero.maxMana / 2;
+                hero.heroHp  = std::max(1, hero.heroMaxHp / 2);
+                pushPickupEffect(hero.pos, "Phylactery: escaped death at half stats!",
+                                 IM_COL32(180, 140, 255, 255));
+                printf("Phylactery: hero survived defeat at half stats\n");
+                phylacteryEscape = true;
+            }
+        }
+        if (!phylacteryEscape) {
+            m_showDefeat = true;
+            m_audio.playSound("hit");
+        }
     }
     m_audio.playMusic("worldmap_music");
     enterWorldMap();

@@ -107,7 +107,7 @@ void Town::onWeekStart(const std::vector<BuildingDef>& defs)
 }
 
 int Town::recruit(int tier, int count, Resources& playerRes,
-                  const std::vector<UnitDef>& unitDefs)
+                  const std::vector<UnitDef>& unitDefs, float costMult)
 {
     DwellingState* dwelling = nullptr;
     for (auto& d : dwellings)
@@ -126,23 +126,23 @@ int Town::recruit(int tier, int count, Resources& playerRes,
     }
     if (!udef) return 0;
 
-    // Calculate total cost
-    Resources totalCost;
-    for (int i = 0; i < RESOURCE_COUNT; ++i)
-        totalCost.amounts[i] = udef->cost.amounts[i] * actual;
+    // Calculate total cost (costMult applies Efficient specialty discount etc.)
+    auto scaledCost = [&](int n) -> Resources {
+        Resources c;
+        for (int i = 0; i < RESOURCE_COUNT; ++i)
+            c.amounts[i] = static_cast<int>(udef->cost.amounts[i] * n * costMult);
+        return c;
+    };
 
+    Resources totalCost = scaledCost(actual);
     if (!playerRes.canAfford(totalCost)) {
         // Recruit as many as we can afford
         actual = 0;
         for (int n = dwelling->available; n > 0; --n) {
-            Resources c;
-            for (int i = 0; i < RESOURCE_COUNT; ++i)
-                c.amounts[i] = udef->cost.amounts[i] * n;
-            if (playerRes.canAfford(c)) { actual = n; break; }
+            if (playerRes.canAfford(scaledCost(n))) { actual = n; break; }
         }
         if (actual == 0) return 0;
-        for (int i = 0; i < RESOURCE_COUNT; ++i)
-            totalCost.amounts[i] = udef->cost.amounts[i] * actual;
+        totalCost = scaledCost(actual);
     }
 
     playerRes.spend(totalCost);

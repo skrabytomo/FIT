@@ -148,6 +148,8 @@ void TownScreen::rebuildRecruitButtons()
                 }
             }
         }
+        bool efficient = m_hero && m_hero->efficientSpecialty;
+        int effectiveCostPerUnit = efficient ? static_cast<int>(costPerUnit * 0.8f) : costPerUnit;
 
         RecruitBtn rb;
         rb.tier      = dw.tier;
@@ -167,7 +169,10 @@ void TownScreen::rebuildRecruitButtons()
                     if (ud.flying)     ts << "  [Flying]";
                     if (ud.vampiric)   ts << "  [Vampiric]";
                     if (ud.regenerates) ts << "  [Regenerates]";
-                    ts << "  |  " << costPerUnit << "g each";
+                    if (efficient)
+                        ts << "  |  " << effectiveCostPerUnit << "g each (-20% Efficient)";
+                    else
+                        ts << "  |  " << costPerUnit << "g each";
                     rb.statTip = ts.str();
                     break;
                 }
@@ -176,7 +181,8 @@ void TownScreen::rebuildRecruitButtons()
 
         std::string label = unitName
             + "  x" + std::to_string(dw.available)
-            + "  (" + std::to_string(costPerUnit * dw.available) + "g)";
+            + "  (" + std::to_string(effectiveCostPerUnit * dw.available) + "g)"
+            + (efficient ? " [Efficient]" : "");
         rb.btn = Button(label, {x, y, bw, 26.0f});
         rb.btn.colorBorder = UIColor::hex(UITheme::NATURE_GREEN, 0.6f);
 
@@ -199,7 +205,8 @@ void TownScreen::rebuildRecruitButtons()
                 if (s.defId == matchedUd->id) { alreadyHasStack = true; break; }
             if (!alreadyHasStack && m_hero->army.size() >= 7) return;
 
-            int recruited = m_town->recruit(capturedTier, 999, *m_playerRes, m_registry->units());
+            float costMult = m_hero->efficientSpecialty ? 0.8f : 1.0f;
+            int recruited = m_town->recruit(capturedTier, 999, *m_playerRes, m_registry->units(), costMult);
             if (recruited > 0) {
                 bool merged = false;
                 for (auto& s : m_hero->army)

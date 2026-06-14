@@ -104,6 +104,14 @@ struct Hero
     bool bloodPenanceSpecialty        = false; // Flagellant Marshal — units +2 ATK, hero -5 HP/round
     bool negotiatedWeaknessSpecialty  = false; // Grave Diplomat — reveals enemy specialty before battle
     bool wildGrowthSpecialty          = false; // Beastcaller — dead Beast units respawn as Ghosts
+    bool overgrowthSpecialty          = false; // Pathfinder — place 3 Speed tiles before battle
+    bool swarmSpecialty               = false; // Thrall Master — BloodBound start at full morale
+    bool livingRuneSpecialty          = false; // Runesmith — +1 hero ATK/DEF per battle won
+    bool efficientSpecialty           = false; // Master Engineer — units 20% cheaper to recruit
+    bool bloodWebSpecialty            = false; // Oathmaster — allies heal on any friendly kill
+    bool phylacterySpecialty          = false; // Lich — escape one defeat per campaign at half stats
+    bool phylacteryUsed               = false; // persistent: tracks if Phylactery was consumed
+    bool bloodScentSpecialty          = false; // Inquisitor Hunter — Bloodsworn heroes always visible
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
