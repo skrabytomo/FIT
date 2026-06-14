@@ -300,6 +300,13 @@ private:
     bool m_showPauseMenu = false;
     void renderPauseMenu();
 
+    // ── Mini-map overlay ──────────────────────────────────────────────────────
+    void renderMinimap();
+    bool m_showMinimap = true;
+
+    // ── Cached weekly income (updated each turn end) ─────────────────────────
+    Resources m_cachedWeeklyIncome;
+
     // ── Week summary popup ────────────────────────────────────────────────────
     bool        m_showWeekSummary   = false;
     int         m_weekSummaryWeek   = 0;

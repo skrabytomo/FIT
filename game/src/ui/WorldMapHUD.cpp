@@ -19,7 +19,7 @@ void WorldMapHUD::buildLayout(int sw, int sh)
     m_screenW = sw; m_screenH = sh;
 
     // Top resource bar
-    m_topBar = {0, 0, (float)sw, 32.0f};
+    m_topBar = {0, 0, (float)sw, 38.0f};
 
     // Bottom bar
     m_bottomBar = {0, (float)sh - 40.0f, (float)sw, 40.0f};
@@ -38,6 +38,7 @@ void WorldMapHUD::buildLayout(int sw, int sh)
 
 void WorldMapHUD::draw(UIRenderer& rdr,
                         const Resources& playerRes,
+                        const Resources& weeklyIncome,
                         const TurnManager& turns,
                         const std::vector<Hero>& heroes,
                         int selectedHeroIdx)
@@ -45,14 +46,15 @@ void WorldMapHUD::draw(UIRenderer& rdr,
     // Keep end-turn button label in sync with day counter
     m_endTurnBtn.text = "End Turn  [Day " + std::to_string(turns.day()) + "]";
 
-    drawResourceBar(rdr, playerRes);
+    drawResourceBar(rdr, playerRes, weeklyIncome);
     drawDatePanel(rdr, turns);
     drawHeroPanel(rdr, heroes, selectedHeroIdx);
     m_endTurnBtn.draw(rdr);
     m_tooltip.draw(rdr);
 }
 
-void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res)
+void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res,
+                                   const Resources& income)
 {
     // Background
     rdr.drawRect(m_topBar,
@@ -61,7 +63,7 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res)
 
     // Resource icons + values
     float x = 8.0f;
-    float y = 8.0f;
+    float y = 3.0f;
     float spacing = 120.0f;
 
     struct ResDisplay { ResourceType type; unsigned color; };
@@ -76,11 +78,18 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res)
 
     for (auto& d : displays) {
         int val = res.get(d.type);
+        int inc = income.get(d.type);
         // Colored dot
-        rdr.drawRect({x, y+2, 10.0f, 12.0f}, UIColor::hex(d.color));
+        rdr.drawRect({x, y+3, 8.0f, 10.0f}, UIColor::hex(d.color));
         // Name + value
         std::string label = std::string(resourceName(d.type)) + ": " + std::to_string(val);
-        rdr.drawText(label, x + 14.0f, y, UIColor::hex(d.color), 12.0f);
+        rdr.drawText(label, x + 12.0f, y, UIColor::hex(d.color), 11.0f);
+        // Income per week below
+        if (inc > 0) {
+            std::string incStr = "+" + std::to_string(inc) + "/wk";
+            rdr.drawText(incStr, x + 12.0f, y + 14.0f,
+                         UIColor::rgba(0.55f, 0.85f, 0.55f), 9.5f);
+        }
         x += spacing;
         if (x + spacing > m_screenW - 200.0f) break;
     }

@@ -14,6 +14,7 @@ public:
 
     void draw(UIRenderer& rdr,
               const Resources& playerRes,
+              const Resources& weeklyIncome,
               const TurnManager& turns,
               const std::vector<Hero>& heroes,
               int  selectedHeroIdx);
@@ -27,7 +28,7 @@ public:
 
 private:
     void buildLayout(int sw, int sh);
-    void drawResourceBar(UIRenderer& rdr, const Resources& res);
+    void drawResourceBar(UIRenderer& rdr, const Resources& res, const Resources& income);
     void drawHeroPanel(UIRenderer& rdr, const std::vector<Hero>& heroes, int sel);
     void drawDatePanel(UIRenderer& rdr, const TurnManager& turns);
 
