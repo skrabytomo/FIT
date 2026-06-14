@@ -317,10 +317,10 @@ void Game::doEndTurn()
                 int plStr = heroStrength(playerHero, unitDefs);
                 // Fight if we have ≥70% of player strength; otherwise focus economy
                 bool aggressive = (eiStr * 10 >= plStr * 7);
+                // Retreat to nearest owned town when at < 40% of player strength
+                bool veryWeak   = (eiStr * 10 <  plStr * 4);
 
                 while (eHero.movePool > 0) {
-                    // Priority: player (if aggressive) > unowned mine > neutral town
-                    // If weak: skip player as target, prefer economy
                     HexCoord goal = {};
                     bool goalSet = false;
 
@@ -331,26 +331,42 @@ void Game::doEndTurn()
                         }
                     };
 
-                    // Unowned mines (always valuable)
-                    for (const auto& r : m_resources) {
-                        if (r.ownedBy == eHero.id) continue;
-                        tryGoal(r.pos, 3);
-                    }
-                    // Neutral towns
-                    for (const auto& t : m_towns) {
-                        if (t.ownerId != 0) continue;
-                        tryGoal(t.pos);
-                    }
-                    // GhostWalk: enemy AI cannot target the player hero directly
-                    bool playerGhostWalk = playerHero.ghostWalkSpecialty;
-
-                    // Player towns / hero (only if aggressive or nothing else to do)
-                    if (aggressive || !goalSet) {
-                        if (!playerGhostWalk) tryGoal(playerHero.pos);
-                        // Also target player towns when aggressive
-                        if (aggressive) {
-                            for (const auto& t : m_towns)
-                                if (t.ownerId == 1) tryGoal(t.pos);
+                    if (veryWeak) {
+                        // Retreat: head to nearest owned town to regroup / garrison
+                        for (const auto& t : m_towns)
+                            if (t.ownerId == eHero.id) tryGoal(t.pos, 5);
+                    } else {
+                        // Unowned mines (always valuable)
+                        for (const auto& r : m_resources) {
+                            if (r.ownedBy == eHero.id) continue;
+                            tryGoal(r.pos, 3);
+                        }
+                        // Valuable world objects (XP, spells, stat boosts, artifacts)
+                        for (const auto& obj : m_worldObjects) {
+                            if (obj.collected) continue;
+                            if (obj.type == WorldObjectType::XPShrine     ||
+                                obj.type == WorldObjectType::SpellScroll   ||
+                                obj.type == WorldObjectType::StatShrine    ||
+                                obj.type == WorldObjectType::ArtifactChest ||
+                                obj.type == WorldObjectType::ForestShrine  ||
+                                obj.type == WorldObjectType::SwampAltar) {
+                                tryGoal(obj.pos, 2);
+                            }
+                        }
+                        // Neutral towns
+                        for (const auto& t : m_towns) {
+                            if (t.ownerId != 0) continue;
+                            tryGoal(t.pos);
+                        }
+                        // GhostWalk: enemy AI cannot target the player hero directly
+                        bool playerGhostWalk = playerHero.ghostWalkSpecialty;
+                        // Player towns / hero (only if aggressive or nothing else to do)
+                        if (aggressive || !goalSet) {
+                            if (!playerGhostWalk) tryGoal(playerHero.pos);
+                            if (aggressive) {
+                                for (const auto& t : m_towns)
+                                    if (t.ownerId == 1) tryGoal(t.pos);
+                            }
                         }
                     }
 
@@ -392,10 +408,34 @@ void Game::doEndTurn()
                         break;
                     }
 
-                    // Collect world objects
-                    for (auto& obj : m_worldObjects)
-                        if (!obj.collected && obj.pos == eHero.pos)
-                            obj.collected = true;
+                    // Collect world objects — apply meaningful effects to enemy hero
+                    for (auto& obj : m_worldObjects) {
+                        if (obj.collected || obj.pos != eHero.pos) continue;
+                        obj.collected = true;
+                        if (obj.type == WorldObjectType::XPShrine) {
+                            eHero.addXp(obj.value);
+                            printf("Enemy %s gained %d XP from shrine\n",
+                                   eHero.name.c_str(), obj.value);
+                        } else if (obj.type == WorldObjectType::SpellScroll) {
+                            bool already = false;
+                            for (int sid : eHero.knownSpells)
+                                if (sid == obj.value) { already = true; break; }
+                            if (!already) eHero.knownSpells.push_back(obj.value);
+                        } else if (obj.type == WorldObjectType::StatShrine) {
+                            eHero.attack++;
+                        } else if (obj.type == WorldObjectType::ArtifactChest) {
+                            eHero.artifactInventory.push_back(obj.value);
+                        } else if (obj.type == WorldObjectType::ForestShrine) {
+                            eHero.addXp(obj.value);
+                            printf("Enemy %s gained %d XP from forest shrine\n",
+                                   eHero.name.c_str(), obj.value);
+                        } else if (obj.type == WorldObjectType::SwampAltar) {
+                            bool already = false;
+                            for (int sid : eHero.knownSpells)
+                                if (sid == obj.value) { already = true; break; }
+                            if (!already) eHero.knownSpells.push_back(obj.value);
+                        }
+                    }
 
                     // Claim resource node (mine control)
                     if (nextTile->resourceId != 0) {
@@ -407,11 +447,28 @@ void Game::doEndTurn()
                         }
                     }
 
-                    // Capture neutral towns / siege player towns
+                    // Capture neutral towns / siege player towns / garrison at own towns
                     if (nextTile->townId != 0) {
                         for (auto& t : m_towns) {
                             if (t.id != nextTile->townId) continue;
-                            if (t.ownerId == 0) {
+                            if (t.ownerId == eHero.id && veryWeak && !eHero.army.empty()) {
+                                // Retreating hero deposits their smallest stack as garrison
+                                int weakIdx = 0;
+                                for (int i = 1; i < (int)eHero.army.size(); ++i)
+                                    if (eHero.army[i].count < eHero.army[weakIdx].count) weakIdx = i;
+                                auto& stack = eHero.army[weakIdx];
+                                int deposit = stack.count / 2;
+                                if (deposit > 0 && t.garrison.size() < 7) {
+                                    bool merged = false;
+                                    for (auto& gs : t.garrison)
+                                        if (gs.defId == stack.defId) { gs.count += deposit; merged = true; break; }
+                                    if (!merged) t.garrison.push_back({stack.defId, deposit});
+                                    stack.count -= deposit;
+                                    if (stack.count == 0)
+                                        eHero.army.erase(eHero.army.begin() + weakIdx);
+                                }
+                                eHero.movePool = 0; // done retreating for this turn
+                            } else if (t.ownerId == 0) {
                                 t.ownerId = eHero.id;
                                 printf("Enemy %s captured %s\n", eHero.name.c_str(), t.name.c_str());
                             } else if (t.ownerId == 1) {

@@ -447,13 +447,16 @@ void Game::startNewGame()
         }
     }
 
+    // Difficulty bonuses for the player hero
+    int diff = std::clamp(m_newGameDifficulty, 0, 2);
+    if (diff == 0) { hero.attack += 2; hero.defense += 2; } // Easy: +2 ATK/DEF
+
     m_heroes.push_back(hero);
     if (HexTile* ht = m_map.getTile(hero.pos)) ht->heroId = hero.id;
 
-    // Army sizes scale with difficulty: Easy=small, Normal=base, Hard=base
-    static const int kT1Count[] = {14, 20, 20};
-    static const int kT2Count[] = {5,   8,  8};
-    int diff = std::clamp(m_newGameDifficulty, 0, 2);
+    // Army sizes: Easy=larger player army, Normal/Hard=base
+    static const int kT1Count[] = {24, 20, 20};
+    static const int kT2Count[] = {10,  8,  8};
 
     auto giveStartingArmy = [&](Hero& h, int t1, int t2) {
         for (int tier : {1, 2}) {
@@ -540,10 +543,9 @@ void Game::startNewGame()
             case FactionId::Convergence:    eHero.lightPower  = 1; eHero.forgePower = 1; break;
             default: break;
         }
-        // Enemy army scales opposite to player: Easy=large (harder enemies), Hard=large too
-        // Easy: enemy has bigger army to compensate for weaker player start
-        static const int kEnemyT1[] = {20, 20, 25};
-        static const int kEnemyT2[] = { 8,  8, 10};
+        // Enemy army: Easy=smaller, Normal=base, Hard=larger
+        static const int kEnemyT1[] = {14, 20, 25};
+        static const int kEnemyT2[] = { 5,  8, 10};
         giveStartingArmy(eHero, kEnemyT1[diff], kEnemyT2[diff]);
         m_enemyHeroes.push_back(eHero);
         if (HexTile* ht = m_map.getTile(eHero.pos)) ht->heroId = eHero.id;

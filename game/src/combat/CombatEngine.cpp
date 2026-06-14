@@ -1667,7 +1667,68 @@ void CombatEngine::tryEnemyHeroSpell()
                 if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
                 break;
             }
-            default: break;  // skip buffs/heals for AI (don't benefit enemy hero)
+            case SpellEffect::AttackBuff: {
+                // Buff the allied unit with the most total HP (biggest investment)
+                if (spell->target == SpellTarget::SingleAlly) {
+                    for (auto& u : m_grid.units()) {
+                        if (!u.alive || u.isPlayer) continue;
+                        float s = (float)spell->power * 1.5f + u.totalHp() * 0.01f;
+                        if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = u.id; }
+                    }
+                } else if (spell->target == SpellTarget::AllAllies) {
+                    int n = 0;
+                    for (auto& u : m_grid.units()) if (u.alive && !u.isPlayer) ++n;
+                    float s = (float)spell->power * n * 1.2f;
+                    if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
+                }
+                break;
+            }
+            case SpellEffect::DefenseBuff: {
+                if (spell->target == SpellTarget::SingleAlly) {
+                    // Buff the most threatened (lowest HP ratio) allied unit
+                    for (auto& u : m_grid.units()) {
+                        if (!u.alive || u.isPlayer) continue;
+                        float ratio = u.maxHp > 0 ? (float)u.hp / u.maxHp : 1.0f;
+                        float s = (float)spell->power * 1.2f * (1.5f - ratio);
+                        if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = u.id; }
+                    }
+                } else if (spell->target == SpellTarget::AllAllies) {
+                    int n = 0;
+                    for (auto& u : m_grid.units()) if (u.alive && !u.isPlayer) ++n;
+                    float s = (float)spell->power * n * 0.9f;
+                    if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
+                }
+                break;
+            }
+            case SpellEffect::Heal: {
+                if (spell->target == SpellTarget::SingleAlly) {
+                    // Heal the most damaged allied unit
+                    for (auto& u : m_grid.units()) {
+                        if (!u.alive || u.isPlayer) continue;
+                        int missing = u.maxHp - u.hp;
+                        if (missing <= 0) continue;
+                        float s = (float)std::min(potency, missing) * 1.8f;
+                        if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = u.id; }
+                    }
+                }
+                break;
+            }
+            case SpellEffect::MoraleBoost: {
+                if (spell->target == SpellTarget::AllAllies) {
+                    int n = 0;
+                    for (auto& u : m_grid.units()) if (u.alive && !u.isPlayer && !u.moraleImmune) ++n;
+                    float s = (float)potency * n * 0.5f;
+                    if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = 0; }
+                } else if (spell->target == SpellTarget::SingleAlly) {
+                    for (auto& u : m_grid.units()) {
+                        if (!u.alive || u.isPlayer || u.moraleImmune) continue;
+                        float s = (float)potency * 0.6f;
+                        if (s > bestScore) { bestScore = s; bestSpell = spell; bestTargetId = u.id; }
+                    }
+                }
+                break;
+            }
+            default: break;
         }
     }
 
@@ -1772,6 +1833,15 @@ void CombatEngine::tryEnemyHeroSpell()
             for (auto& u : m_grid.units())
                 if (u.alive && u.isPlayer) targets.push_back(&u);
             break;
+        case SpellTarget::SingleAlly: {
+            auto* t = m_grid.getUnit(bestTargetId);
+            if (t && t->alive && !t->isPlayer) targets.push_back(t);
+            break;
+        }
+        case SpellTarget::AllAllies:
+            for (auto& u : m_grid.units())
+                if (u.alive && !u.isPlayer) targets.push_back(&u);
+            break;
         default: break;
     }
     if (targets.empty()) return;
@@ -1813,6 +1883,27 @@ void CombatEngine::tryEnemyHeroSpell()
             case SpellEffect::MoraleDrain:
                 if (!t->moraleImmune) t->morale = std::max(0, t->morale - potency);
                 ss << " → " << t->name << " morale -" << potency;
+                break;
+            case SpellEffect::AttackBuff:
+                t->roundAttackBonus += bestSpell->power;
+                t->buffAttackRounds  = std::max(t->buffAttackRounds, 2);
+                ss << " → " << t->name << " +" << bestSpell->power << " atk";
+                break;
+            case SpellEffect::DefenseBuff:
+                t->roundDefenseBonus += bestSpell->power;
+                t->buffDefenseRounds  = std::max(t->buffDefenseRounds, 2);
+                ss << " → " << t->name << " +" << bestSpell->power << " def";
+                break;
+            case SpellEffect::Heal: {
+                int healed = std::min(potency, t->maxHp - t->hp);
+                if (healed > 0) t->hp += healed;
+                ss << " → " << t->name << " healed " << healed;
+                break;
+            }
+            case SpellEffect::MoraleBoost:
+                if (!t->moraleImmune)
+                    t->morale = std::min(100, t->morale + potency);
+                ss << " → " << t->name << " morale +" << potency;
                 break;
             default: break;
         }
