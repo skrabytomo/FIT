@@ -89,8 +89,16 @@ struct HeroSave
     // Army
     std::vector<std::pair<int,int>> army; // {defId, count}
     // Specialty progression
-    int battlesWon   = 0;
-    int specialtyAtk = 0;
+    int battlesWon    = 0;
+    int specialtyAtk  = 0;
+    int recyclerBonus = 0;
+    // Persistent world-map specialty flags
+    bool phylacteryUsed     = false;
+    bool ghostWalkSpecialty = false;
+    bool blightAuraSpecialty = false;
+    bool infestationSpecialty = false;
+    bool efficientSpecialty   = false;
+    bool bloodScentSpecialty  = false;
 };
 
 // ── Dwelling save ──────────────────────────────────────────────────────────────

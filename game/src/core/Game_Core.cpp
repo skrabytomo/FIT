@@ -401,6 +401,51 @@ void Game::startNewGame()
         }
     }
 
+    // Apply Hideout permanent upgrades to the starting hero and resources
+    if (m_hideout.isOpen()) {
+        // Castle: bonus starting gold (+200 / +400 / +700 per tier)
+        static constexpr int CASTLE_GOLD[] = { 0, 200, 600, 1300 }; // cumulative per tier
+        int castleTier = m_hideout.getUpgradeLevel(HideoutBranch::CASTLE);
+        if (castleTier > 0)
+            m_playerResources.add(ResourceType::Gold, CASTLE_GOLD[std::min(castleTier, 3)]);
+
+        // Barracks: bonus hero ATK (T1: +1 ATK, T2: +1 ATK +1 DEF)
+        int barracksTier = m_hideout.getUpgradeLevel(HideoutBranch::BARRACKS);
+        if (barracksTier >= 1) hero.attack++;
+        if (barracksTier >= 2) hero.defense++;
+
+        // Vault: bonus rare resources
+        int vaultTier = m_hideout.getUpgradeLevel(HideoutBranch::VAULT);
+        if (vaultTier >= 1) {
+            m_playerResources.add(ResourceType::Iron, 1);
+            m_playerResources.add(ResourceType::Mercury, 1);
+        }
+        if (vaultTier >= 2) {
+            m_playerResources.add(ResourceType::VerdantSap, 1);
+            m_playerResources.add(ResourceType::BloodEssence, 1);
+            m_playerResources.add(ResourceType::FaithStones, 1);
+        }
+
+        // Shrine: second starting spell (faction-appropriate)
+        if (m_hideout.getUpgradeLevel(HideoutBranch::SHRINE) >= 1) {
+            static constexpr int kShrineSpell[] = {
+                SPL::DIVINE_SHIELD, SPL::DRAIN_LIFE, SPL::SERPENT_VENOM,
+                SPL::WITHER,        SPL::ENERVATE,   SPL::CURSE,
+                SPL::SHRAPNEL,      SPL::FESTER,     SPL::REINFORCE
+            };
+            int shrineSpell = kShrineSpell[fi];
+            bool alreadyKnown = false;
+            for (int s : hero.knownSpells) if (s == shrineSpell) { alreadyKnown = true; break; }
+            if (!alreadyKnown) hero.knownSpells.push_back(shrineSpell);
+        }
+
+        // Sanctum: +10 max mana
+        if (m_hideout.getUpgradeLevel(HideoutBranch::SANCTUM) >= 1) {
+            hero.maxMana += 10;
+            hero.mana = hero.maxMana;
+        }
+    }
+
     m_heroes.push_back(hero);
     if (HexTile* ht = m_map.getTile(hero.pos)) ht->heroId = hero.id;
 
