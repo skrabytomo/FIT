@@ -13,7 +13,9 @@ Handles:
 
 import sys
 from pathlib import Path
+from collections import deque
 from PIL import Image
+import numpy as np
 
 FRAME_W  = 64
 FRAME_H  = 64
@@ -59,17 +61,37 @@ def content_bbox(img: Image.Image):
     return left, top, right+1, bottom+1
 
 
-def remove_white_bg(img: Image.Image, tol: int = 20) -> Image.Image:
-    img = img.convert('RGBA')
-    px = img.load()
-    W, H = img.size
-    bg = px[0,0][:3]
-    for y in range(H):
-        for x in range(W):
-            r,g,b,a = px[x,y]
-            if abs(r-bg[0])+abs(g-bg[1])+abs(b-bg[2]) < tol*3:
-                px[x,y] = (r,g,b,0)
-    return img
+def flood_remove_bg(img: Image.Image, tol: int = 55) -> Image.Image:
+    """Remove background by flood-filling from edges — preserves internal dark areas."""
+    arr = np.array(img.convert('RGBA'))
+    h, w = arr.shape[:2]
+    bg = arr[0, 0, :3].astype(int)
+
+    def is_bg(y, x):
+        return int(np.abs(arr[y, x, :3].astype(int) - bg).sum()) < tol
+
+    visited = np.zeros((h, w), dtype=bool)
+    mask    = np.zeros((h, w), dtype=bool)
+    q = deque()
+    for x in range(w):
+        for y in (0, h-1):
+            if not visited[y,x] and is_bg(y,x):
+                q.append((y,x)); visited[y,x] = True; mask[y,x] = True
+    for y in range(h):
+        for x in (0, w-1):
+            if not visited[y,x] and is_bg(y,x):
+                q.append((y,x)); visited[y,x] = True; mask[y,x] = True
+    while q:
+        y, x = q.popleft()
+        for dy, dx in ((-1,0),(1,0),(0,-1),(0,1)):
+            ny, nx = y+dy, x+dx
+            if 0<=ny<h and 0<=nx<w and not visited[ny,nx] and is_bg(ny,nx):
+                visited[ny,nx] = True; mask[ny,nx] = True
+                q.append((ny,nx))
+
+    arr[mask,  3] = 0
+    arr[~mask, 3] = 255
+    return Image.fromarray(arr)
 
 
 def make_strip(img: Image.Image) -> Image.Image:
@@ -137,10 +159,11 @@ def process(input_path: str, output_path: str) -> None:
 
     # Remove white/solid background if alpha channel is unused
     px = img.load()
+    px = img.load()
     all_opaque = all(px[x,0][3] == 255 for x in range(0, W, 16))
     if all_opaque:
-        img = remove_white_bg(img)
-        print("Background: removed solid colour")
+        img = flood_remove_bg(img)
+        print("Background: flood-fill removal")
     else:
         print("Background: already transparent")
 
