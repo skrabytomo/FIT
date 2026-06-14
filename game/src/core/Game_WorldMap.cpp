@@ -679,6 +679,7 @@ void Game::doEndTurn()
                                 m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
                             m_pendingLevelUps = h.level - oldLvl5;
                             m_showLevelUpModal = true;
+                            { ScriptContext lvCtx; lvCtx.heroId = h.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
                         }
                         m_weeklyEventHeadline = "Battle Hardened";
                         m_weeklyEventBody = "Tales of your deeds spread: +"
@@ -811,6 +812,7 @@ void Game::doEndTurn()
                                 m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
                             m_pendingLevelUps = h.level - oldLvl17;
                             m_showLevelUpModal = true;
+                            { ScriptContext lvCtx; lvCtx.heroId = h.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
                         }
                         // Also add 3 to hero's weakest stack
                         int least = INT32_MAX, leastIdx = -1;
@@ -1133,6 +1135,7 @@ void Game::checkTileEvents()
                         m_pendingLevelUps = hero.level - oldLvlXP;
                         m_showLevelUpModal = true;
                         m_audio.playSound("levelup");
+                        { ScriptContext lvCtx; lvCtx.heroId = hero.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
                     }
                 }
                 printf("Hero gained %d XP from shrine\n", obj.value);
@@ -1243,6 +1246,7 @@ void Game::checkTileEvents()
                                 m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
                             m_pendingLevelUps = qHero.level - oldLvlQ;
                             m_showLevelUpModal = true;
+                            { ScriptContext lvCtx; lvCtx.heroId = qHero.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
                         }
                         printf("Quest complete! Rewarded %d gold + %d XP\n", goldReward, xpReward);
                         break;
@@ -1282,6 +1286,7 @@ void Game::checkTileEvents()
                             m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
                         m_pendingLevelUps = hero.level - oldLvlFS;
                         m_showLevelUpModal = true;
+                        { ScriptContext lvCtx; lvCtx.heroId = hero.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
                     }
                 }
             }
