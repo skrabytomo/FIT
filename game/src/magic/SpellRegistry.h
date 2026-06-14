@@ -12,7 +12,7 @@ static const SpellDef ALL_SPELLS[] = {
 
     // ── BLOOD ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
     {SPL::BLOOD_FRENZY,   "Blood Frenzy",    "Unit enters frenzy — +attack this round",      SpellSchool::Blood, SpellTarget::SingleAlly,    SpellEffect::AttackBuff,     5,  4 },
-    {SPL::DRAIN_LIFE,     "Drain Life",      "Drains HP from an enemy unit",                 SpellSchool::Blood, SpellTarget::SingleEnemy,   SpellEffect::Damage,         6,  12},
+    {SPL::DRAIN_LIFE,     "Drain Life",      "Drains HP from an enemy; heals caster's unit", SpellSchool::Blood, SpellTarget::SingleEnemy,   SpellEffect::Damage,         6,  12},
     {SPL::ENERVATE,       "Enervate",        "Weakens an enemy — -defense this round",       SpellSchool::Blood, SpellTarget::SingleEnemy,   SpellEffect::DefenseDebuff,  5,  3 },
     {SPL::HEMORRHAGE,     "Hemorrhage",      "All enemies bleed — morale loss",              SpellSchool::Blood, SpellTarget::AllEnemies,    SpellEffect::MoraleDrain,    8,  15},
 

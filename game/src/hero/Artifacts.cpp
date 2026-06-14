@@ -116,7 +116,7 @@ void ArtifactRegistry::init()
       b.deathPower=3; b.naturePower=3; b.forgePower=3; b.fleshPower=3;
       b.manaBonus=20; b.hpBonus=60; b.moveBonus=5;
       add("The Mirror Shard", S::Misc, R::Legendary, b, none,
-          "Fragment of what the Convergence sought — all stats +3-5, Convergence heroes gain double bonus"); }
+          "Fragment of what the Convergence sought — +5 Attack/Defense, +3 to all magic schools, +20 Mana, +60 HP, +5 Movement"); }
 }
 
 const ArtifactDef* ArtifactRegistry::getDef(int id) const {

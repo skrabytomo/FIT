@@ -469,7 +469,7 @@ void CombatEngine::applyPlayerTownBonus(int lightP, int bloodP, int deathP,
     if (wardenBrand)
         addLog("Warden's Brand Chamber: Warden's Mark splashes +1 target");
     if (symbiosisWeb)
-        addLog("Symbiosis Web: Beast bond bonuses doubled");
+        addLog("Symbiosis Web: Beast bond cap raised to full skill tier value");
     if (resonanceWell)
         addLog("Resonance Well: Convergence units +1 ATK+DEF");
     if (mirrorChamber)
