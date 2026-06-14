@@ -191,10 +191,10 @@ void CombatEngine::startBattle(
         }
 
         // BLOOD_POOL (Bloodsworn): BloodBound units start with enhanced morale
-        // Proxy: +10/20/40 morale at battle start (pool "pre-charged")
         if (const SkillInstance* s = skills.getSkill(SID::BLOOD_POOL)) {
-            static const int bloodPoolBonus[] = {10, 20, 40};
-            int bonus = bloodPoolBonus[static_cast<int>(s->tier)];
+            int bonus = 0;
+            if (const SkillDef* def = findSkillDef(SID::BLOOD_POOL))
+                bonus = def->values[static_cast<int>(s->tier)];
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive || u.moraleImmune) continue;
                 if (!hasTag(u.tags, UnitTag::BloodBound)) continue;
@@ -203,10 +203,11 @@ void CombatEngine::startBattle(
             addLog(hero.name + " Blood Pool: BloodBound units +" + std::to_string(bonus) + " morale");
         }
 
-        // POSSESSION (Voidkin): Void units start with bonus luck — entropic fortune
-        // Proxy: +1/2/3 luck at battle start
+        // POSSESSION (Voidkin): Void units start with bonus luck
         if (const SkillInstance* s = skills.getSkill(SID::POSSESSION)) {
-            int luckBonus = 1 + static_cast<int>(s->tier);
+            int luckBonus = 0;
+            if (const SkillDef* def = findSkillDef(SID::POSSESSION))
+                luckBonus = def->values[static_cast<int>(s->tier)];
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive) continue;
                 if (!hasTag(u.tags, UnitTag::Void)) continue;
@@ -215,10 +216,11 @@ void CombatEngine::startBattle(
             addLog(hero.name + " Possession: Void units +" + std::to_string(luckBonus) + " luck");
         }
 
-        // MIRRORING (Convergence): Humanoid units mirror the highest stat across the side
-        // Proxy: all Humanoid units on this side gain +1/+2/+3 to whichever of ATK/DEF is lower
+        // MIRRORING (Convergence): Humanoid units gain a bonus to their weaker combat stat
         if (const SkillInstance* s = skills.getSkill(SID::MIRRORING)) {
-            int mirrorBonus = 1 + static_cast<int>(s->tier);
+            int mirrorBonus = 0;
+            if (const SkillDef* def = findSkillDef(SID::MIRRORING))
+                mirrorBonus = def->values[static_cast<int>(s->tier)];
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive) continue;
                 if (!hasTag(u.tags, UnitTag::Humanoid)) continue;

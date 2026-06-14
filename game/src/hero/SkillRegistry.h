@@ -27,15 +27,15 @@ static const SkillDef SKILL_DEFS[] = {
     {SID::FLESH_MAGIC,  "Flesh Magic",  "+2/4/6 Flesh Power",                          FactionId::None,  SkillEffectType::MagicSchoolBonus,{2,4,6}, "fleshPower",  0},
 
     {SID::DESPERATION,  "Desperation",  "Desperation meter charges 10/20/30% faster",  FactionId::HolyOrder,      SkillEffectType::SpecialMechanic, {10,20,30},"",  0},
-    {SID::INSPIRATION,  "Inspiration",  "Morale aura radius +1/2/3",                   FactionId::HolyOrder,      SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
-    {SID::BLOOD_POOL,   "Blood Pool",   "Blood Pool fills 25/50/100% faster",           FactionId::Bloodsworn,     SkillEffectType::SpecialMechanic, {25,50,100},"", 0},
-    {SID::POSSESSION,   "Possession",   "Possession lasts +50/100/150% longer",         FactionId::Voidkin,        SkillEffectType::SpecialMechanic, {50,100,150},"",0},
+    {SID::INSPIRATION,  "Inspiration",  "All units gain +5/10/15 Morale at battle start",FactionId::HolyOrder,      SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
+    {SID::BLOOD_POOL,   "Blood Pool",   "BloodBound units gain +10/20/40 Morale at battle start",FactionId::Bloodsworn,SkillEffectType::SpecialMechanic,{10,20,40},"",0},
+    {SID::POSSESSION,   "Possession",   "Void units start battle with +1/2/3 Luck",     FactionId::Voidkin,        SkillEffectType::SpecialMechanic, {1,2,3},    "",0},
     {SID::BLUEPRINT,    "Blueprint",    "Constructs unlocked 1/2/3 weeks earlier",      FactionId::IronAssembly,   SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
     {SID::ADAPTATION,   "Adaptation",   "Amalgamate traits gained 10/20/30% faster",    FactionId::Amalgamate,     SkillEffectType::SpecialMechanic, {10,20,30},"",  0},
     {SID::ETERNAL_CMD,  "Eternal Command","Reraised units 10/20/30% stronger",          FactionId::EternalEmpire,  SkillEffectType::SpecialMechanic, {10,20,30},"",  0},
     {SID::SYMBIOSIS,    "Symbiosis",    "Bond pairs gain +1/2/3 to all stats",          FactionId::Thornkin,       SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
     {SID::WARDEN_MARK,  "Warden's Mark","Mark hits 1/2/3 additional targets",           FactionId::CrimsonWardens, SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
-    {SID::MIRRORING,    "Mirroring",    "Mirror lasts +50/100/150% longer",             FactionId::Convergence,    SkillEffectType::SpecialMechanic, {50,100,150},"",0},
+    {SID::MIRRORING,    "Mirroring",    "Humanoid units gain +1/2/3 to their weaker combat stat", FactionId::Convergence, SkillEffectType::SpecialMechanic, {1,2,3},"",0},
 };
 // clang-format on
 

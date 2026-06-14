@@ -472,7 +472,7 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(1500,ResourceType::BloodEssence,3);
       b.prerequisites={BID::BS_WAR_HALL}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::BS_WAR_SHRINE; b.name="War Shrine";
-      b.description="Blood Pool fills 25% faster in combat";
+      b.description="BloodBound units gain +15 Morale at battle start";
       b.category=BuildingCategory::Support; b.faction=F::Bloodsworn;
       b.cost=goldAndRes(2500,ResourceType::BloodEssence,4);
       b.prerequisites={BID::BS_BLOOD_ALTAR}; m_buildings.push_back(b); }
@@ -518,7 +518,7 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(1500,ResourceType::VerdantSap,3);
       b.prerequisites={BID::VK_NEXUS}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::VK_VOID_LENS; b.name="Void Lens";
-      b.description="Possession ability lasts 50% longer";
+      b.description="Void units gain +1 Attack at battle start";
       b.category=BuildingCategory::Support; b.faction=F::Voidkin;
       b.cost=goldAndRes(2500,ResourceType::VerdantSap,4);
       b.prerequisites={BID::VK_RIFT_GATE}; m_buildings.push_back(b); }
@@ -651,11 +651,11 @@ void BuildingRegistry::init()
       b.faction=F::Convergence; b.cost=gold(5500);
       b.prerequisites={BID::CV_T5}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::CV_RESONANCE_WELL; b.name="Resonance Well";
-      b.description="Mirror ability: briefly copy an enemy unit's stats (Mirroring skill synergy)";
+      b.description="Convergence units gain +1 Attack and Defense at battle start (synergizes with Mirroring)";
       b.category=BuildingCategory::Support; b.faction=F::Convergence;
       b.cost=gold(2000); b.prerequisites={BID::CV_SYNTHESIS_HUB}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::CV_MIRROR_CHAMBER; b.name="Mirror Chamber";
-      b.description="Mirror duration extended by 50%; Convergence heroes gain +2 to all stats per mirrored form";
+      b.description="Convergence units gain an additional +1 Attack and Defense; hero gains +1 Attack and Defense";
       b.category=BuildingCategory::Support; b.faction=F::Convergence;
       b.cost=gold(3500); b.prerequisites={BID::CV_RESONANCE_WELL}; m_buildings.push_back(b); }
 
