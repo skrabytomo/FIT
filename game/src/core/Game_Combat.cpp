@@ -491,15 +491,55 @@ void Game::renderSpellPanel()
     CombatUnit* active = m_combat.activeUnit();
     bool isPlayerTurn  = active && active->isPlayer;
 
+    // Check for free-cast flags
+    bool hasFreeByCast = hero.exsanguinate && !hero.exsanguinateUsed;
+    bool hasFreeByMirror = hero.predatorMirrorSpecialty && !hero.predatorMirrorUsed;
+
+    // School power lookup
+    auto schoolPow = [&](SpellSchool school) -> int {
+        switch (school) {
+            case SpellSchool::Light:  return hero.lightPower;
+            case SpellSchool::Blood:  return hero.bloodPower;
+            case SpellSchool::Death:  return hero.deathPower;
+            case SpellSchool::Nature: return hero.naturePower;
+            case SpellSchool::Forge:  return hero.forgePower;
+            case SpellSchool::Flesh:  return hero.fleshPower;
+        }
+        return 0;
+    };
+
     for (int sid : hero.knownSpells) {
         const SpellDef* spell = findSpell(sid);
         if (!spell) continue;
 
-        bool canAfford = hero.mana >= spell->manaCost;
+        bool freeBlood  = hasFreeByCast && spell->school == SpellSchool::Blood;
+        bool freeMirror = hasFreeByMirror;
+        bool isFree     = freeBlood || freeMirror;
+        bool canAfford  = isFree || hero.mana >= spell->manaCost;
         if (!isPlayerTurn || !canAfford) ImGui::BeginDisabled();
 
-        char btnLabel[128];
-        std::snprintf(btnLabel, sizeof(btnLabel), "%s  (%d mana)", spell->name, spell->manaCost);
+        // Color by school
+        static constexpr ImVec4 kSchoolCol[] = {
+            {1.0f, 0.95f, 0.6f, 1.0f},  // Light — gold
+            {0.9f, 0.25f, 0.25f, 1.0f}, // Blood — red
+            {0.3f, 0.85f, 0.75f, 1.0f}, // Death — teal
+            {0.4f, 0.85f, 0.35f, 1.0f}, // Nature — green
+            {0.7f, 0.75f, 1.0f, 1.0f},  // Forge — blue
+            {0.8f, 0.5f,  0.2f, 1.0f},  // Flesh — orange
+        };
+        int si = static_cast<int>(spell->school);
+        if (si < 0 || si >= 6) si = 0;
+
+        ImGui::PushStyleColor(ImGuiCol_Text, kSchoolCol[si]);
+        char btnLabel[160];
+        if (isFree)
+            std::snprintf(btnLabel, sizeof(btnLabel), "FREE  %s  [%d pow]", spell->name,
+                          spell->power + schoolPow(spell->school));
+        else
+            std::snprintf(btnLabel, sizeof(btnLabel), "%d mana  %s  [%d pow]", spell->manaCost,
+                          spell->name, spell->power + schoolPow(spell->school));
+        ImGui::PopStyleColor();
+
         if (ImGui::Button(btnLabel, ImVec2(-1, 0))) {
             CombatAction act;
             act.type         = ActionType::UseAbility;
@@ -508,8 +548,13 @@ void Game::renderSpellPanel()
             m_combat.submitAction(act);
             m_showSpellPanel = false;
         }
-        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
-            ImGui::SetTooltip("%s", spell->desc);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            char tipBuf[256];
+            std::snprintf(tipBuf, sizeof(tipBuf), "%s\n(Power %d + school %d = %d potency)",
+                          spell->desc, spell->power, schoolPow(spell->school),
+                          spell->power + schoolPow(spell->school));
+            ImGui::SetTooltip("%s", tipBuf);
+        }
 
         if (!isPlayerTurn || !canAfford) ImGui::EndDisabled();
     }
