@@ -136,6 +136,7 @@ static json heroToJson(const HeroSave& h)
         {"spells", spellArr}, {"skills", skillArr},
         {"artEq", artEqArr}, {"artInv", artInvArr},
         {"army", armyArr},
+        {"battlesWon", h.battlesWon}, {"specialtyAtk", h.specialtyAtk},
     };
 }
 static HeroSave heroFromJson(const json& j)
@@ -181,6 +182,8 @@ static HeroSave heroFromJson(const json& j)
     if (j.contains("army"))
         for (auto& a : j.at("army"))
             h.army.push_back({a.at("d").get<int>(), a.at("c").get<int>()});
+    h.battlesWon   = j.value("battlesWon",   0);
+    h.specialtyAtk = j.value("specialtyAtk", 0);
     return h;
 }
 
@@ -412,6 +415,8 @@ static HeroSave packHero(const Hero& h)
     for (int i = 0; i < 8; ++i) hs.artifactEquipped[i] = h.artifacts.equippedIds[i];
     hs.artifactInventory = h.artifactInventory;
     for (auto& s : h.army) hs.army.push_back({s.defId, s.count});
+    hs.battlesWon   = h.battlesWon;
+    hs.specialtyAtk = h.specialtyAtk;
     return hs;
 }
 
@@ -453,6 +458,8 @@ static Hero unpackHero(const HeroSave& hs)
     for (int i = 0; i < 8; ++i) h.artifacts.equippedIds[i] = hs.artifactEquipped[i];
     h.artifactInventory = hs.artifactInventory;
     for (auto& [did, cnt] : hs.army) h.army.push_back({did, cnt});
+    h.battlesWon   = hs.battlesWon;
+    h.specialtyAtk = hs.specialtyAtk;
     return h;
 }
 

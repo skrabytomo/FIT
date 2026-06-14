@@ -1,5 +1,6 @@
 #include "Game.h"
 #include "../hero/SkillRegistry.h"
+#include "../hero/HeroClass.h"
 #include "../magic/SpellRegistry.h"
 #include <imgui.h>
 #include <stdio.h>
@@ -628,6 +629,45 @@ void Game::exitCombat(bool playerWon)
                 if (m_levelUpOffers.empty())
                     m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
                 m_showLevelUpModal = true;
+            }
+        }
+
+        // Apply hero specialties on victory
+        if (!m_heroes.empty()) {
+            Hero& hero = m_heroes[m_activeHeroIdx];
+            const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+            if (cls) {
+                // SoulHarvest (Death Herald): restore hero HP = enemies_killed × 3
+                if (cls->specialty == SpecialtyType::SoulHarvest) {
+                    int heal = m_combat.enemyStartCount() * 3;
+                    hero.heroHp = std::min(hero.heroMaxHp, hero.heroHp + heal);
+                    if (heal > 0) {
+                        char buf[32];
+                        std::snprintf(buf, sizeof(buf), "+%d Hero HP (Soul Harvest)", heal);
+                        pushPickupEffect(hero.pos, buf, IM_COL32(180, 255, 200, 255));
+                    }
+                }
+                // Veteran (Crusader): +1 attack per battle won, max +5
+                if (cls->specialty == SpecialtyType::Veteran) {
+                    hero.battlesWon++;
+                    if (hero.specialtyAtk < 5) {
+                        hero.specialtyAtk++;
+                        hero.attack++;
+                        char buf[40];
+                        std::snprintf(buf, sizeof(buf), "+1 ATK (Veteran, total %d)", hero.specialtyAtk);
+                        pushPickupEffect(hero.pos, buf, IM_COL32(255, 200, 80, 255));
+                    }
+                }
+                // Predator (Assassin Lord): permanent +1 attack for each enemy hero killed
+                if (cls->specialty == SpecialtyType::Predator && m_lastCombatEnemyId != 0) {
+                    if (hero.specialtyAtk < 10) {
+                        hero.specialtyAtk++;
+                        hero.attack++;
+                        char buf[44];
+                        std::snprintf(buf, sizeof(buf), "+1 ATK (Predator, total %d)", hero.specialtyAtk);
+                        pushPickupEffect(hero.pos, buf, IM_COL32(255, 100, 100, 255));
+                    }
+                }
             }
         }
 

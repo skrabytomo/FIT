@@ -83,6 +83,10 @@ struct Hero
     // Garrison: hero digs in at current tile, blocks enemy passage, +2 def in combat
     bool isGarrisoned = false;
 
+    // Specialty progression: tracked stats for specialty effects
+    int battlesWon = 0;         // total combat victories (Veteran specialty)
+    int specialtyAtk = 0;       // accumulated specialty attack bonus
+
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 
     // Returns true if the hero leveled up

@@ -88,6 +88,9 @@ struct HeroSave
     std::vector<int>           artifactInventory;
     // Army
     std::vector<std::pair<int,int>> army; // {defId, count}
+    // Specialty progression
+    int battlesWon   = 0;
+    int specialtyAtk = 0;
 };
 
 // ── Dwelling save ──────────────────────────────────────────────────────────────

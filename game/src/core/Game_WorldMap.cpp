@@ -1640,7 +1640,16 @@ void Game::renderHeroInspect()
     if (!ImGui::Begin("Hero  [F8]", &m_showHeroInspect)) { ImGui::End(); return; }
 
     ImGui::Text("%s", hero.name.c_str());
+    const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+    if (cls) {
+        ImGui::TextColored(ImVec4(0.8f, 0.7f, 0.4f, 1.0f), "%s", cls->name.c_str());
+        if (!cls->specialtyDesc.empty()) {
+            ImGui::TextDisabled("Specialty: %s", cls->specialtyDesc.c_str());
+        }
+    }
     ImGui::TextDisabled("Level %d  —  XP %d / %d", hero.level, hero.xp, hero.xpToNext);
+    if (hero.battlesWon > 0)
+        ImGui::TextDisabled("Battles won: %d", hero.battlesWon);
     ImGui::Separator();
 
     ImGui::Text("ATK %d   DEF %d   Vision %d", hero.attack, hero.defense, hero.visionRange);
