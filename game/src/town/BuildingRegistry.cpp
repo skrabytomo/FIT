@@ -374,7 +374,7 @@ void BuildingRegistry::init()
       b.faction=F::Thornkin; b.cost=goldAndRes(5500,ResourceType::VerdantSap,6);
       b.prerequisites={BID::TK_T5}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::TK_ANCIENT_CIRCLE; b.name="Ancient Circle";
-      b.description="+3 Nature Power; terrain converts to Forest around town";
+      b.description="+3 Nature Power for all heroes garrisoned here";
       b.category=BuildingCategory::Support; b.faction=F::Thornkin;
       b.cost=goldAndRes(1500,ResourceType::VerdantSap,3);
       b.prerequisites={BID::TK_GROVE_HEART}; m_buildings.push_back(b); }
@@ -467,7 +467,7 @@ void BuildingRegistry::init()
       b.faction=F::Bloodsworn; b.cost=goldAndRes(5500,ResourceType::BloodEssence,6);
       b.prerequisites={BID::BS_T5}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::BS_BLOOD_ALTAR; b.name="Blood Altar";
-      b.description="+3 Blood Power; sacrifice 1 Bloodling to instantly fill 25% of Blood Pool";
+      b.description="+3 Blood Power for all heroes garrisoned here";
       b.category=BuildingCategory::Support; b.faction=F::Bloodsworn;
       b.cost=goldAndRes(1500,ResourceType::BloodEssence,3);
       b.prerequisites={BID::BS_WAR_HALL}; m_buildings.push_back(b); }
@@ -513,7 +513,7 @@ void BuildingRegistry::init()
       b.faction=F::Voidkin; b.cost=goldAndRes(5500,ResourceType::VerdantSap,6);
       b.prerequisites={BID::VK_T5}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::VK_RIFT_GATE; b.name="Rift Gate";
-      b.description="+3 Nature Power (void resonance); phase units ignore terrain penalties";
+      b.description="+3 Nature Power for all heroes garrisoned here";
       b.category=BuildingCategory::Support; b.faction=F::Voidkin;
       b.cost=goldAndRes(1500,ResourceType::VerdantSap,3);
       b.prerequisites={BID::VK_NEXUS}; m_buildings.push_back(b); }
@@ -559,7 +559,7 @@ void BuildingRegistry::init()
       b.faction=F::IronAssembly; b.cost=goldAndRes(6000,ResourceType::Iron,12);
       b.minWeek=7; b.prerequisites={BID::IA_T5}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::IA_BLUEPRINT_VAULT; b.name="Blueprint Vault";
-      b.description="+3 Forge Power; constructs unlock 1 week earlier";
+      b.description="+3 Forge Power for all heroes garrisoned here";
       b.category=BuildingCategory::Support; b.faction=F::IronAssembly;
       b.cost=goldAndRes(1500,ResourceType::Iron,4);
       b.prerequisites={BID::IA_FORGE_HALL}; m_buildings.push_back(b); }
@@ -605,7 +605,7 @@ void BuildingRegistry::init()
       b.faction=F::Amalgamate; b.cost=goldAndRes(5800,ResourceType::BloodEssence,5);
       b.prerequisites={BID::AM_T5}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::AM_FLESH_VAULT; b.name="Flesh Vault";
-      b.description="+3 Flesh Power; fallen units leave behind organic material for crafting";
+      b.description="+3 Flesh Power for all heroes garrisoned here";
       b.category=BuildingCategory::Support; b.faction=F::Amalgamate;
       b.cost=goldAndRes(1500,ResourceType::BloodEssence,2);
       b.prerequisites={BID::AM_GRAFTING_HALL}; m_buildings.push_back(b); }
