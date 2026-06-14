@@ -31,7 +31,7 @@ static const SkillDef SKILL_DEFS[] = {
     {SID::BLOOD_POOL,   "Blood Pool",   "BloodBound units gain +10/20/40 Morale at battle start",FactionId::Bloodsworn,SkillEffectType::SpecialMechanic,{10,20,40},"",0},
     {SID::POSSESSION,   "Possession",   "Void units start battle with +1/2/3 Luck",     FactionId::Voidkin,        SkillEffectType::SpecialMechanic, {1,2,3},    "",0},
     {SID::BLUEPRINT,    "Blueprint",    "Constructs unlocked 1/2/3 weeks earlier",      FactionId::IronAssembly,   SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
-    {SID::ADAPTATION,   "Adaptation",   "Amalgamate traits gained 10/20/30% faster",    FactionId::Amalgamate,     SkillEffectType::SpecialMechanic, {10,20,30},"",  0},
+    {SID::ADAPTATION,   "Adaptation",   "OrganicMech adapt after 2 hits / +2 stat per adapt / every hit", FactionId::Amalgamate, SkillEffectType::SpecialMechanic, {2,2,1},"",  0},
     {SID::ETERNAL_CMD,  "Eternal Command","Reraised units 10/20/30% stronger",          FactionId::EternalEmpire,  SkillEffectType::SpecialMechanic, {10,20,30},"",  0},
     {SID::SYMBIOSIS,    "Symbiosis",    "Bond pairs gain +1/2/3 to all stats",          FactionId::Thornkin,       SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},
     {SID::WARDEN_MARK,  "Warden's Mark","Mark hits 1/2/3 additional targets",           FactionId::CrimsonWardens, SkillEffectType::SpecialMechanic, {1,2,3},  "",   0},

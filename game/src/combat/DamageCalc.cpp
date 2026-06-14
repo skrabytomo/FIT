@@ -250,13 +250,14 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
         int threshold = defender.rapidEvolution ? 1 : (defender.adaptationFast ? 2 : 3);
         if (defender.hitsTaken >= threshold) {
             defender.hitsTaken = 0;
+            int gain = defender.adaptationDouble ? 2 : 1;
             // Alternate ATK and DEF gains
             if (defender.adaptationsGained % 2 == 0) {
-                defender.attack++;
+                defender.attack += gain;
                 result.adaptationGained = true;
                 result.adaptationStat   = 1;  // ATK
             } else {
-                defender.defense++;
+                defender.defense += gain;
                 result.adaptationGained = true;
                 result.adaptationStat   = -1; // DEF
             }

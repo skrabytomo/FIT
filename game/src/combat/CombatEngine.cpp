@@ -179,15 +179,21 @@ void CombatEngine::startBattle(
         }
 
         // ADAPTATION (Amalgamate): OrganicMech units adapt faster under fire
+        // Basic: threshold 2 hits; Advanced: threshold 2 hits + double stat gain; Master: every hit
         if (const SkillInstance* s = skills.getSkill(SID::ADAPTATION)) {
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive) continue;
                 if (!hasTag(u.tags, UnitTag::OrganicMech)) continue;
-                u.adaptationFast = true;
-                if (s->tier == SkillTier::Master) u.rapidEvolution = true;
+                if (s->tier == SkillTier::Master) {
+                    u.rapidEvolution = true;
+                } else {
+                    u.adaptationFast = true;
+                    if (s->tier == SkillTier::Advanced) u.adaptationDouble = true;
+                }
             }
-            addLog(hero.name + " Adaptation: OrganicMech units adapt "
-                   + (s->tier == SkillTier::Master ? "every hit" : "after 2 hits"));
+            const char* tier_desc = s->tier == SkillTier::Master ? "every hit" :
+                                    s->tier == SkillTier::Advanced ? "after 2 hits (+2 stat)" : "after 2 hits";
+            addLog(hero.name + " Adaptation: OrganicMech units adapt " + tier_desc);
         }
 
         // BLOOD_POOL (Bloodsworn): BloodBound units start with enhanced morale
