@@ -1784,15 +1784,28 @@ void Game::renderLevelUpModal()
             const SkillDef* offerSd = findSkillDef(offer.skillId);
             ImGui::PushID(i);
             if (ImGui::Button(offer.label.c_str(), ImVec2(-1, 36))) {
+                // Compute tier before applying offer (for delta calculation)
+                int prevTier = 0;
+                if (const SkillInstance* existing = hero.skills.getSkill(offer.skillId))
+                    prevTier = static_cast<int>(existing->tier);
+
                 LevelUpSystem::applyOffer(offer, hero.skills);
 
-                // Apply immediate passive bonuses from the newly learned skill
-                if (!offer.isUpgrade) {
+                // Apply immediate passive bonuses for Movement/Vision/Magic skills
+                {
                     const SkillDef* sd = findSkillDef(offer.skillId);
                     if (sd) {
-                        int v = sd->values[0]; // Basic tier
+                        // v = incremental gain from this skill event
+                        // values[] indexed as Basic=0, Advanced=1, Master=2
+                        int v;
+                        if (offer.isUpgrade) {
+                            // prevTier is the index before upgrade (0=Basic, 1=Advanced)
+                            v = sd->values[prevTier + 1] - sd->values[prevTier];
+                        } else {
+                            v = sd->values[0]; // fresh skill at Basic tier
+                        }
                         if (sd->effectType == SkillEffectType::MovementBonus) {
-                            hero.maxMove += v; hero.movePool += v;
+                            hero.maxMove += v; hero.movePool = std::min(hero.movePool + v, hero.maxMove);
                         } else if (sd->effectType == SkillEffectType::VisionBonus) {
                             hero.visionRange += v;
                             FogOfWar::updateVision(m_map, hero);
