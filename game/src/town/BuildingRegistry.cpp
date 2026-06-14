@@ -250,7 +250,7 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(1500,ResourceType::FaithStones,3);
       b.prerequisites={BID::HO_HALL}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::HO_RELIQUARY; b.name="Reliquary";
-      b.description="Desperation meter charges 25% faster in combat";
+      b.description="Holy units start battle with +20 Desperation pre-charged";
       b.category=BuildingCategory::Support; b.faction=FactionId::HolyOrder;
       b.cost=goldAndRes(2000,ResourceType::FaithStones,4);
       b.prerequisites={BID::HO_LIGHT_SHRINE}; m_buildings.push_back(b); }
@@ -426,7 +426,7 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(1500,ResourceType::BloodEssence,2);
       b.prerequisites={BID::EE_THRONE}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::EE_MONUMENT; b.name="Monument of Eternity";
-      b.description="Eternal Command: reraised units are 20% stronger";
+      b.description="Undead and Holy units gain Second Life — revive once at half HP on death";
       b.category=BuildingCategory::Support; b.faction=F::EternalEmpire;
       b.cost=goldAndRes(2500,ResourceType::Mercury,4);
       b.prerequisites={BID::EE_NECROPOLIS}; m_buildings.push_back(b); }

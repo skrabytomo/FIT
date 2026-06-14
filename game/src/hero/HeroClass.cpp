@@ -33,7 +33,7 @@ void HeroClassRegistry::init()
         {SID::LIGHT_MAGIC, SID::OFFENSE, SID::DEFENSE_SKILL, SID::DESPERATION, SID::LEADERSHIP});
 
     addClass(F::HolyOrder, "Confessor", S::LastRites,
-        "Deaths near hero double Inspiration meter gain",
+        "Enemy kills charge nearby Holy allies' Desperation meter by +20",
         false, true, false, false, false, false, false,
         {SID::LIGHT_MAGIC, SID::FIRST_AID, SID::INSPIRATION, SID::LEADERSHIP, SID::SCOUTING});
 
@@ -43,13 +43,13 @@ void HeroClassRegistry::init()
         {SID::OFFENSE, SID::DEFENSE_SKILL, SID::LEADERSHIP, SID::TACTICS, SID::LOGISTICS});
 
     addClass(F::HolyOrder, "Flagellant Marshal", S::BloodPenance,
-        "Hero loses HP each round — Desperation meter charges faster",
+        "All units +2 ATK at battle start; hero loses 5 HP per round from round 2",
         true, true, false, false, false, false, false,
         {SID::DESPERATION, SID::INSPIRATION, SID::OFFENSE, SID::LIGHT_MAGIC, SID::TACTICS});
 
     // ── BLOODSWORN ─────────────────────────────────────────────────────────────
     addClass(F::Bloodsworn, "Blood Prince", S::Feast,
-        "Hero drains HP from one friendly unit per round to fill Blood Pool",
+        "Drain 2 HP from largest friendly unit each round to heal hero",
         false, false, true, false, false, false, false,
         {SID::BLOOD_MAGIC, SID::BLOOD_POOL, SID::LEADERSHIP, SID::TACTICS, SID::SCOUTING});
 
@@ -91,7 +91,7 @@ void HeroClassRegistry::init()
 
     // ── ETERNAL EMPIRE ─────────────────────────────────────────────────────────
     addClass(F::EternalEmpire, "Death Herald", S::SoulHarvest,
-        "Enemy kills restore hero HP equal to unit tier killed",
+        "Enemy unit kills heal hero for 5 HP per unit killed",
         false, false, false, true, false, false, false,
         {SID::DEATH_MAGIC, SID::ETERNAL_CMD, SID::NECROMANCY, SID::LEADERSHIP, SID::FIRST_AID});
 
@@ -122,7 +122,7 @@ void HeroClassRegistry::init()
         {SID::BLOOD_MAGIC, SID::FIRST_AID, SID::WARDEN_MARK, SID::MYSTICISM, SID::SCOUTING});
 
     addClass(F::CrimsonWardens, "Oathmaster", S::BloodWeb,
-        "Linked units heal when any linked unit makes a kill",
+        "All allies heal 4 HP per enemy unit killed in battle",
         false, false, true, false, false, false, false,
         {SID::BLOOD_MAGIC, SID::WARDEN_MARK, SID::NECROMANCY, SID::FIRST_AID, SID::TACTICS});
 
@@ -133,7 +133,7 @@ void HeroClassRegistry::init()
 
     // ── VOIDKIN ────────────────────────────────────────────────────────────────
     addClass(F::Voidkin, "Void Weaver", S::VoidLink,
-        "Possession spreads to adjacent ally unit on possessee death",
+        "When a Void ally dies, adjacent enemies -1 ATK and nearby Void allies +1 ATK (2 rounds)",
         false, false, false, false, true, false, false,
         {SID::NATURE_MAGIC, SID::POSSESSION, SID::TACTICS, SID::SCOUTING, SID::LEADERSHIP});
 
@@ -164,12 +164,12 @@ void HeroClassRegistry::init()
         {SID::OFFENSE, SID::DEFENSE_SKILL, SID::LEADERSHIP, SID::TACTICS, SID::BLUEPRINT});
 
     addClass(F::IronAssembly, "Salvage Lord", S::Recycler,
-        "Salvage buffs from combat are permanent across battles",
+        "All units gain permanent +1 ATK after each battle won (max +5)",
         true, false, false, false, false, true, false,
         {SID::FORGE_MAGIC, SID::BLUEPRINT, SID::OFFENSE, SID::TACTICS, SID::LOGISTICS});
 
     addClass(F::IronAssembly, "Runesmith", S::LivingRune,
-        "One unit gets a permanent stat increase after each battle won",
+        "Hero gains +1 ATK and +1 DEF permanently after each battle won (max +5 each)",
         false, false, false, false, false, true, false,
         {SID::FORGE_MAGIC, SID::BLUEPRINT, SID::DEFENSE_SKILL, SID::FIRST_AID, SID::LEADERSHIP});
 
@@ -180,7 +180,7 @@ void HeroClassRegistry::init()
         {SID::FLESH_MAGIC, SID::ADAPTATION, SID::TACTICS, SID::LEADERSHIP, SID::SCOUTING});
 
     addClass(F::Amalgamate, "Hive Controller", S::Collective,
-        "Transfer one adaptation between any two friendly units",
+        "OrganicMech units share the best adaptation count at each round start",
         false, false, false, false, false, false, true,
         {SID::FLESH_MAGIC, SID::ADAPTATION, SID::LEADERSHIP, SID::FIRST_AID, SID::TACTICS});
 
@@ -196,32 +196,32 @@ void HeroClassRegistry::init()
 
     // ── CONVERGENCE ────────────────────────────────────────────────────────────
     addClass(F::Convergence, "Lightbringer", S::Radiance,
-        "Mirror ability lasts 7 rounds instead of 5",
+        "Buff and debuff spells last 4 rounds instead of 2",
         false, true, false, false, false, false, false,
         {SID::LIGHT_MAGIC, SID::MIRRORING, SID::NATURE_MAGIC, SID::LEADERSHIP, SID::TACTICS});
 
     addClass(F::Convergence, "Oathbound", S::Covenant,
-        "Linked units share the active mirrored buffs",
+        "When a buff is cast, adjacent allies receive half the buff value",
         false, true, false, false, true, false, false,
         {SID::MIRRORING, SID::LEADERSHIP, SID::FIRST_AID, SID::LIGHT_MAGIC, SID::NATURE_MAGIC});
 
     addClass(F::Convergence, "Shadowlord", S::PredatorMirror,
-        "Mirror ability activates instantly with no delay",
+        "First spell cast each battle costs no mana",
         false, false, false, true, false, false, false,
         {SID::MIRRORING, SID::DEATH_MAGIC, SID::BLOOD_MAGIC, SID::OFFENSE, SID::TACTICS});
 
     addClass(F::Convergence, "Voidcaller", S::Corruption,
-        "Mirrored terrain effects persist after mirror expires",
+        "Enemy units lose -1 DEF each round (starting round 2)",
         false, false, true, true, false, false, false,
         {SID::MIRRORING, SID::DEATH_MAGIC, SID::NATURE_MAGIC, SID::TACTICS, SID::SCOUTING});
 
     addClass(F::Convergence, "Ironweaver", S::Synthesis,
-        "Can hold two active mirrors simultaneously",
+        "Hero regenerates +2 extra mana per round in combat",
         false, false, false, false, false, true, false,
         {SID::MIRRORING, SID::FORGE_MAGIC, SID::FLESH_MAGIC, SID::TACTICS, SID::LEADERSHIP});
 
     addClass(F::Convergence, "Fleshbinder", S::AdaptationMirror,
-        "Units gain one adaptation per mirrored battle that persists",
+        "When any ally dies, all friendly OrganicMech units gain +1 ATK or DEF",
         false, false, false, false, false, false, true,
         {SID::MIRRORING, SID::FLESH_MAGIC, SID::ADAPTATION, SID::LEADERSHIP, SID::FIRST_AID});
 }

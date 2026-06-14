@@ -14,7 +14,7 @@ static const SkillDef SKILL_DEFS[] = {
     {SID::TACTICS,      "Tactics",      "Hero attack/defense bonus +1/2/3",            FactionId::None,  SkillEffectType::StatBonus,       {1,2,3}, "attack",      0},
     {SID::LOGISTICS,    "Logistics",    "+3/5/7 movement pool",                        FactionId::None,  SkillEffectType::MovementBonus,   {3,5,7}, "",            0},
     {SID::SCOUTING,     "Scouting",     "+1/2/3 vision range",                         FactionId::None,  SkillEffectType::VisionBonus,     {1,2,3}, "",            0},
-    {SID::FIRST_AID,    "First Aid",    "Restore 10/20/30% unit HP after battle",      FactionId::None,  SkillEffectType::StatBonus,       {10,20,30},"heal",      0},
+    {SID::FIRST_AID,    "First Aid",    "Restore 10/20/30% of casualties after battle",FactionId::None,  SkillEffectType::StatBonus,       {10,20,30},"heal",      0},
     {SID::LUCK,         "Luck",         "Units have 5/10/15% chance to deal double dmg",FactionId::None,  SkillEffectType::UnitStatBonus,   {1,2,3},   "luck",      0},
     {SID::MYSTICISM,    "Mysticism",    "Hero regenerates +1/2/3 extra mana per round", FactionId::None,  SkillEffectType::StatBonus,       {1,2,3},   "mana",      0},
     {SID::NECROMANCY,   "Necromancy",   "Raise 10/20/30% of killed enemies as skeletons",FactionId::None, SkillEffectType::SpecialMechanic, {10,20,30},"",          0},
@@ -26,7 +26,7 @@ static const SkillDef SKILL_DEFS[] = {
     {SID::FORGE_MAGIC,  "Forge Magic",  "+2/4/6 Forge Power",                          FactionId::None,  SkillEffectType::MagicSchoolBonus,{2,4,6}, "forgePower",  0},
     {SID::FLESH_MAGIC,  "Flesh Magic",  "+2/4/6 Flesh Power",                          FactionId::None,  SkillEffectType::MagicSchoolBonus,{2,4,6}, "fleshPower",  0},
 
-    {SID::DESPERATION,  "Desperation",  "Desperation meter charges 10/20/30% faster",  FactionId::HolyOrder,      SkillEffectType::SpecialMechanic, {10,20,30},"",  0},
+    {SID::DESPERATION,  "Desperation",  "Holy units start battle with 10/20/30 Desperation pre-charged", FactionId::HolyOrder, SkillEffectType::SpecialMechanic, {10,20,30},"",  0},
     {SID::INSPIRATION,  "Inspiration",  "All units gain +5/10/15 Morale at battle start",FactionId::HolyOrder,      SkillEffectType::SpecialMechanic, {5,10,15},"",   0},
     {SID::BLOOD_POOL,   "Blood Pool",   "BloodBound units gain +10/20/40 Morale at battle start",FactionId::Bloodsworn,SkillEffectType::SpecialMechanic,{10,20,40},"",0},
     {SID::POSSESSION,   "Possession",   "Void units start battle with +1/2/3 Luck",     FactionId::Voidkin,        SkillEffectType::SpecialMechanic, {1,2,3},    "",0},
