@@ -86,6 +86,7 @@ struct Hero
     // Specialty progression: tracked stats for specialty effects
     int battlesWon = 0;         // total combat victories (Veteran specialty)
     int specialtyAtk = 0;       // accumulated specialty attack bonus
+    int recyclerBonus = 0;      // Salvage Lord: permanent ATK bonus to units (max 5)
 
     // Transient per-battle specialty flags (set in enterCombat, not persisted)
     bool feastSpecialty      = false;  // Blood Prince — drain own units, heal hero per round
@@ -122,6 +123,18 @@ struct Hero
     bool predatorMirrorUsed           = false;
     bool covenantSpecialty            = false; // Oathbound — when unit buffed, adjacent allies gain half buff
     bool collectiveSpecialty          = false; // Hive Controller — OrganicMech share best adaptation at round start
+
+    // Persistent world-map specialty flags (set at hero creation)
+    bool ghostWalkSpecialty           = false; // Shadow Stalker — hero invisible on world map
+    bool blightAuraSpecialty          = false; // Blight Caller — Sacred terrain converts to Corrupted near hero
+
+    // Transient per-battle specialty flags
+    bool soulHarvestSpecialty         = false; // Death Herald — enemy kills restore hero HP (+5/kill)
+    bool recyclerSpecialty            = false; // Salvage Lord — units gain +1 ATK after each battle won
+    bool apexSpecialty                = false; // Apex Hunter — OrganicMech start with max adaptations
+    bool corruptionSpecialty          = false; // Voidcaller — enemy units lose -1 DEF per round
+    bool synthesisSpecialty           = false; // Ironweaver — hero regenerates +2 mana per round
+    bool adaptationMirrorSpecialty    = false; // Fleshbinder — OrganicMech gain adaptation when any ally dies
 
     static int xpRequired(int lvl) { return 100 * lvl * lvl; }
 

@@ -547,6 +547,12 @@ void Game::enterCombat(Hero& playerHero,
     playerHero.predatorMirrorUsed          = false;
     playerHero.covenantSpecialty           = false;
     playerHero.collectiveSpecialty         = false;
+    playerHero.soulHarvestSpecialty        = false;
+    playerHero.recyclerSpecialty           = false;
+    playerHero.apexSpecialty               = false;
+    playerHero.corruptionSpecialty         = false;
+    playerHero.synthesisSpecialty          = false;
+    playerHero.adaptationMirrorSpecialty   = false;
     if (const HeroClassDef* cls = m_classRegistry.getClass(playerHero.classId)) {
         playerHero.feastSpecialty              = (cls->specialty == SpecialtyType::Feast);
         playerHero.witherSpecialty             = (cls->specialty == SpecialtyType::Wither);
@@ -576,12 +582,22 @@ void Game::enterCombat(Hero& playerHero,
         playerHero.predatorMirrorSpecialty     = (cls->specialty == SpecialtyType::PredatorMirror);
         playerHero.covenantSpecialty           = (cls->specialty == SpecialtyType::Covenant);
         playerHero.collectiveSpecialty         = (cls->specialty == SpecialtyType::Collective);
+        playerHero.soulHarvestSpecialty        = (cls->specialty == SpecialtyType::SoulHarvest);
+        playerHero.recyclerSpecialty           = (cls->specialty == SpecialtyType::Recycler);
+        playerHero.apexSpecialty               = (cls->specialty == SpecialtyType::Apex);
+        playerHero.corruptionSpecialty         = (cls->specialty == SpecialtyType::Corruption);
+        playerHero.synthesisSpecialty          = (cls->specialty == SpecialtyType::Synthesis);
+        playerHero.adaptationMirrorSpecialty   = (cls->specialty == SpecialtyType::AdaptationMirror);
     }
 
     // Garrison bonus: garrisoned hero grants +2 defense to all their units
     std::vector<CombatUnit> pUnitsGarr = playerUnits;
     if (playerHero.isGarrisoned)
         for (auto& u : pUnitsGarr) u.defense += 2;
+
+    // Recycler bonus: salvaged ATK is applied to all player units each battle
+    if (playerHero.recyclerBonus > 0)
+        for (auto& u : pUnitsGarr) u.attack += playerHero.recyclerBonus;
 
     m_combat.startBattle(playerHero, pUnitsGarr, enemyHero, enemyUnits, false);
 
@@ -794,7 +810,7 @@ void Game::exitCombat(bool playerWon)
                     int heal = m_combat.enemyStartCount() * 3;
                     hero.heroHp = std::min(hero.heroMaxHp, hero.heroHp + heal);
                     if (heal > 0) {
-                        char buf[32];
+                        char buf[48];
                         std::snprintf(buf, sizeof(buf), "+%d Hero HP (Soul Harvest)", heal);
                         pushPickupEffect(hero.pos, buf, IM_COL32(180, 255, 200, 255));
                     }
@@ -830,6 +846,16 @@ void Game::exitCombat(bool playerWon)
                         char buf[44];
                         std::snprintf(buf, sizeof(buf), "+1 ATK (Predator, total %d)", hero.specialtyAtk);
                         pushPickupEffect(hero.pos, buf, IM_COL32(255, 100, 100, 255));
+                    }
+                }
+                // Recycler (Salvage Lord): army gains permanent +1 ATK per battle won (max 5)
+                if (cls->specialty == SpecialtyType::Recycler) {
+                    if (hero.recyclerBonus < 5) {
+                        hero.recyclerBonus++;
+                        char buf[52];
+                        std::snprintf(buf, sizeof(buf), "+1 ATK to all units (Recycler, total %d)",
+                                      hero.recyclerBonus);
+                        pushPickupEffect(hero.pos, buf, IM_COL32(180, 200, 100, 255));
                     }
                 }
             }

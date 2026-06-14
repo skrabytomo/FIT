@@ -256,6 +256,28 @@ void CombatEngine::startBattle(
     applyCollective(m_playerHero, true);
     applyCollective(m_enemyHero,  false);
 
+    // Apex: all allied OrganicMech units start with full adaptations (6 stat gains)
+    auto applyApex = [this](const Hero& hero, bool isPlayer) {
+        if (!hero.apexSpecialty) return;
+        int boosted = 0;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive || !hasTag(u.tags, UnitTag::OrganicMech)) continue;
+            int gap = 6 - u.adaptationsGained;
+            if (gap <= 0) continue;
+            // Even adaptations give ATK, odd give DEF (mirror the DamageCalc logic)
+            for (int i = u.adaptationsGained; i < 6; i++) {
+                if (i % 2 == 0) u.attack++;
+                else             u.defense++;
+            }
+            u.adaptationsGained = 6;
+            boosted++;
+        }
+        if (boosted > 0)
+            addLog(hero.name + " Apex: " + std::to_string(boosted) + " OrganicMech units start fully adapted");
+    };
+    applyApex(m_playerHero, true);
+    applyApex(m_enemyHero,  false);
+
     m_coordinatedStrikeTarget = 0;
     m_wildGrowthGhosted.clear();
 
@@ -547,6 +569,42 @@ bool CombatEngine::submitAction(const CombatAction& action)
                 applyBloodWeb(m_playerHero, unit->isPlayer);
                 applyBloodWeb(m_enemyHero,  !unit->isPlayer);
             }
+            // SoulHarvest (Death Herald): attacker's hero heals +5 HP per killed enemy unit
+            {
+                bool attackerIsPlayer = unit->isPlayer;
+                bool targetIsEnemy    = !target->isPlayer;
+                auto applySoulHarvest = [&](Hero& hero, bool isPlayer) {
+                    if (!hero.soulHarvestSpecialty) return;
+                    if (isPlayer != attackerIsPlayer) return;
+                    if (!targetIsEnemy) return;  // only heals from enemy kills
+                    int heal = std::min(5 * result.killed, hero.heroMaxHp - hero.heroHp);
+                    if (heal > 0) {
+                        hero.heroHp += heal;
+                        addLog(hero.name + " Soul Harvest: +" + std::to_string(heal) + " HP from kill");
+                    }
+                };
+                applySoulHarvest(m_playerHero, true);
+                applySoulHarvest(m_enemyHero,  false);
+            }
+            // AdaptationMirror (Fleshbinder): when any ally dies, allied OrganicMech gain adaptation
+            {
+                bool targetWasPlayer = target->isPlayer;
+                auto applyAdaptationMirror = [&](const Hero& hero, bool isPlayer) {
+                    if (!hero.adaptationMirrorSpecialty) return;
+                    if (targetWasPlayer != isPlayer) return;  // only own ally deaths trigger it
+                    for (auto& ally : m_grid.units()) {
+                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
+                        if (!hasTag(ally.tags, UnitTag::OrganicMech)) continue;
+                        if (ally.adaptationsGained >= 6) continue;
+                        if (ally.adaptationsGained % 2 == 0) ally.attack++;
+                        else                                   ally.defense++;
+                        ally.adaptationsGained++;
+                    }
+                    addLog(hero.name + " AdaptationMirror: OrganicMech adapt from ally death");
+                };
+                applyAdaptationMirror(m_playerHero, true);
+                applyAdaptationMirror(m_enemyHero,  false);
+            }
             spawnWildGrowthGhosts();
             m_grid.removeDeadUnits();
         }
@@ -646,6 +704,39 @@ bool CombatEngine::submitAction(const CombatAction& action)
                 };
                 applyBloodWebShot(m_playerHero, unit->isPlayer);
                 applyBloodWebShot(m_enemyHero,  !unit->isPlayer);
+            }
+            // SoulHarvest on ranged kill
+            {
+                bool attackerIsPlayer = unit->isPlayer;
+                auto applySoulHarvestShot = [&](Hero& hero, bool isPlayer) {
+                    if (!hero.soulHarvestSpecialty || isPlayer != attackerIsPlayer) return;
+                    if (target->isPlayer == attackerIsPlayer) return;  // only enemy kills
+                    int heal = std::min(5 * result.killed, hero.heroMaxHp - hero.heroHp);
+                    if (heal > 0) {
+                        hero.heroHp += heal;
+                        addLog(hero.name + " Soul Harvest: +" + std::to_string(heal) + " HP from kill");
+                    }
+                };
+                applySoulHarvestShot(m_playerHero, true);
+                applySoulHarvestShot(m_enemyHero,  false);
+            }
+            // AdaptationMirror on ranged kill — if the dying target was an ally, trigger
+            {
+                bool targetWasPlayer = target->isPlayer;
+                auto applyAdaptMirrorShot = [&](const Hero& hero, bool isPlayer) {
+                    if (!hero.adaptationMirrorSpecialty || targetWasPlayer != isPlayer) return;
+                    for (auto& ally : m_grid.units()) {
+                        if (!ally.alive || ally.isPlayer != isPlayer) continue;
+                        if (!hasTag(ally.tags, UnitTag::OrganicMech)) continue;
+                        if (ally.adaptationsGained >= 6) continue;
+                        if (ally.adaptationsGained % 2 == 0) ally.attack++;
+                        else                                   ally.defense++;
+                        ally.adaptationsGained++;
+                    }
+                    addLog(hero.name + " AdaptationMirror: OrganicMech adapt from ally death");
+                };
+                applyAdaptMirrorShot(m_playerHero, true);
+                applyAdaptMirrorShot(m_enemyHero,  false);
             }
             spawnWildGrowthGhosts();
             m_grid.removeDeadUnits();
@@ -1338,6 +1429,28 @@ void CombatEngine::processRoundStartEffects()
     };
     applyCollectiveRound(m_playerHero, true);
     applyCollectiveRound(m_enemyHero,  false);
+
+    // Corruption: enemy units lose -1 DEF per round (Voidcaller specialty)
+    auto applyCorruption = [&](Hero& hero, bool isPlayer) {
+        if (!hero.corruptionSpecialty || m_round <= 1) return;
+        bool affected = false;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer == isPlayer || !u.alive) continue;  // target opposite side
+            if (u.defense > 0) { u.defense--; affected = true; }
+        }
+        if (affected)
+            addLog(hero.name + " Corruption: enemy units -1 DEF");
+    };
+    applyCorruption(m_playerHero, true);
+    applyCorruption(m_enemyHero,  false);
+
+    // Synthesis: hero regenerates +2 mana per round (Ironweaver specialty)
+    auto applySynthesis = [&](Hero& hero) {
+        if (!hero.synthesisSpecialty) return;
+        hero.mana = std::min(hero.maxMana, hero.mana + 2);
+    };
+    applySynthesis(m_playerHero);
+    applySynthesis(m_enemyHero);
 
     spawnWildGrowthGhosts();
     m_grid.removeDeadUnits();

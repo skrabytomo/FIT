@@ -446,64 +446,68 @@ void Game::doEndTurn()
         }
 
         // Infestation specialty (Flesh Architect/Amalgamate): FleshZone spreads each turn
-        for (auto& hero : m_heroes) {
-            if (!hero.infestationSpecialty) continue;
-            constexpr int INFEST_RADIUS = 2;
-            std::vector<HexCoord> toInfest;
-            for (const auto& coord : m_map.coords()) {
-                if (HexGrid::distance(hero.pos, coord) > INFEST_RADIUS) continue;
-                HexTile* t = m_map.getTile(coord);
-                if (!t || t->terrain == Terrain::FleshZone) continue;
-                // Spread to Plains, Corrupted, Wasteland near existing FleshZone
-                bool adjacentFlesh = false;
-                for (const auto& nb : HexGrid::neighbors(coord)) {
-                    const HexTile* nt = m_map.getTile(nb);
-                    if (nt && nt->terrain == Terrain::FleshZone) { adjacentFlesh = true; break; }
+        auto applyInfestation = [&](std::vector<Hero>& heroList) {
+            for (auto& hero : heroList) {
+                if (!hero.infestationSpecialty) continue;
+                constexpr int INFEST_RADIUS = 2;
+                std::vector<HexCoord> toInfest;
+                for (const auto& coord : m_map.coords()) {
+                    if (HexGrid::distance(hero.pos, coord) > INFEST_RADIUS) continue;
+                    HexTile* t = m_map.getTile(coord);
+                    if (!t || t->terrain == Terrain::FleshZone) continue;
+                    bool adjacentFlesh = false;
+                    for (const auto& nb : HexGrid::neighbors(coord)) {
+                        const HexTile* nt = m_map.getTile(nb);
+                        if (nt && nt->terrain == Terrain::FleshZone) { adjacentFlesh = true; break; }
+                    }
+                    Terrain ter = t->terrain;
+                    if (adjacentFlesh && (ter == Terrain::Plains || ter == Terrain::Wasteland
+                                          || ter == Terrain::Corrupted || ter == Terrain::Barren)) {
+                        toInfest.push_back(coord);
+                    }
                 }
-                Terrain ter = t->terrain;
-                if (adjacentFlesh && (ter == Terrain::Plains || ter == Terrain::Wasteland
-                                      || ter == Terrain::Corrupted || ter == Terrain::Barren)) {
-                    toInfest.push_back(coord);
+                if (!toInfest.empty()) {
+                    int converted = 0;
+                    for (const auto& c : toInfest) {
+                        if (converted >= 2) break;
+                        HexTile* t = m_map.getTile(c);
+                        if (t) { t->terrain = Terrain::FleshZone; converted++; }
+                    }
+                    if (converted > 0) {
+                        char buf[48];
+                        std::snprintf(buf, sizeof(buf), "Infestation: +%d FleshZone", converted);
+                        pushPickupEffect(hero.pos, buf, IM_COL32(180, 100, 60, 255));
+                    }
                 }
             }
-            if (!toInfest.empty()) {
-                // Convert up to 2 tiles per turn to avoid runaway growth
-                int converted = 0;
-                for (const auto& c : toInfest) {
-                    if (converted >= 2) break;
-                    HexTile* t = m_map.getTile(c);
-                    if (t) { t->terrain = Terrain::FleshZone; converted++; }
-                }
-                if (converted > 0) {
-                    char buf[48];
-                    std::snprintf(buf, sizeof(buf), "Infestation: +%d FleshZone", converted);
-                    pushPickupEffect(hero.pos, buf, IM_COL32(180, 100, 60, 255));
-                }
-            }
-        }
+        };
+        applyInfestation(m_heroes);
+        applyInfestation(m_enemyHeroes);
 
         // BlightAura specialty (Blight Caller/Voidkin): Sacred terrain near the hero
-        // is passively corrupted each turn.
-        for (auto& hero : m_heroes) {
-            const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
-            if (!cls || cls->specialty != SpecialtyType::BlightAura) continue;
-            constexpr int BLIGHT_RADIUS = 3;
-            int corrupted = 0;
-            for (const auto& coord : m_map.coords()) {
-                if (HexGrid::distance(hero.pos, coord) > BLIGHT_RADIUS) continue;
-                HexTile* t = m_map.getTile(coord);
-                if (t && t->terrain == Terrain::Sacred) {
-                    t->terrain = Terrain::Corrupted;
-                    corrupted++;
+        // is passively corrupted each turn. Applies to both player and enemy heroes.
+        auto applyBlightAura = [&](std::vector<Hero>& heroList) {
+            for (auto& hero : heroList) {
+                if (!hero.blightAuraSpecialty) continue;
+                constexpr int BLIGHT_RADIUS = 3;
+                int corrupted = 0;
+                for (const auto& coord : m_map.coords()) {
+                    if (HexGrid::distance(hero.pos, coord) > BLIGHT_RADIUS) continue;
+                    HexTile* t = m_map.getTile(coord);
+                    if (t && t->terrain == Terrain::Sacred) {
+                        t->terrain = Terrain::Corrupted;
+                        corrupted++;
+                    }
+                }
+                if (corrupted > 0) {
+                    char buf[64];
+                    std::snprintf(buf, sizeof(buf), "BlightAura: %d Sacred → Corrupted", corrupted);
+                    pushPickupEffect(hero.pos, buf, IM_COL32(160, 80, 200, 255));
                 }
             }
-            if (corrupted > 0) {
-                char buf[64];
-                std::snprintf(buf, sizeof(buf),
-                    "BlightAura: %d Sacred → Corrupted", corrupted);
-                pushPickupEffect(hero.pos, buf, IM_COL32(160, 80, 200, 255));
-            }
-        }
+        };
+        applyBlightAura(m_heroes);
+        applyBlightAura(m_enemyHeroes);
 
         bool newWeek = m_turns.endTurn(m_towns, m_heroes,
                                        m_playerResources, m_registry);
@@ -1278,8 +1282,10 @@ void Game::renderWorldOverlay()
         if (ph.bloodScentSpecialty) { playerHasBloodScent = true; break; }
     }
 
-    // ── Enemy heroes (only if tile is visible, or revealed by BloodScent) ─────
+    // ── Enemy heroes (only if tile is visible, or revealed by BloodScent; GhostWalk heroes are hidden) ─────
     for (const auto& hero : m_enemyHeroes) {
+        // GhostWalk: Voidkin Shadow Stalker is invisible on the world map
+        if (hero.ghostWalkSpecialty) continue;
         const HexTile* etile = m_map.getTile(hero.pos);
         bool revealedByBloodScent = playerHasBloodScent && hero.faction == FactionId::Bloodsworn;
         if (!etile || (!etile->visible && !revealedByBloodScent)) continue;

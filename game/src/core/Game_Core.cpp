@@ -393,6 +393,8 @@ void Game::startNewGame()
             hero.efficientSpecialty  = (chosenCls->specialty == SpecialtyType::Efficient);
             hero.bloodScentSpecialty = (chosenCls->specialty == SpecialtyType::BloodScent);
             hero.infestationSpecialty = (chosenCls->specialty == SpecialtyType::Infestation);
+            hero.ghostWalkSpecialty   = (chosenCls->specialty == SpecialtyType::GhostWalk);
+            hero.blightAuraSpecialty  = (chosenCls->specialty == SpecialtyType::BlightAura);
             // Grant first skill from class pool at Basic tier
             if (!chosenCls->skillPool.empty())
                 hero.skills.learn(chosenCls->skillPool[0]);
@@ -467,12 +469,16 @@ void Game::startNewGame()
         eHero.knownSpells = { kEnemySpells[efi][0], kEnemySpells[efi][1] };
         eHero.mana    = 20;
         eHero.maxMana = 20;
-        // Assign a random class from the enemy's faction pool
+        // Assign a random class from the enemy's faction pool and set persistent specialty flags
         {
             auto eCls = m_classRegistry.getClassesForFaction(ef);
             if (!eCls.empty()) {
                 int pick = static_cast<int>(i % eCls.size());
-                eHero.classId = eCls[pick]->id;
+                const HeroClassDef* ecls = eCls[pick];
+                eHero.classId = ecls->id;
+                eHero.ghostWalkSpecialty  = (ecls->specialty == SpecialtyType::GhostWalk);
+                eHero.blightAuraSpecialty = (ecls->specialty == SpecialtyType::BlightAura);
+                eHero.infestationSpecialty = (ecls->specialty == SpecialtyType::Infestation);
             }
         }
         // School power scales enemy hero spells (roughly half player's starting tier)
