@@ -169,7 +169,7 @@ void CombatEngine::startBattle(
         // INSPIRATION (HolyOrder): all allied units receive a morale bonus at battle start
         if (const SkillInstance* s = skills.getSkill(SID::INSPIRATION)) {
             if (const SkillDef* def = findSkillDef(SID::INSPIRATION)) {
-                int moraleGain = def->values[static_cast<int>(s->tier)] * 5; // 1/2/3 → 5/10/15
+                int moraleGain = def->values[static_cast<int>(s->tier)];
                 for (auto& u : m_grid.units()) {
                     if (u.isPlayer != isPlayer || !u.alive || u.moraleImmune) continue;
                     u.morale = std::min(100, u.morale + moraleGain);
