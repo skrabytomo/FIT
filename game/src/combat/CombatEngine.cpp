@@ -1500,6 +1500,67 @@ void CombatEngine::processRoundStartEffects()
     applySynthesis(m_playerHero);
     applySynthesis(m_enemyHero);
 
+    // BloodScent (Inquisitor Hunter): player units get +1 ATK vs BloodBound enemies this round
+    auto applyBloodScent = [&](const Hero& hero, bool isPlayer) {
+        if (!hero.bloodScentSpecialty) return;
+        // Check if any opponent has BloodBound tag
+        bool hasBloodBound = false;
+        for (const auto& u : m_grid.units())
+            if (u.isPlayer != isPlayer && u.alive && hasTag(u.tags, UnitTag::BloodBound))
+                { hasBloodBound = true; break; }
+        if (!hasBloodBound) return;
+        int boosted = 0;
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive) continue;
+            u.roundAttackBonus += 1;
+            u.buffAttackRounds = std::max(u.buffAttackRounds, 1);
+            ++boosted;
+        }
+        if (boosted > 0)
+            addLog(hero.name + " Blood Scent: " + std::to_string(boosted) +
+                   " units gain +1 ATK vs BloodBound");
+    };
+    applyBloodScent(m_playerHero, true);
+    applyBloodScent(m_enemyHero,  false);
+
+    // Infestation (Flesh Architect): each OrganicMech unit spreads flesh to 1 adjacent Normal tile
+    // Enemy units caught on infested tiles take 2 poison damage
+    auto applyInfestation = [&](const Hero& hero, bool isPlayer) {
+        if (!hero.infestationSpecialty || m_round < 2) return;
+        int spreads = 0;
+        uint32_t rng = static_cast<uint32_t>(m_round * 7919u + m_turnIndex * 1000003u);
+        auto lcg = [&]() { rng = rng * 1664525u + 1013904223u; return rng; };
+        for (const auto& u : m_grid.units()) {
+            if (u.isPlayer != isPlayer || !u.alive) continue;
+            if (!hasTag(u.tags, UnitTag::OrganicMech)) continue;
+            auto neighbors = HexGrid::neighbors(u.pos);
+            // Pick one random neighbour tile that is Normal
+            lcg();
+            int start = static_cast<int>(rng % neighbors.size());
+            for (int i = 0; i < static_cast<int>(neighbors.size()); ++i) {
+                HexCoord nc = neighbors[(start + i) % neighbors.size()];
+                CombatTile* t = m_grid.getTile(nc);
+                if (!t || t->type != CombatTileType::Normal) continue;
+                m_grid.setTileType(nc, CombatTileType::SpeedPenalty);
+                ++spreads;
+                // Poison any enemy unit standing there
+                for (auto& target : m_grid.units()) {
+                    if (target.alive && target.isPlayer != isPlayer && target.pos == nc) {
+                        target.poisonRounds = std::max(target.poisonRounds, 2);
+                        if (target.poisonDamage < 3) target.poisonDamage = 3;
+                        addLog(target.name + " is caught in spreading flesh! (Poison 3 x2)");
+                    }
+                }
+                break;
+            }
+        }
+        if (spreads > 0)
+            addLog(hero.name + " Infestation: flesh spreads to " +
+                   std::to_string(spreads) + " tile(s)");
+    };
+    applyInfestation(m_playerHero, true);
+    applyInfestation(m_enemyHero,  false);
+
     spawnWildGrowthGhosts();
     m_grid.removeDeadUnits();
     checkVictory();

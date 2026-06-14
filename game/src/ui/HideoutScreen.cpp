@@ -149,6 +149,14 @@ void HideoutScreen::drawMilestones(HideoutDB& db)
 {
     struct MilestoneEntry { const char* key; const char* desc; };
     static const MilestoneEntry ENTRIES[] = {
+        // Gameplay achievements
+        { Milestone::FIRST_BATTLE_WON,   "First battle won" },
+        { Milestone::FIRST_TOWN_CAPTURED,"First town captured" },
+        { Milestone::HERO_LEVEL_5,       "Hero reached level 5" },
+        { Milestone::HERO_LEVEL_10,      "Hero reached level 10" },
+        { Milestone::WEEK_10_REACHED,    "Survived to week 10" },
+        { Milestone::CAMPAIGN_WON,       "The Fracture campaign completed" },
+        // Hideout upgrades
         { Milestone::CASTLE_T1,          "Castle Tier 1 unlocked" },
         { Milestone::CASTLE_T2,          "Castle Tier 2 unlocked" },
         { Milestone::CASTLE_T3,          "Castle Tier 3 unlocked" },
@@ -158,6 +166,12 @@ void HideoutScreen::drawMilestones(HideoutDB& db)
         { Milestone::VAULT_T2,           "Vault Tier 2 unlocked" },
         { Milestone::CONVERGENCE_UNLOCK, "Convergence faction unlocked" },
     };
+
+    int completed = 0, total = static_cast<int>(std::size(ENTRIES));
+    for (auto& e : ENTRIES) if (db.isMilestoneComplete(e.key)) ++completed;
+
+    ImGui::TextDisabled("Completed: %d / %d", completed, total);
+    ImGui::Spacing();
 
     for (auto& e : ENTRIES) {
         bool done = db.isMilestoneComplete(e.key);

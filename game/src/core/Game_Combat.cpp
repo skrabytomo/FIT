@@ -832,6 +832,7 @@ void Game::exitCombat(bool playerWon)
                 captured->garrison.clear();
                 m_capturedTownName = captured->name;
                 m_showCapturePopup = true;
+                m_hideout.completeMilestone(Milestone::FIRST_TOWN_CAPTURED);
                 printf("Captured town after garrison fight: %s\n", m_capturedTownName.c_str());
             }
             m_pendingTownCaptureId = 0;
@@ -886,6 +887,7 @@ void Game::exitCombat(bool playerWon)
         }
 
         m_hideout.addXP(50);
+        m_hideout.completeMilestone(Milestone::FIRST_BATTLE_WON);
         m_triggers.fire(TriggerType::BattleWon, ctx);
         if (m_enemyHeroes.empty()) {
             m_showVictory = true;
@@ -904,6 +906,8 @@ void Game::exitCombat(bool playerWon)
             printf("Hero earns %d XP\n", xp);
             if (hero.addXp(xp)) {
                 printf("Hero leveled up to %d!\n", hero.level);
+                if (hero.level >= 5)  m_hideout.completeMilestone(Milestone::HERO_LEVEL_5);
+                if (hero.level >= 10) m_hideout.completeMilestone(Milestone::HERO_LEVEL_10);
                 const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
                 if (cls) {
                     std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
@@ -940,18 +944,6 @@ void Game::exitCombat(bool playerWon)
                         char buf[40];
                         std::snprintf(buf, sizeof(buf), "+1 ATK (Veteran, total %d)", hero.specialtyAtk);
                         pushPickupEffect(hero.pos, buf, IM_COL32(255, 200, 80, 255));
-                    }
-                }
-                // LivingRune (Runesmith): +1 hero ATK and DEF per battle won, max +5
-                if (cls->specialty == SpecialtyType::LivingRune) {
-                    if (hero.specialtyAtk < 5) {
-                        hero.specialtyAtk++;
-                        hero.attack++;
-                        hero.defense++;
-                        char buf[48];
-                        std::snprintf(buf, sizeof(buf), "+1 ATK/DEF (Living Rune, total %d)",
-                                      hero.specialtyAtk);
-                        pushPickupEffect(hero.pos, buf, IM_COL32(100, 200, 255, 255));
                     }
                 }
                 // Predator (Assassin Lord): permanent +1 attack for each enemy hero killed

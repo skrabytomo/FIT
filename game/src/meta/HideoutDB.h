@@ -18,14 +18,23 @@ namespace HideoutBranch
 // Milestone names — persistent per account
 namespace Milestone
 {
-    inline constexpr const char* CASTLE_T1         = "castle_tier1";
-    inline constexpr const char* CASTLE_T2         = "castle_tier2";
-    inline constexpr const char* CASTLE_T3         = "castle_tier3";
-    inline constexpr const char* BARRACKS_T1       = "barracks_tier1";
-    inline constexpr const char* BARRACKS_T2       = "barracks_tier2";
-    inline constexpr const char* VAULT_T1          = "vault_tier1";
-    inline constexpr const char* VAULT_T2          = "vault_tier2";
+    // Hideout upgrades
+    inline constexpr const char* CASTLE_T1          = "castle_tier1";
+    inline constexpr const char* CASTLE_T2          = "castle_tier2";
+    inline constexpr const char* CASTLE_T3          = "castle_tier3";
+    inline constexpr const char* BARRACKS_T1        = "barracks_tier1";
+    inline constexpr const char* BARRACKS_T2        = "barracks_tier2";
+    inline constexpr const char* VAULT_T1           = "vault_tier1";
+    inline constexpr const char* VAULT_T2           = "vault_tier2";
     inline constexpr const char* CONVERGENCE_UNLOCK = "convergence_unlocked";
+
+    // Gameplay achievements
+    inline constexpr const char* FIRST_BATTLE_WON  = "first_battle_won";
+    inline constexpr const char* FIRST_TOWN_CAPTURED= "first_town_captured";
+    inline constexpr const char* HERO_LEVEL_5       = "hero_level_5";
+    inline constexpr const char* HERO_LEVEL_10      = "hero_level_10";
+    inline constexpr const char* WEEK_10_REACHED    = "week_10_reached";
+    inline constexpr const char* CAMPAIGN_WON       = "campaign_won";
 }
 
 // ── HideoutDB ─────────────────────────────────────────────────────────────────

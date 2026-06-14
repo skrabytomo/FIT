@@ -753,6 +753,8 @@ void Game::doEndTurn()
 
             ScriptContext ctx; ctx.heroId = 0;
             m_triggers.fire(TriggerType::WeekStart, ctx);
+            if (m_turns.week() >= 10)
+                m_hideout.completeMilestone(Milestone::WEEK_10_REACHED);
             if (m_state == GameState::Campaign) {
                 m_campaign.onWeekStart(m_turns.week(), m_lua);
                 for (int rt = 0; rt < RESOURCE_COUNT; ++rt) {
@@ -1996,20 +1998,12 @@ void Game::renderHeroInspect()
 
     // Specialty progression stats
     if (cls) {
-        bool showProgression = false;
-        switch (cls->specialty) {
-            case SpecialtyType::Veteran:
-            case SpecialtyType::Predator:
-            case SpecialtyType::LivingRune:
-                showProgression = true; break;
-            default: break;
-        }
-        if (showProgression && hero.specialtyAtk > 0) {
+        // Veteran / Predator use specialtyAtk as their counter
+        bool showGenericAtk = (cls->specialty == SpecialtyType::Veteran ||
+                               cls->specialty == SpecialtyType::Predator);
+        if (showGenericAtk && hero.specialtyAtk > 0)
             ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.4f, 1.0f),
-                               "Specialty bonus: +%d ATK%s",
-                               hero.specialtyAtk,
-                               cls->specialty == SpecialtyType::LivingRune ? "/DEF" : "");
-        }
+                               "Specialty bonus: +%d ATK", hero.specialtyAtk);
         if (cls->specialty == SpecialtyType::Phylactery && hero.phylacteryUsed)
             ImGui::TextColored(ImVec4(0.7f, 0.5f, 1.0f, 1.0f), "Phylactery consumed");
         if (cls->specialty == SpecialtyType::Elixir && hero.elixirUsed)
@@ -2020,6 +2014,9 @@ void Game::renderHeroInspect()
         if (cls->specialty == SpecialtyType::LivingRune && hero.livingRuneBonus > 0)
             ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f),
                                "Living Rune: +%d ATK/DEF to hero (%d/5)", hero.livingRuneBonus, hero.livingRuneBonus);
+        if (cls->specialty == SpecialtyType::BloodScent)
+            ImGui::TextColored(ImVec4(0.9f, 0.4f, 0.4f, 1.0f),
+                               "Blood Scent: Bloodsworn heroes always revealed on map");
     }
     ImGui::Spacing();
 

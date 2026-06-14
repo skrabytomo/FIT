@@ -46,8 +46,12 @@ void Game::enterCampaign()
             FactionId unlocked = m_campaign.unlockedFaction(convergenceOk);
             printf("[Campaign] Ended — faction unlocked: %d\n",
                    static_cast<int>(unlocked));
-            if (convergenceOk && m_campaign.playerWon())
-                m_hideout.completeMilestone("convergence_unlock");
+            if (m_campaign.playerWon()) {
+                m_hideout.completeMilestone(Milestone::CAMPAIGN_WON);
+                m_hideout.addXP(200);   // bonus XP for completing the campaign
+                if (convergenceOk)
+                    m_hideout.completeMilestone(Milestone::CONVERGENCE_UNLOCK);
+            }
         }
     });
     printf("Entered Campaign (F4 to exit)\n");
