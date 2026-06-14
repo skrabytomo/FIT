@@ -184,6 +184,44 @@ void CombatEngine::startBattle(
             addLog(hero.name + " Adaptation: OrganicMech units adapt "
                    + (s->tier == SkillTier::Master ? "every hit" : "after 2 hits"));
         }
+
+        // BLOOD_POOL (Bloodsworn): BloodBound units start with enhanced morale
+        // Proxy: +10/20/40 morale at battle start (pool "pre-charged")
+        if (const SkillInstance* s = skills.getSkill(SID::BLOOD_POOL)) {
+            static const int bloodPoolBonus[] = {10, 20, 40};
+            int bonus = bloodPoolBonus[static_cast<int>(s->tier)];
+            for (auto& u : m_grid.units()) {
+                if (u.isPlayer != isPlayer || !u.alive || u.moraleImmune) continue;
+                if (!hasTag(u.tags, UnitTag::BloodBound)) continue;
+                u.morale = std::min(100, u.morale + bonus);
+            }
+            addLog(hero.name + " Blood Pool: BloodBound units +" + std::to_string(bonus) + " morale");
+        }
+
+        // POSSESSION (Voidkin): Void units start with bonus luck — entropic fortune
+        // Proxy: +1/2/3 luck at battle start
+        if (const SkillInstance* s = skills.getSkill(SID::POSSESSION)) {
+            int luckBonus = 1 + static_cast<int>(s->tier);
+            for (auto& u : m_grid.units()) {
+                if (u.isPlayer != isPlayer || !u.alive) continue;
+                if (!hasTag(u.tags, UnitTag::Void)) continue;
+                u.luck = std::min(5, u.luck + luckBonus);
+            }
+            addLog(hero.name + " Possession: Void units +" + std::to_string(luckBonus) + " luck");
+        }
+
+        // MIRRORING (Convergence): Humanoid units mirror the highest stat across the side
+        // Proxy: all Humanoid units on this side gain +1/+2/+3 to whichever of ATK/DEF is lower
+        if (const SkillInstance* s = skills.getSkill(SID::MIRRORING)) {
+            int mirrorBonus = 1 + static_cast<int>(s->tier);
+            for (auto& u : m_grid.units()) {
+                if (u.isPlayer != isPlayer || !u.alive) continue;
+                if (!hasTag(u.tags, UnitTag::Humanoid)) continue;
+                if (u.attack <= u.defense) u.attack  += mirrorBonus;
+                else                       u.defense += mirrorBonus;
+            }
+            addLog(hero.name + " Mirroring: Humanoid units +" + std::to_string(mirrorBonus) + " to weaker stat");
+        }
     };
     applySkills(m_playerHero, true);
     applySkills(m_enemyHero,  false);
@@ -1096,6 +1134,7 @@ void CombatEngine::aiActUnit(CombatUnit& unit)
     if (!unit.moraleImmune && unit.morale < 20) {
         uint32_t roll = static_cast<uint32_t>(m_round * 7919u + unit.id * 1000003u + m_turnIndex * 31337u);
         if ((roll % 10) < 3) {
+            unit.defense           += 2;
             unit.defendDefenseBonus = 2;
             unit.defendRoundsLeft   = 1;
             addLog(unit.name + " hesitates in fear! (Defends)");
