@@ -491,7 +491,7 @@ void Game::doEndTurn()
             m_weeklyEventHeadline.clear();
             m_weeklyEventBody.clear();
             // Use week number + a pseudo-hash for varied but deterministic events
-            int evtRoll = ((m_turns.week() * 2654435761u) >> 8) % 7;
+            int evtRoll = ((m_turns.week() * 2654435761u) >> 8) % 12;
             switch (evtRoll) {
                 case 0: { // no event
                     break;
@@ -564,6 +564,59 @@ void Game::doEndTurn()
                         m_weeklyEventHeadline = "Arcane Font";
                         m_weeklyEventBody = "A ley-line resonance permanently expands your hero's mana pool by 5.";
                     }
+                    break;
+                }
+                case 7: { // Ancient Armory — hero gains +1 Attack
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        h.attack++;
+                        m_weeklyEventHeadline = "Ancient Armory";
+                        m_weeklyEventBody = "You unearth a cache of fine weapons from an old war. Your hero gains +1 Attack.";
+                    }
+                    break;
+                }
+                case 8: { // Rally! — strongest army stack grows
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        int bestCount = 0; int bestIdx = -1;
+                        for (int i = 0; i < (int)h.army.size(); ++i)
+                            if (h.army[i].count > bestCount) { bestCount = h.army[i].count; bestIdx = i; }
+                        if (bestIdx >= 0) {
+                            h.army[bestIdx].count += 5;
+                            m_weeklyEventHeadline = "Rally!";
+                            m_weeklyEventBody = "Volunteers flock to your banner, reinforcing your ranks with 5 more fighters.";
+                        }
+                    }
+                    break;
+                }
+                case 9: { // Magical Storm — enemy heroes lose mana
+                    for (auto& eh : m_enemyHeroes) eh.mana = std::max(0, eh.mana - 5);
+                    m_weeklyEventHeadline = "Magical Storm";
+                    m_weeklyEventBody = "A surge of wild magic disperses spell reserves. Enemy heroes lose 5 mana.";
+                    break;
+                }
+                case 10: { // Tribute from Vassals — multi-resource bonus
+                    m_playerResources.add(ResourceType::Gold,        300);
+                    m_playerResources.add(ResourceType::FaithStones,   2);
+                    m_playerResources.add(ResourceType::VerdantSap,    2);
+                    m_weeklyEventHeadline = "Tribute from Vassals";
+                    m_weeklyEventBody = "Subject villages send tribute: +300 Gold, +2 Faith Stones, +2 Verdant Sap.";
+                    break;
+                }
+                case 11: { // Plague — garrison defenders weakened
+                    int lostTotal = 0;
+                    for (auto& t : m_towns) {
+                        if (t.ownerId != 1 || t.garrison.empty()) continue;
+                        for (auto& s : t.garrison) {
+                            int lost = std::max(0, s.count / 5);
+                            s.count -= lost;
+                            lostTotal += lost;
+                        }
+                    }
+                    m_weeklyEventHeadline = "Plague Sweeps the Land!";
+                    m_weeklyEventBody = "A virulent sickness culls your town garrisons. "
+                        + (lostTotal > 0 ? std::to_string(lostTotal) + " garrison troops perished."
+                                         : "Your towns were untouched — no garrison losses.");
                     break;
                 }
             }
