@@ -247,7 +247,7 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
     if (finalDmg > 0 && defender.alive && hasTag(defender.tags, UnitTag::OrganicMech)
         && defender.adaptationsGained < 6) {
         defender.hitsTaken++;
-        int threshold = defender.rapidEvolution ? 1 : 3;
+        int threshold = defender.rapidEvolution ? 1 : (defender.adaptationFast ? 2 : 3);
         if (defender.hitsTaken >= threshold) {
             defender.hitsTaken = 0;
             // Alternate ATK and DEF gains

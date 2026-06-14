@@ -172,6 +172,18 @@ void CombatEngine::startBattle(
                 addLog(hero.name + " Inspiration: all units +" + std::to_string(moraleGain) + " morale");
             }
         }
+
+        // ADAPTATION (Amalgamate): OrganicMech units adapt faster under fire
+        if (const SkillInstance* s = skills.getSkill(SID::ADAPTATION)) {
+            for (auto& u : m_grid.units()) {
+                if (u.isPlayer != isPlayer || !u.alive) continue;
+                if (!hasTag(u.tags, UnitTag::OrganicMech)) continue;
+                u.adaptationFast = true;
+                if (s->tier == SkillTier::Master) u.rapidEvolution = true;
+            }
+            addLog(hero.name + " Adaptation: OrganicMech units adapt "
+                   + (s->tier == SkillTier::Master ? "every hit" : "after 2 hits"));
+        }
     };
     applySkills(m_playerHero, true);
     applySkills(m_enemyHero,  false);

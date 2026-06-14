@@ -104,6 +104,7 @@ struct CombatUnit
     int         hitsTaken         = 0;   // hits received since last adaptation
     int         adaptationsGained = 0;   // total adaptations gained (max 6)
     bool        rapidEvolution    = false; // Evolver specialty: adapt after every hit
+    bool        adaptationFast    = false; // Adaptation skill: adapt after 2 hits (not 3)
 
     // ── Methods ───────────────────────────────────────────────────────────────
     bool canAct()   const { return alive && !hasActed; }
