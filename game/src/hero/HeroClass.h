@@ -8,12 +8,12 @@ enum class SpecialtyType
 {
     // Holy Order
     HeresyDetection,    // Inquisitor — nullifies one enemy spell per battle
-    LastRites,          // Confessor — deaths near hero double Inspiration
-    Veteran,            // Crusader — units +1 stats per previous battle
-    BloodPenance,       // Flagellant Marshal — hero loses HP, Desperation faster
+    LastRites,          // Confessor — enemy kills charge nearby Holy allies' Desperation +20
+    Veteran,            // Crusader — hero gains +1 ATK+DEF per battle won (max 5)
+    BloodPenance,       // Flagellant Marshal — all units +2 ATK; hero loses 5 HP/round
 
     // Bloodsworn
-    Feast,              // Blood Prince — hero drains HP from one unit per round
+    Feast,              // Blood Prince — drain 2 HP from largest unit/round to heal hero
     Exsanguinate,       // Crimson Mage — one Blood spell free per battle
     Swarm,              // Thrall Master — Fledglings start at ascension threshold
     Predator,           // Assassin Lord — permanent Attack per hero killed
@@ -25,7 +25,7 @@ enum class SpecialtyType
     Harmony,            // Warsinger — all pairs +1 stats while hero lives
 
     // Eternal Empire
-    SoulHarvest,        // Death Herald — enemy kills restore hero HP
+    SoulHarvest,        // Death Herald — enemy kills heal hero 5 HP per unit
     EternalLegion,      // Iron General — reraised units keep formation bonuses
     Phylactery,         // Lich — hero respawns next battle at half stats
     NegotiatedWeakness, // Grave Diplomat — reveals enemy specialty before battle
@@ -33,11 +33,11 @@ enum class SpecialtyType
     // Crimson Wardens
     CoordinatedStrike,  // Warden Captain — marked target bonus from all attackers
     Elixir,             // Blood Sage — once per battle fully heal one unit
-    BloodWeb,           // Oathmaster — linked units heal on any kill
+    BloodWeb,           // Oathmaster — all allies heal 4 HP per enemy unit killed
     BloodScent,         // Inquisitor Hunter — always knows Bloodsworn hero location
 
     // Voidkin
-    VoidLink,           // Void Weaver — possession spreads on death
+    VoidLink,           // Void Weaver — Void ally death: adj enemies -1 ATK, nearby Void +1 ATK
     GhostWalk,          // Shadow Stalker — hero invisible on world map
     BlightAura,         // Blight Caller — corrupts sacred terrain passively
     Wither,             // Fell Druid — enemies lose 1 stat per round in aura
@@ -45,22 +45,22 @@ enum class SpecialtyType
     // Iron Assembly
     Efficient,          // Master Engineer — units cost 20% less to craft
     IronDiscipline,     // Warlord Mechanic — constructs immune to morale/fear
-    Recycler,           // Salvage Lord — salvage buffs permanent across battles
-    LivingRune,         // Runesmith — one unit gets permanent stat increase per battle
+    Recycler,           // Salvage Lord — all units +1 ATK permanently per battle won (max 5)
+    LivingRune,         // Runesmith — hero +1 ATK+DEF permanently per battle won (max 5)
 
     // Amalgamate
     RapidEvolution,     // Evolver — adaptations after 1 hit
-    Collective,         // Hive Controller — transfer adaptation between units
+    Collective,         // Hive Controller — OrganicMech share best adaptation at round start
     Infestation,        // Flesh Architect — flesh terrain spreads every round
     Apex,               // Apex Hunter — hero starts with all Evolved's adaptations
 
     // Convergence
-    Radiance,           // Lightbringer — mirror lasts 7 rounds
-    Covenant,           // Oathbound — linked units share mirrored buffs
-    PredatorMirror,     // Shadowlord — mirror activates instantly
-    Corruption,         // Voidcaller — mirrored terrain lingers
-    Synthesis,          // Ironweaver — hold two mirrors simultaneously
-    AdaptationMirror,   // Fleshbinder — units gain adaptation per mirrored battle
+    Radiance,           // Lightbringer — buff/debuff spells last 4 rounds instead of 2
+    Covenant,           // Oathbound — adjacent allies get half buff when a buff is cast
+    PredatorMirror,     // Shadowlord — first spell per battle costs no mana
+    Corruption,         // Voidcaller — enemies -1 DEF each round from round 2
+    Synthesis,          // Ironweaver — +2 mana regen per round
+    AdaptationMirror,   // Fleshbinder — ally death grants all OrganicMech an adaptation
 
     None
 };
