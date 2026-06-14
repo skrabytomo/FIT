@@ -735,10 +735,11 @@ void Game::enterCombat(Hero& playerHero,
     // Apply support building bonuses when player hero is at or garrisoned in a town
     {
         int lightP = 0, bloodP = 0, deathP = 0, natureP = 0, forgeP = 0, fleshP = 0;
-        int mechSpeed = 0;
+        int mechSpeed = 0, holyDesp = 0;
+        bool eternalMonument = false;
         for (const auto& town : m_towns) {
             if (town.ownerId != 1 || town.pos != playerHero.pos) continue;
-            // Power-boosting support buildings (permanent for this combat)
+            // Magic-power support buildings
             if (town.hasBuilding(BID::HO_LIGHT_SHRINE))    lightP  += 2;
             if (town.hasBuilding(BID::CW_DEATH_ALTAR))     deathP  += 3;
             if (town.hasBuilding(BID::TK_ANCIENT_CIRCLE))  natureP += 3;
@@ -747,12 +748,16 @@ void Game::enterCombat(Hero& playerHero,
             if (town.hasBuilding(BID::VK_RIFT_GATE))       natureP += 3;
             if (town.hasBuilding(BID::IA_BLUEPRINT_VAULT)) forgeP  += 3;
             if (town.hasBuilding(BID::AM_FLESH_VAULT))     fleshP  += 3;
-            // Speed buildings
-            if (town.hasBuilding(BID::IA_OVERCLOCK))       mechSpeed += 1;
+            // Unit-effect support buildings
+            if (town.hasBuilding(BID::IA_OVERCLOCK))       mechSpeed    += 1;
+            if (town.hasBuilding(BID::HO_RELIQUARY))       holyDesp     += 20;
+            if (town.hasBuilding(BID::EE_MONUMENT))        eternalMonument = true;
             break;
         }
-        if (lightP || bloodP || deathP || natureP || forgeP || fleshP || mechSpeed)
-            m_combat.applyPlayerTownBonus(lightP, bloodP, deathP, natureP, forgeP, fleshP, mechSpeed);
+        if (lightP || bloodP || deathP || natureP || forgeP || fleshP
+            || mechSpeed || holyDesp || eternalMonument)
+            m_combat.applyPlayerTownBonus(lightP, bloodP, deathP, natureP, forgeP, fleshP,
+                                          mechSpeed, holyDesp, eternalMonument);
     }
 
     m_combat.setLogCallback([](const std::string& msg) {

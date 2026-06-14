@@ -57,7 +57,9 @@ public:
     // and optional speed buff to matching unit tags (call after startBattle)
     void applyPlayerTownBonus(int lightP, int bloodP, int deathP,
                               int natureP, int forgeP, int fleshP,
-                              int mechSpeedBonus = 0);
+                              int mechSpeedBonus = 0,
+                              int holyDespBonus = 0,
+                              bool eternalMonument = false);
 
     // Process one player action — returns true if action was valid
     bool submitAction(const CombatAction& action);

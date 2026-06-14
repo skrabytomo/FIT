@@ -343,7 +343,8 @@ void CombatEngine::applyArtifactBonuses(const ArtifactBonus& pb, const ArtifactB
 
 void CombatEngine::applyPlayerTownBonus(int lightP, int bloodP, int deathP,
                                         int natureP, int forgeP, int fleshP,
-                                        int mechSpeedBonus)
+                                        int mechSpeedBonus, int holyDespBonus,
+                                        bool eternalMonument)
 {
     m_playerHero.lightPower  += lightP;
     m_playerHero.bloodPower  += bloodP;
@@ -352,12 +353,19 @@ void CombatEngine::applyPlayerTownBonus(int lightP, int bloodP, int deathP,
     m_playerHero.forgePower  += forgeP;
     m_playerHero.fleshPower  += fleshP;
 
-    if (mechSpeedBonus > 0) {
-        for (auto& u : m_grid.units()) {
-            if (u.isPlayer && hasTag(u.tags, UnitTag::Mechanical))
-                u.speed += mechSpeedBonus;
-        }
+    for (auto& u : m_grid.units()) {
+        if (!u.isPlayer) continue;
+        if (mechSpeedBonus > 0 && hasTag(u.tags, UnitTag::Mechanical))
+            u.speed += mechSpeedBonus;
+        if (holyDespBonus > 0 && hasTag(u.tags, UnitTag::Holy))
+            u.desperationMeter = std::min(100, u.desperationMeter + holyDespBonus);
+        if (eternalMonument && (hasTag(u.tags, UnitTag::Undead) || hasTag(u.tags, UnitTag::Holy)))
+            u.hasSecondLife = true;
     }
+    if (holyDespBonus > 0)
+        addLog("Reliquary: Holy units +" + std::to_string(holyDespBonus) + " Desperation");
+    if (eternalMonument)
+        addLog("Eternal Monument: Undead/Holy units gain second life");
 }
 
 // ── Turn order ─────────────────────────────────────────────────────────────────

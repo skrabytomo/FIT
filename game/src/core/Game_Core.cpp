@@ -93,9 +93,17 @@ bool Game::init(const std::string& title, int width, int height)
     m_worldHUD.onHeroClicked = [this](int idx) {
         if (idx >= 0 && idx < static_cast<int>(m_heroes.size())) {
             m_activeHeroIdx = idx;
+            const Hero& h = m_heroes[idx];
             float hx2, hy2;
-            m_hexRenderer.grid().hexToWorld(m_heroes[idx].pos, hx2, hy2);
+            m_hexRenderer.grid().hexToWorld(h.pos, hx2, hy2);
             m_camera.setPosition(hx2, hy2);
+            m_selected = {-999, -999};
+            auto costFn = [this, &h](HexCoord c) -> int {
+                const HexTile* t = m_map.getTile(c);
+                if (!t || !h.canEnter(t->terrain)) return 999;
+                return h.moveCost(t->terrain);
+            };
+            m_reachable = Pathfinder::reachable(m_map, h.pos, costFn, h.movePool);
         }
     };
 

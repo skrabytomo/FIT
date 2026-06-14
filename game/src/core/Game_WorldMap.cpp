@@ -249,9 +249,17 @@ void Game::updateWorldMap(float dt)
     // Tab — cycle to next player hero
     if (m_input.keyDown(SDLK_TAB) && !m_heroes.empty()) {
         m_activeHeroIdx = (m_activeHeroIdx + 1) % static_cast<int>(m_heroes.size());
+        const Hero& nextHero = m_heroes[m_activeHeroIdx];
         float hx2, hy2;
-        m_hexRenderer.grid().hexToWorld(m_heroes[m_activeHeroIdx].pos, hx2, hy2);
+        m_hexRenderer.grid().hexToWorld(nextHero.pos, hx2, hy2);
         m_camera.setPosition(hx2, hy2);
+        m_selected = {-999, -999};
+        auto costFn2 = [this, &nextHero](HexCoord c) -> int {
+            const HexTile* t = m_map.getTile(c);
+            if (!t || !nextHero.canEnter(t->terrain)) return 999;
+            return nextHero.moveCost(t->terrain);
+        };
+        m_reachable = Pathfinder::reachable(m_map, nextHero.pos, costFn2, nextHero.movePool);
     }
 
     if (m_input.keyDown(SDLK_SPACE)) {
