@@ -209,6 +209,17 @@ void Game::renderCombatBoard()
                         ImDrawFlags_Closed, 1.0f);
     }
 
+    // Range ring for active ranged unit
+    if (active && active->isPlayer && active->range > 0 && active->shotsLeft > 0) {
+        float awx, awy;
+        hg.hexToWorld(active->pos, awx, awy);
+        float asx = awx * scale + m_combatBoardOffX;
+        float asy = awy * scale + m_combatBoardOffY;
+        float hexW = hg.hexSize() * scale;
+        float rangeR = hexW * active->range * 1.05f;
+        dl->AddCircle({asx, asy}, rangeR, IM_COL32(180, 200, 255, 80), 48, 1.5f);
+    }
+
     // Draw units (sprite or circle fallback)
     float hexR = hg.hexSize() * scale * 0.38f;
     float sprW = hexR * 1.8f;    // half-width of sprite quad
@@ -314,6 +325,24 @@ void Game::renderCombatBoard()
         }
         if (u.burnRounds > 0) {
             dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(255, 120, 40, 220));  // orange = burning
+            dotX += 10.0f;
+        }
+        if (u.vampiric) {
+            dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(160, 0, 210, 220));   // purple = vampiric
+            dotX += 10.0f;
+        }
+        if (u.regenerates) {
+            dl->AddCircleFilled({dotX, dotY}, 4.0f, IM_COL32(0, 200, 140, 220));   // teal = regenerates
+            dotX += 10.0f;
+        }
+        if (u.hasSecondLife && !u.secondLifeUsed) {
+            dl->AddCircle({sx, sy}, hexR * 0.6f, IM_COL32(255, 215, 0, 180), 0, 1.5f);  // gold inner ring
+        }
+        // Flying marker: small wing-like triangle above unit
+        if (u.flying) {
+            float wy = sy - sprH * 0.85f - 14.0f;
+            dl->AddTriangleFilled({sx - 5, wy + 4}, {sx + 5, wy + 4}, {sx, wy},
+                                   IM_COL32(180, 220, 255, 200));
         }
 
         // Stack count label (bottom-center)
