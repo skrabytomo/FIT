@@ -547,17 +547,17 @@ void BuildingRegistry::init()
       b.faction=F::IronAssembly; b.cost=goldAndRes(1100,ResourceType::Iron,4);
       b.prerequisites={BID::IA_T2}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::IA_T4; b.name="Siege Bot Foundry"; b.tier=4; b.weeklyGrowth=5;
-      b.description="Produces Siege Bots"; b.category=BuildingCategory::UnitDwelling;
+      b.description="Produces Siege Bots (available week 3)"; b.category=BuildingCategory::UnitDwelling;
       b.faction=F::IronAssembly; b.cost=goldAndRes(2000,ResourceType::Iron,6);
-      b.prerequisites={BID::IA_T3}; m_buildings.push_back(b); }
+      b.minWeek=3; b.prerequisites={BID::IA_T3}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::IA_T5; b.name="Titan Assembly"; b.tier=5; b.weeklyGrowth=3;
-      b.description="Produces Titan Constructs"; b.category=BuildingCategory::UnitDwelling;
+      b.description="Produces Titan Constructs (available week 5)"; b.category=BuildingCategory::UnitDwelling;
       b.faction=F::IronAssembly; b.cost=goldAndRes(3500,ResourceType::Iron,8);
-      b.prerequisites={BID::IA_T4}; m_buildings.push_back(b); }
+      b.minWeek=5; b.prerequisites={BID::IA_T4}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::IA_T6; b.name="Colossus Prime Dock"; b.tier=6; b.weeklyGrowth=2;
-      b.description="Produces Colossus Primes"; b.category=BuildingCategory::UnitDwelling;
+      b.description="Produces Colossus Primes (available week 7)"; b.category=BuildingCategory::UnitDwelling;
       b.faction=F::IronAssembly; b.cost=goldAndRes(6000,ResourceType::Iron,12);
-      b.prerequisites={BID::IA_T5}; m_buildings.push_back(b); }
+      b.minWeek=7; b.prerequisites={BID::IA_T5}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::IA_BLUEPRINT_VAULT; b.name="Blueprint Vault";
       b.description="+3 Forge Power; constructs unlock 1 week earlier";
       b.category=BuildingCategory::Support; b.faction=F::IronAssembly;
@@ -567,7 +567,7 @@ void BuildingRegistry::init()
       b.description="All mechanical units gain +1 speed in combat";
       b.category=BuildingCategory::Support; b.faction=F::IronAssembly;
       b.cost=goldAndRes(2500,ResourceType::Iron,6);
-      b.prerequisites={BID::IA_BLUEPRINT_VAULT}; m_buildings.push_back(b); }
+      b.minWeek=3; b.prerequisites={BID::IA_BLUEPRINT_VAULT}; m_buildings.push_back(b); }
 
     addUnit(7001,"Automaton",       F::IronAssembly,1,P::None, 10,2,3,1, 3,3, goldAndRes(55,ResourceType::Iron,1),  T::Mechanical);
     addUnit(7002,"Gun Construct",   F::IronAssembly,2,P::None, 18,4,4,3, 6,4, goldAndRes(110,ResourceType::Iron,2), T::Mechanical);

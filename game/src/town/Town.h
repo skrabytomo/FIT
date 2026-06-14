@@ -46,7 +46,9 @@ public:
 
     // ── Queries ────────────────────────────────────────────────────────────────
     bool hasBuilding(int buildingId) const;
-    bool canBuild(int buildingId, const std::vector<BuildingDef>& defs) const;
+    // currentWeek: pass 0 to skip week check. weekDiscount reduces minWeek requirement.
+    bool canBuild(int buildingId, const std::vector<BuildingDef>& defs,
+                  int currentWeek = 0, int weekDiscount = 0) const;
 
     // Returns total weekly growth for a tier (base + support bonuses)
     int weeklyGrowth(int tier) const;

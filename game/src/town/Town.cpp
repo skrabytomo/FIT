@@ -9,7 +9,8 @@ bool Town::hasBuilding(int buildingId) const
            != builtBuildings.end();
 }
 
-bool Town::canBuild(int buildingId, const std::vector<BuildingDef>& defs) const
+bool Town::canBuild(int buildingId, const std::vector<BuildingDef>& defs,
+                    int currentWeek, int weekDiscount) const
 {
     if (hasBuilding(buildingId)) return false;
 
@@ -17,6 +18,11 @@ bool Town::canBuild(int buildingId, const std::vector<BuildingDef>& defs) const
         if (def.id != buildingId) continue;
         // Check faction match
         if (def.faction != FactionId::None && def.faction != faction) return false;
+        // Check week requirement (0 = always available; skip check when currentWeek==0)
+        if (currentWeek > 0 && def.minWeek > 0) {
+            int effectiveMin = std::max(1, def.minWeek - weekDiscount);
+            if (currentWeek < effectiveMin) return false;
+        }
         // Check prerequisites
         for (int prereq : def.prerequisites)
             if (!hasBuilding(prereq)) return false;

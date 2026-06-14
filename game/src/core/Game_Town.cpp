@@ -6,6 +6,7 @@
 #include "../world/FogOfWar.h"
 #include "../hero/Artifacts.h"
 #include "../hero/HeroClass.h"
+#include "../hero/SkillRegistry.h"
 #include <imgui.h>
 #include <stdio.h>
 #include <unordered_map>
@@ -535,7 +536,15 @@ void Game::enterTown(Town* town)
         hero->heroHp = hero->heroMaxHp;
         pushPickupEffect(town->pos, "Hero healed!", IM_COL32(180, 255, 180, 255));
     }
-    m_townScreen.open(town, &m_playerResources, &m_registry, hero);
+    // Compute BLUEPRINT discount for Iron Assembly heroes visiting their town
+    int blueprintDiscount = 0;
+    if (hero && town->faction == FactionId::IronAssembly) {
+        if (const SkillInstance* s = hero->skills.getSkill(SID::BLUEPRINT))
+            if (const SkillDef* def = findSkillDef(SID::BLUEPRINT))
+                blueprintDiscount = def->values[static_cast<int>(s->tier)]; // 1/2/3
+    }
+    m_townScreen.open(town, &m_playerResources, &m_registry, hero,
+                      m_turns.week(), blueprintDiscount);
     // Play faction-specific theme; fall back to generic town_music
     int fid = static_cast<int>(town->faction);
     if (fid >= 0 && fid < 9) {

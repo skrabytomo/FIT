@@ -38,13 +38,15 @@ void TownScreen::buildLayout(int sw, int sh)
 }
 
 void TownScreen::open(Town* town, Resources* playerRes, const BuildingRegistry* registry,
-                      Hero* visitingHero)
+                      Hero* visitingHero, int currentWeek, int blueprintDiscount)
 {
-    m_town      = town;
-    m_playerRes = playerRes;
-    m_registry  = registry;
-    m_hero      = visitingHero;
-    m_open      = true;
+    m_town              = town;
+    m_playerRes         = playerRes;
+    m_registry          = registry;
+    m_hero              = visitingHero;
+    m_open              = true;
+    m_currentWeek       = currentWeek;
+    m_blueprintDiscount = blueprintDiscount;
 
     m_mainPanel.title = town->name + " — " + [town]{
         switch(town->faction) {
@@ -83,11 +85,19 @@ void TownScreen::rebuildBuildingButtons()
         BuildBtn bb;
         bb.buildingId = def.id;
         bb.built      = m_town->hasBuilding(def.id);
-        bb.prereqMet  = m_town->canBuild(def.id, m_registry->buildings());
+        bb.prereqMet  = m_town->canBuild(def.id, m_registry->buildings(),
+                                         m_currentWeek, m_blueprintDiscount);
         bb.affordable = m_playerRes->canAfford(def.cost);
 
+        // Show week requirement for locked buildings
         std::string label = def.name;
-        if (bb.built) label = "[BUILT] " + def.name;
+        if (bb.built) {
+            label = "[BUILT] " + def.name;
+        } else if (!bb.prereqMet && m_currentWeek > 0 && def.minWeek > 0) {
+            int effectiveMin = std::max(1, def.minWeek - m_blueprintDiscount);
+            if (m_currentWeek < effectiveMin)
+                label = "[Wk " + std::to_string(effectiveMin) + "] " + def.name;
+        }
 
         Rect btnR{x + col * colW, y, bw, bh};
         bb.btn = Button(label, btnR);

@@ -37,6 +37,9 @@ struct BuildingDef
     int               growthB     = 0;  // growth for path B upgrade
     int               growthBonus = 0;  // bonus units/week added to ALL dwellings when this is built
 
+    // Minimum game week before this building can be constructed (0 = always available)
+    int              minWeek     = 0;
+
     // Prerequisites — building IDs that must be built first
     std::vector<int> prerequisites;
 
