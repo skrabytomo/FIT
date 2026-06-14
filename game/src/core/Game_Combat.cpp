@@ -812,6 +812,12 @@ void Game::exitCombat(bool playerWon)
         }
         printf("Hero survivors: %zu stacks\n", hero.army.size());
 
+        // Sync hero HP and mana from the combat engine's internal copy
+        // (modified during battle by BloodPenance, Feast, SoulHarvest in-combat, Synthesis, etc.)
+        const Hero& ch = m_combat.playerHero();
+        hero.heroHp  = std::clamp(ch.heroHp,  1, hero.heroMaxHp);
+        hero.mana    = std::clamp(ch.mana,     0, hero.maxMana);
+
         // Apply FIRST_AID: restore % of casualties from each stack
         if (playerWon) {
             if (const SkillInstance* s = hero.skills.getSkill(SID::FIRST_AID)) {

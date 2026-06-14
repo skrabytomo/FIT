@@ -396,7 +396,13 @@ void Game::doEndTurn()
                         if (obj.collected || obj.pos != eHero.pos) continue;
                         obj.collected = true;
                         if (obj.type == WorldObjectType::XPShrine) {
-                            eHero.addXp(obj.value);
+                            int prevLevel = eHero.level;
+                            if (eHero.addXp(obj.value) && eHero.level > prevLevel) {
+                                // Grant stat bonus on level up (alternating ATK/DEF)
+                                int gained = eHero.level - prevLevel;
+                                eHero.attack  += (gained + 1) / 2;
+                                eHero.defense += gained / 2;
+                            }
                             printf("Enemy %s gained %d XP from shrine\n",
                                    eHero.name.c_str(), obj.value);
                         } else if (obj.type == WorldObjectType::SpellScroll) {
@@ -405,11 +411,18 @@ void Game::doEndTurn()
                                 if (sid == obj.value) { already = true; break; }
                             if (!already) eHero.knownSpells.push_back(obj.value);
                         } else if (obj.type == WorldObjectType::StatShrine) {
-                            eHero.attack++;
+                            // Alternate ATK and DEF based on current stats
+                            if (eHero.attack <= eHero.defense) eHero.attack++;
+                            else eHero.defense++;
                         } else if (obj.type == WorldObjectType::ArtifactChest) {
                             eHero.artifactInventory.push_back(obj.value);
                         } else if (obj.type == WorldObjectType::ForestShrine) {
-                            eHero.addXp(obj.value);
+                            int prevLevel = eHero.level;
+                            if (eHero.addXp(obj.value) && eHero.level > prevLevel) {
+                                int gained = eHero.level - prevLevel;
+                                eHero.attack  += (gained + 1) / 2;
+                                eHero.defense += gained / 2;
+                            }
                             printf("Enemy %s gained %d XP from forest shrine\n",
                                    eHero.name.c_str(), obj.value);
                         } else if (obj.type == WorldObjectType::SwampAltar) {

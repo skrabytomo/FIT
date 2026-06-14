@@ -390,12 +390,12 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         if (tryPlace(obj, radius / 3)) result.worldObjects.push_back(obj);
     }
 
-    // 4 StatShrines (value = which stat 0-3)
-    for (int i = 0; i < 4; ++i) {
+    // 6 StatShrines (value = which stat 0-5: ATK/DEF/Move/Mana/Vision/HP)
+    for (int i = 0; i < 6; ++i) {
         WorldObject obj;
         obj.id    = nextId++;
         obj.type  = WorldObjectType::StatShrine;
-        obj.value = static_cast<int>(lcg(rng) % 4);
+        obj.value = static_cast<int>(i % 6); // one shrine of each type
         obj.questState = 3; // 3 uses max
         if (tryPlace(obj, 4)) result.worldObjects.push_back(obj);
     }
