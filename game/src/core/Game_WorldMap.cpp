@@ -642,6 +642,7 @@ void Game::doEndTurn()
                     if (!m_heroes.empty()) {
                         Hero& h = m_heroes[m_activeHeroIdx];
                         int xpGain = 150;
+                        int oldLvl5 = h.level;
                         if (h.addXp(xpGain)) {
                             const HeroClassDef* cls = m_classRegistry.getClass(h.classId);
                             if (cls) {
@@ -651,6 +652,7 @@ void Game::doEndTurn()
                             }
                             if (m_levelUpOffers.empty())
                                 m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                            m_pendingLevelUps = h.level - oldLvl5;
                             m_showLevelUpModal = true;
                         }
                         m_weeklyEventHeadline = "Battle Hardened";
@@ -772,6 +774,7 @@ void Game::doEndTurn()
                     if (!m_heroes.empty()) {
                         Hero& h = m_heroes[m_activeHeroIdx];
                         int xp = 100;
+                        int oldLvl17 = h.level;
                         if (h.addXp(xp)) {
                             const HeroClassDef* cls = m_classRegistry.getClass(h.classId);
                             if (cls) {
@@ -781,6 +784,7 @@ void Game::doEndTurn()
                             }
                             if (m_levelUpOffers.empty())
                                 m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                            m_pendingLevelUps = h.level - oldLvl17;
                             m_showLevelUpModal = true;
                         }
                         // Also add 3 to hero's weakest stack
@@ -1090,17 +1094,21 @@ void Game::checkTileEvents()
                 char xpBuf[32]; std::snprintf(xpBuf, sizeof(xpBuf), "+%d XP", obj.value);
                 pushPickupEffect(obj.pos, xpBuf, IM_COL32(160, 255, 160, 255));
                 m_audio.playSound("pickup");
-                if (hero.addXp(obj.value)) {
-                    const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
-                    if (cls) {
-                        std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
-                        m_levelUpOffers = LevelUpSystem::generateOffers(
-                            *cls, hero.skills, hero.level, allSkills, hero.faction);
+                {
+                    int oldLvlXP = hero.level;
+                    if (hero.addXp(obj.value)) {
+                        const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                        if (cls) {
+                            std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                            m_levelUpOffers = LevelUpSystem::generateOffers(
+                                *cls, hero.skills, hero.level, allSkills, hero.faction);
+                        }
+                        if (m_levelUpOffers.empty())
+                            m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                        m_pendingLevelUps = hero.level - oldLvlXP;
+                        m_showLevelUpModal = true;
+                        m_audio.playSound("levelup");
                     }
-                    if (m_levelUpOffers.empty())
-                        m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
-                    m_showLevelUpModal = true;
-                    m_audio.playSound("levelup");
                 }
                 printf("Hero gained %d XP from shrine\n", obj.value);
             }
@@ -1193,12 +1201,12 @@ void Game::checkTileEvents()
                         // Bonus: rare resource or XP
                         int xpReward = 50 + qHero.level * 20;
                         m_playerResources.add(ResourceType::Gold, goldReward);
-                        bool leveled = qHero.addXp(xpReward);
+                        int oldLvlQ = qHero.level;
                         char qBuf[48];
                         std::snprintf(qBuf, sizeof(qBuf), "+%dg +%dXP Quest!", goldReward, xpReward);
                         pushPickupEffect(obj.pos, qBuf, IM_COL32(255, 215, 50, 255));
                         m_audio.playSound("levelup");
-                        if (leveled) {
+                        if (qHero.addXp(xpReward)) {
                             const HeroClassDef* cls = m_classRegistry.getClass(qHero.classId);
                             if (cls) {
                                 std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
@@ -1207,6 +1215,7 @@ void Game::checkTileEvents()
                             }
                             if (m_levelUpOffers.empty())
                                 m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                            m_pendingLevelUps = qHero.level - oldLvlQ;
                             m_showLevelUpModal = true;
                         }
                         printf("Quest complete! Rewarded %d gold + %d XP\n", goldReward, xpReward);
@@ -1234,16 +1243,20 @@ void Game::checkTileEvents()
                 char buf[32]; std::snprintf(buf, sizeof(buf), "+%d XP", obj.value);
                 pushPickupEffect(obj.pos, buf, IM_COL32(120, 220, 120, 255));
                 m_audio.playSound("pickup");
-                if (hero.addXp(obj.value)) {
-                    const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
-                    if (cls) {
-                        std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
-                        m_levelUpOffers = LevelUpSystem::generateOffers(
-                            *cls, hero.skills, hero.level, allSkills, hero.faction);
+                {
+                    int oldLvlFS = hero.level;
+                    if (hero.addXp(obj.value)) {
+                        const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                        if (cls) {
+                            std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                            m_levelUpOffers = LevelUpSystem::generateOffers(
+                                *cls, hero.skills, hero.level, allSkills, hero.faction);
+                        }
+                        if (m_levelUpOffers.empty())
+                            m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                        m_pendingLevelUps = hero.level - oldLvlFS;
+                        m_showLevelUpModal = true;
                     }
-                    if (m_levelUpOffers.empty())
-                        m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
-                    m_showLevelUpModal = true;
                 }
             }
             break;

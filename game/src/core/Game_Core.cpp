@@ -801,6 +801,7 @@ void Game::luaAddXP(int amount)
 {
     if (m_heroes.empty()) return;
     Hero& hero = m_heroes[m_activeHeroIdx];
+    int oldLvl = hero.level;
     if (hero.addXp(amount)) {
         const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
         if (cls) {
@@ -810,6 +811,7 @@ void Game::luaAddXP(int amount)
         }
         if (m_levelUpOffers.empty())
             m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+        m_pendingLevelUps = hero.level - oldLvl;
         m_showLevelUpModal = true;
     }
 }

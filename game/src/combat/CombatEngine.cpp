@@ -146,6 +146,32 @@ void CombatEngine::startBattle(
             for (auto& u : m_grid.units())
                 if (u.isPlayer == isPlayer && u.alive) u.moraleImmune = true;
         }
+
+        // DESPERATION (HolyOrder): Holy units start with a pre-charged desperation meter
+        if (const SkillInstance* s = skills.getSkill(SID::DESPERATION)) {
+            if (const SkillDef* def = findSkillDef(SID::DESPERATION)) {
+                int headStart = def->values[static_cast<int>(s->tier)];
+                for (auto& u : m_grid.units()) {
+                    if (u.isPlayer != isPlayer || !u.alive) continue;
+                    if (hasTag(u.tags, UnitTag::Holy))
+                        u.desperationMeter = std::min(100, u.desperationMeter + headStart);
+                }
+                addLog(hero.name + " Desperation: Holy units start at " +
+                       std::to_string(headStart) + "/100 charge");
+            }
+        }
+
+        // INSPIRATION (HolyOrder): all allied units receive a morale bonus at battle start
+        if (const SkillInstance* s = skills.getSkill(SID::INSPIRATION)) {
+            if (const SkillDef* def = findSkillDef(SID::INSPIRATION)) {
+                int moraleGain = def->values[static_cast<int>(s->tier)] * 5; // 1/2/3 → 5/10/15
+                for (auto& u : m_grid.units()) {
+                    if (u.isPlayer != isPlayer || !u.alive || u.moraleImmune) continue;
+                    u.morale = std::min(100, u.morale + moraleGain);
+                }
+                addLog(hero.name + " Inspiration: all units +" + std::to_string(moraleGain) + " morale");
+            }
+        }
     };
     applySkills(m_playerHero, true);
     applySkills(m_enemyHero,  false);
@@ -313,6 +339,25 @@ void CombatEngine::applyArtifactBonuses(const ArtifactBonus& pb, const ArtifactB
     };
     applyHero(m_playerHero, pb);
     applyHero(m_enemyHero,  eb);
+}
+
+void CombatEngine::applyPlayerTownBonus(int lightP, int bloodP, int deathP,
+                                        int natureP, int forgeP, int fleshP,
+                                        int mechSpeedBonus)
+{
+    m_playerHero.lightPower  += lightP;
+    m_playerHero.bloodPower  += bloodP;
+    m_playerHero.deathPower  += deathP;
+    m_playerHero.naturePower += natureP;
+    m_playerHero.forgePower  += forgeP;
+    m_playerHero.fleshPower  += fleshP;
+
+    if (mechSpeedBonus > 0) {
+        for (auto& u : m_grid.units()) {
+            if (u.isPlayer && hasTag(u.tags, UnitTag::Mechanical))
+                u.speed += mechSpeedBonus;
+        }
+    }
 }
 
 // ── Turn order ─────────────────────────────────────────────────────────────────

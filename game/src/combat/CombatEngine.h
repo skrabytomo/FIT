@@ -53,6 +53,12 @@ public:
     void applyArtifactBonuses(const ArtifactBonus& playerBonus,
                               const ArtifactBonus& enemyBonus);
 
+    // Apply magic-power bonuses from town support buildings to the player hero
+    // and optional speed buff to matching unit tags (call after startBattle)
+    void applyPlayerTownBonus(int lightP, int bloodP, int deathP,
+                              int natureP, int forgeP, int fleshP,
+                              int mechSpeedBonus = 0);
+
     // Process one player action — returns true if action was valid
     bool submitAction(const CombatAction& action);
 
