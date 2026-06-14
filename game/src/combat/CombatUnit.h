@@ -78,6 +78,7 @@ struct CombatUnit
     bool        hasSecondLife      = false;
     bool        secondLifeUsed     = false;
     bool        secondLifeFullHeal = false; // EternalLegion: revive at full HP instead of half
+    int         secondLifeStrBonus = 0;    // ETERNAL_CMD: % attack/defense gain on revival
 
     // Per-round temporary bonuses — persist across rounds while duration > 0
     int         roundAttackBonus  = 0;

@@ -129,16 +129,21 @@ void CombatEngine::startBattle(
                 applyIf(SID::ARCHERY, [](CombatUnit& u, int v){ u.attack += v; });
         }
 
-        // ETERNAL_CMD: grant second-life to all this hero's units
-        if (hero.skills.getSkill(SID::ETERNAL_CMD)) {
+        // ETERNAL_CMD: grant second-life to all this hero's units (+% stats on revival)
+        if (const SkillInstance* s = hero.skills.getSkill(SID::ETERNAL_CMD)) {
             bool fullHeal = hero.eternalLegionSpecialty;
+            int strBonus = 0;
+            if (const SkillDef* def = findSkillDef(SID::ETERNAL_CMD))
+                strBonus = def->values[static_cast<int>(s->tier)]; // 10/20/30
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive) continue;
-                u.hasSecondLife = true;
-                u.secondLifeFullHeal = fullHeal;
+                u.hasSecondLife       = true;
+                u.secondLifeFullHeal  = fullHeal;
+                u.secondLifeStrBonus  = strBonus;
             }
-            if (fullHeal)
-                addLog(hero.name + " EternalLegion: units revive at full HP");
+            addLog(hero.name + " EternalCmd: units gain second life (+"
+                   + std::to_string(strBonus) + "% stats on revival"
+                   + (fullHeal ? ", full HP" : "") + ")");
         }
 
         // IronDiscipline specialty: Warlord Mechanic's constructs ignore morale loss
@@ -639,8 +644,8 @@ bool CombatEngine::submitAction(const CombatAction& action)
         if (result.vampireHeal > 0)
             addLog(unit->name + " drains " + std::to_string(result.vampireHeal) + " HP!");
 
-        // WARDEN_MARK skill: melee hit on the marked target splashes to N adjacent enemies
-        if (csBonus && unit->isPlayer) {
+        // WARDEN_MARK skill: melee hit splashes to N adjacent enemies (cleave)
+        if (unit->isPlayer && unit->range == 0) {
             if (const SkillInstance* si = m_playerHero.skills.getSkill(SID::WARDEN_MARK)) {
                 if (const SkillDef* def = findSkillDef(SID::WARDEN_MARK)) {
                     int splashMax = def->values[static_cast<int>(si->tier)]

@@ -27,6 +27,11 @@ int CombatUnit::applyDamage(int dmg)
             // EternalLegion specialty: revive at full HP instead of half
             hp = secondLifeFullHeal ? maxHp : std::max(1, maxHp / 2);
             secondLifeUsed = true;
+            // ETERNAL_CMD: reraised units gain % stat bonus
+            if (secondLifeStrBonus > 0) {
+                attack  += attack  * secondLifeStrBonus / 100;
+                defense += defense * secondLifeStrBonus / 100;
+            }
         } else {
             count = 0;
             hp    = 0;
