@@ -122,10 +122,15 @@ void CombatHUD::drawUnitInfo(UIRenderer& rdr, const CombatUnit* unit, bool isAct
     // Morale bar (if not immune)
     if (!unit->moraleImmune) {
         float moraleFrac = unit->morale / 100.0f;
-        rdr.drawText("Morale", x, y, UIColor::hex(UITheme::TEXT_SECONDARY), 11.0f);
+        UIColor moraleColor = unit->morale >= 80 ? UIColor::rgba(1.0f, 0.85f, 0.2f)   // gold — high
+                            : unit->morale < 20  ? UIColor::rgba(0.9f, 0.25f, 0.25f)  // red — fear
+                                                 : UIColor::hex(UITheme::MORALE_GOLD);
+        std::string moraleLabel = "Morale " + std::to_string(unit->morale);
+        if (unit->morale >= 80) moraleLabel += " [+surge]";
+        else if (unit->morale < 20) moraleLabel += " [!fear]";
+        rdr.drawText(moraleLabel, x, y, moraleColor, 11.0f);
         y += 13.0f;
-        rdr.drawBar({x, y, w, 5.0f}, moraleFrac,
-                    UIColor::hex(UITheme::MORALE_GOLD),
+        rdr.drawBar({x, y, w, 5.0f}, moraleFrac, moraleColor,
                     UIColor::hex(UITheme::BG_DARK),
                     UIColor::hex(UITheme::BORDER));
         y += 9.0f;
@@ -350,6 +355,17 @@ void CombatHUD::drawCombatLog(UIRenderer& rdr, const CombatEngine& engine)
             c = UIColor::hex(UITheme::BLOOD_RED);
         else if (msg.find("morale surge") != std::string::npos)
             c = UIColor::rgba(1.0f, 0.8f, 0.2f);      // gold for morale
+        else if (msg.find("hesitates") != std::string::npos)
+            c = UIColor::rgba(0.85f, 0.35f, 0.35f);   // red for fear/hesitation
+        else if (msg.find("Power tile") != std::string::npos || msg.find("+2 ATK") != std::string::npos)
+            c = UIColor::rgba(1.0f, 0.55f, 0.1f);     // orange for attack buff
+        else if (msg.find("Shield tile") != std::string::npos || msg.find("+2 DEF") != std::string::npos)
+            c = UIColor::rgba(0.4f, 0.65f, 1.0f);     // sky blue for defense buff
+        else if (msg.find("Symbiosis") != std::string::npos || msg.find("Wither") != std::string::npos
+              || msg.find("Soul Harvest") != std::string::npos)
+            c = UIColor::rgba(0.7f, 0.5f, 1.0f);      // lavender for aura/regen effects
+        else if (msg.find("Intel") != std::string::npos)
+            c = UIColor::rgba(0.7f, 1.0f, 0.7f);      // pale green for intel/info
         rdr.drawText(msg, x, y, c, 11.0f);
         y += lineH;
     }
