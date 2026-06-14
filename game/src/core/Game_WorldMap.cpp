@@ -962,13 +962,30 @@ void Game::checkTileEvents()
                 // Check if QuestTarget was collected
                 for (const auto& other : m_worldObjects) {
                     if (other.id == obj.linkedId && other.collected) {
-                        // Quest complete!
+                        // Quest complete — reward scales with hero level
                         const_cast<WorldObject&>(obj).questState = 2;
-                        int reward = 500;
-                        m_playerResources.add(ResourceType::Gold, reward);
-                        pushPickupEffect(obj.pos, "+500g Quest!", IM_COL32(255, 215, 50, 255));
+                        Hero& qHero = m_heroes.empty() ? m_heroes[0] : m_heroes[m_activeHeroIdx];
+                        int goldReward = 300 + qHero.level * 100;
+                        // Bonus: rare resource or XP
+                        int xpReward = 50 + qHero.level * 20;
+                        m_playerResources.add(ResourceType::Gold, goldReward);
+                        bool leveled = qHero.addXp(xpReward);
+                        char qBuf[48];
+                        std::snprintf(qBuf, sizeof(qBuf), "+%dg +%dXP Quest!", goldReward, xpReward);
+                        pushPickupEffect(obj.pos, qBuf, IM_COL32(255, 215, 50, 255));
                         m_audio.playSound("levelup");
-                        printf("Quest complete! Rewarded %d gold\n", reward);
+                        if (leveled) {
+                            const HeroClassDef* cls = m_classRegistry.getClass(qHero.classId);
+                            if (cls) {
+                                std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                                m_levelUpOffers = LevelUpSystem::generateOffers(
+                                    *cls, qHero.skills, qHero.level, allSkills, qHero.faction);
+                            }
+                            if (m_levelUpOffers.empty())
+                                m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                            m_showLevelUpModal = true;
+                        }
+                        printf("Quest complete! Rewarded %d gold + %d XP\n", goldReward, xpReward);
                         break;
                     }
                 }
@@ -2228,8 +2245,9 @@ void Game::renderStatShrinePopup()
         if (o.id == m_pendingObjId) { obj = &o; break; }
     if (!obj) { m_showStatShrinePopup = false; return; }
 
-    static const char* kStatNames[] = { "Attack", "Defense", "Speed", "Light Power" };
-    const char* statName = kStatNames[obj->value % 4];
+    // Stat shrine options — faction-aware bonus rotation (6 options)
+    static const char* kStatNames[] = { "Attack", "Defense", "Move", "Mana", "Vision", "Hero HP" };
+    const char* statName = kStatNames[obj->value % 6];
 
     ImGuiIO& io = ImGui::GetIO();
     ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
@@ -2242,7 +2260,9 @@ void Game::renderStatShrinePopup()
 
     ImGui::TextColored({1.0f, 0.5f, 0.1f, 1.0f}, "Stat Shrine");
     ImGui::Separator();
-    ImGui::Text("Spend 1000 gold for +1 %s?", statName);
+    static const char* kStatAmounts[] = { "+1", "+1", "+2", "+5", "+1", "+10" };
+    const char* amt = kStatAmounts[obj->value % 6];
+    ImGui::Text("Spend 1000 gold for %s %s?", amt, statName);
     ImGui::Text("Gold: %d   Uses remaining: %d", m_playerResources.get(ResourceType::Gold), obj->questState);
     ImGui::Spacing();
 
@@ -2253,14 +2273,16 @@ void Game::renderStatShrinePopup()
         if (!m_heroes.empty()) {
             Hero& hero = m_heroes[m_activeHeroIdx];
             m_playerResources.add(ResourceType::Gold, -1000);
-            switch (obj->value % 4) {
+            switch (obj->value % 6) {
             case 0: hero.attack  += 1; break;
             case 1: hero.defense += 1; break;
-            case 2: hero.maxMove += 1; hero.movePool = std::min(hero.movePool + 1, hero.maxMove); break;
-            case 3: hero.lightPower += 1; break;
+            case 2: hero.maxMove += 2; hero.movePool = std::min(hero.movePool + 2, hero.maxMove); break;
+            case 3: hero.maxMana += 5; hero.mana = std::min(hero.mana + 5, hero.maxMana); break;
+            case 4: hero.visionRange += 1; break;
+            case 5: hero.heroMaxHp += 10; hero.heroHp = std::min(hero.heroHp + 10, hero.heroMaxHp); break;
             }
             obj->questState--;
-            printf("StatShrine: +1 %s, uses left: %d\n", statName, obj->questState);
+            printf("StatShrine: %s %s, uses left: %d\n", amt, statName, obj->questState);
         }
         m_showStatShrinePopup = false;
     }
