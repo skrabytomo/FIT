@@ -437,8 +437,8 @@ void BuildingRegistry::init()
     addUnit(4001,"Conscript",      F::EternalEmpire,1,P::None,  8,2,2,1, 3,4, gold(45),        T::Humanoid|T::Undead);
     addUnit(4002,"Revenant",       F::EternalEmpire,2,P::None, 14,4,3,2, 5,5, goldAndRes(95,ResourceType::BloodEssence,1), T::Undead);
     addUnit(4003,"Shade Archer",   F::EternalEmpire,3,P::None, 20,5,3,4, 7,6, goldAndRes(190,ResourceType::Mercury,1), T::Undead);
-    m_units.back().range = 5; m_units.back().shots = 2;
-    addUnit(4004,"Steel Guardian", F::EternalEmpire,4,P::None, 50,7,9,7,13,6, goldAndRes(380,ResourceType::Mercury,2), T::Construct|T::Undead);
+    m_units.back().range = 5; m_units.back().shots = 3;
+    addUnit(4004,"Steel Guardian", F::EternalEmpire,4,P::None, 50,8,9,7,13,7, goldAndRes(380,ResourceType::Mercury,2), T::Construct|T::Undead);
     addUnit(4005,"Phantom Knight", F::EternalEmpire,5,P::None, 77,11,10,10,18,8,goldAndRes(720,ResourceType::Mercury,3), T::Undead|T::Flying, true);
     addUnit(4006,"Immortal",       F::EternalEmpire,6,P::None,111,13,11,18,28,10,goldAndRes(1400,ResourceType::Mercury,5), T::Undead|T::Flying, true);
 
@@ -529,10 +529,10 @@ void BuildingRegistry::init()
       b.prerequisites={BID::VK_RIFT_GATE}; m_buildings.push_back(b); }
 
     addUnit(6001,"Void Wisp",      F::Voidkin,1,P::None,  6,2,2,1, 3,6, gold(45),        T::Void|T::Flying, true);
-    addUnit(6002,"Phase Walker",   F::Voidkin,2,P::None, 12,4,3,2, 5,8, goldAndRes(100,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
+    addUnit(6002,"Phase Walker",   F::Voidkin,2,P::None, 12,4,5,2, 5,8, goldAndRes(100,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
     addUnit(6003,"Rift Archer",    F::Voidkin,3,P::None, 20,6,4,4, 8,7, goldAndRes(190,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
     m_units.back().range = 5; m_units.back().shots = 5;
-    addUnit(6004,"Void Stalker",   F::Voidkin,4,P::None, 40,8,6,8,14,10,goldAndRes(380,ResourceType::VerdantSap,2), T::Void|T::Flying, true);
+    addUnit(6004,"Void Stalker",   F::Voidkin,4,P::None, 40,8,8,8,14,10,goldAndRes(380,ResourceType::VerdantSap,2), T::Void|T::Flying, true);
     addUnit(6005,"Entropy Wraith", F::Voidkin,5,P::None, 60,11,8,12,20,12,goldAndRes(720,ResourceType::VerdantSap,3), T::Void|T::Flying, true);
     addUnit(6006,"Void Colossus",  F::Voidkin,6,P::None,110,15,11,20,32,13,goldAndRes(1400,ResourceType::VerdantSap,5), T::Void|T::Flying, true);
 
@@ -578,10 +578,10 @@ void BuildingRegistry::init()
     addUnit(7001,"Automaton",       F::IronAssembly,1,P::None, 10,2,3,1, 3,3, goldAndRes(55,ResourceType::Iron,1),  T::Mechanical);
     m_units.back().range = 3; m_units.back().shots = 1;
     addUnit(7002,"Gun Construct",   F::IronAssembly,2,P::None, 18,4,4,3, 6,4, goldAndRes(110,ResourceType::Iron,2), T::Mechanical);
-    m_units.back().range = 5; m_units.back().shots = 2;
+    m_units.back().range = 5; m_units.back().shots = 1;
     addUnit(7003,"Steam Walker",    F::IronAssembly,3,P::None, 35,6,6,5, 9,5, goldAndRes(210,ResourceType::Iron,3), T::Mechanical);
     addUnit(7004,"Siege Bot",       F::IronAssembly,4,P::None, 60,9,9,9,16,4, goldAndRes(400,ResourceType::Iron,5), T::Mechanical);
-    m_units.back().range = 5; m_units.back().shots = 5;
+    m_units.back().range = 5; m_units.back().shots = 2;
     addUnit(7005,"Titan Construct", F::IronAssembly,5,P::None, 76,11,11,14,22,5,goldAndRes(780,ResourceType::Iron,7), T::Mechanical);
     addUnit(7006,"Colossus Prime",  F::IronAssembly,6,P::None,158,15,15,25,40,6,goldAndRes(1600,ResourceType::Iron,10), T::Mechanical);
 
