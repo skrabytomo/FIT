@@ -932,7 +932,7 @@ void CombatEngine::processAITurn()
     // Hero casts one spell at the start of each AI phase (before units move)
     tryEnemyHeroSpell();
 
-    while (m_phase == CombatPhase::EnemyTurn) {
+    while (m_phase == CombatPhase::EnemyTurn && m_round <= m_maxRounds) {
         CombatUnit* unit = activeUnit();
         if (!unit || unit->isPlayer) break;
         aiActUnit(*unit);
@@ -1260,9 +1260,11 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
 // ── Headless simulation ────────────────────────────────────────────────────────
 CombatPhase CombatEngine::runHeadless(int maxRounds)
 {
+    m_maxRounds = maxRounds;
+
     // Process all player-side units using the same AI as the enemy
     auto processPlayerAI = [this]() {
-        while (m_phase == CombatPhase::PlayerTurn) {
+        while (m_phase == CombatPhase::PlayerTurn && m_round <= m_maxRounds) {
             CombatUnit* unit = activeUnit();
             if (!unit || !unit->isPlayer) break;
             aiActUnit(*unit);

@@ -156,6 +156,7 @@ private:
     CombatPhase m_phase     = CombatPhase::Setup;
     int         m_round     = 1;
     int         m_turnIndex = 0;
+    int         m_maxRounds = 60;
 
     std::vector<uint32_t>  m_turnOrder;   // unit IDs in speed order
     std::vector<uint32_t>  m_waitQueue;   // units that used Wait
