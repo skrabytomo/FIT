@@ -47,91 +47,113 @@ float DamageCalc::weaknessBonus(UnitTag attackerTags, UnitTag defenderTags,
 {
     float bonus = 1.0f;
 
-    // Holy units deal bonus damage to Undead, BloodBound, Mechanical, Beast, and Humanoid
+    // Holy units deal bonus damage to Undead, BloodBound, Mechanical, Beast, Humanoid, OrganicMech
     if (hasTag(attackerTags, UnitTag::Holy)) {
-        if (hasTag(defenderTags, UnitTag::Undead))      bonus *= 1.07f;
-        if (hasTag(defenderTags, UnitTag::BloodBound))  bonus *= 1.06f;
-        if (hasTag(defenderTags, UnitTag::Mechanical))  bonus *= 1.08f;
-        if (hasTag(defenderTags, UnitTag::Beast))       bonus *= 1.05f;
+        if (hasTag(defenderTags, UnitTag::Undead))      bonus *= 1.10f;
+        if (hasTag(defenderTags, UnitTag::BloodBound))  bonus *= 1.05f;
+        if (hasTag(defenderTags, UnitTag::Mechanical))  bonus *= 1.07f;
+        if (hasTag(defenderTags, UnitTag::Beast))       bonus *= 1.07f;
         if (hasTag(defenderTags, UnitTag::Humanoid))    bonus *= 1.02f;
+        if (hasTag(defenderTags, UnitTag::OrganicMech)) bonus *= 1.05f;
     }
 
-    // Humanoid units deal bonus damage to Holy (numbers vs faith)
+    // Humanoid units deal bonus damage to Holy and BloodBound
     if (hasTag(attackerTags, UnitTag::Humanoid)) {
-        if (hasTag(defenderTags, UnitTag::Holy)) bonus *= 1.08f;
+        if (hasTag(defenderTags, UnitTag::Holy))       bonus *= 1.05f;
+        if (hasTag(defenderTags, UnitTag::BloodBound)) bonus *= 1.04f;
     }
 
     // BloodBound deal bonus damage to Holy (primal blood magic corrupts divine light)
     if (hasTag(attackerTags, UnitTag::BloodBound)) {
-        if (hasTag(defenderTags, UnitTag::Holy)) bonus *= 1.06f;
+        if (hasTag(defenderTags, UnitTag::Holy)) bonus *= 1.04f;
     }
 
-    // Void units deal bonus damage to Holy, Undead, Mechanical, Humanoid, and OrganicMech
+    // Void units deal bonus damage to Holy, Undead, Mechanical, Humanoid, OrganicMech, and Beast
     if (hasTag(attackerTags, UnitTag::Void)) {
         if (hasTag(defenderTags, UnitTag::Holy))
-            bonus *= 1.08f;
+            bonus *= 1.06f;
         else if (hasTag(defenderTags, UnitTag::Undead))
-            bonus *= 1.08f;
-        else if (hasTag(defenderTags, UnitTag::Mechanical))
             bonus *= 1.05f;
+        else if (hasTag(defenderTags, UnitTag::Mechanical))
+            bonus *= 1.04f;
         else if (hasTag(defenderTags, UnitTag::Humanoid))
-            bonus *= 1.08f;
+            bonus *= 1.05f;
         else if (hasTag(defenderTags, UnitTag::OrganicMech))
+            bonus *= 1.10f;
+        else if (hasTag(defenderTags, UnitTag::Beast))
             bonus *= 1.05f;
     }
 
     // Organic-Mech (Amalgamate) deals bonus damage to Mechanical, Humanoid, Beast, and Void
     if (hasTag(attackerTags, UnitTag::OrganicMech)) {
         if (hasTag(defenderTags, UnitTag::Mechanical))    bonus *= 1.12f;
-        else if (hasTag(defenderTags, UnitTag::Humanoid)) bonus *= 1.04f;
+        else if (hasTag(defenderTags, UnitTag::Humanoid)) bonus *= 1.02f;
         else if (hasTag(defenderTags, UnitTag::Beast))    bonus *= 1.06f;
-        else if (hasTag(defenderTags, UnitTag::Void))     bonus *= 1.08f;
+        else if (hasTag(defenderTags, UnitTag::Void))     bonus *= 1.02f;
+        else if (hasTag(defenderTags, UnitTag::Undead))   bonus *= 1.06f;
     }
 
-    // Undead deal bonus damage to Beast and OrganicMech (undead hunger/blight vs living creatures)
+    // Undead deal bonus damage to Beast, Humanoid, and OrganicMech
     if (hasTag(attackerTags, UnitTag::Undead)) {
-        if (hasTag(defenderTags, UnitTag::Beast))       bonus *= 1.08f;
-        if (hasTag(defenderTags, UnitTag::OrganicMech)) bonus *= 1.05f;
+        if (hasTag(defenderTags, UnitTag::Beast))       bonus *= 1.04f;
+        if (hasTag(defenderTags, UnitTag::OrganicMech)) bonus *= 1.02f;
+        if (hasTag(defenderTags, UnitTag::Humanoid))    bonus *= 1.05f;
     }
 
-    // BloodBound deal bonus damage to Beast, Undead, and OrganicMech (primal hunger consumes all)
+    // BloodBound deal bonus damage to Beast, Undead, OrganicMech, and Void
+    // Organized tactics and unit cohesion partially blunt berserker aggression vs Humanoids
     if (hasTag(attackerTags, UnitTag::BloodBound)) {
-        if (hasTag(defenderTags, UnitTag::Beast))       bonus *= 1.08f;
-        if (hasTag(defenderTags, UnitTag::Undead))      bonus *= 1.05f;
-        if (hasTag(defenderTags, UnitTag::OrganicMech)) bonus *= 1.08f;
+        if (hasTag(defenderTags, UnitTag::Beast))       bonus *= 1.06f;
+        if (hasTag(defenderTags, UnitTag::Undead))      bonus *= 1.12f;
+        if (hasTag(defenderTags, UnitTag::OrganicMech)) bonus *= 1.06f;
+        if (hasTag(defenderTags, UnitTag::Void))        bonus *= 1.05f;
+        if (hasTag(defenderTags, UnitTag::Humanoid)
+            && !hasTag(defenderTags, UnitTag::BloodBound)) bonus *= 0.95f;
     }
 
     // Humanoid numbers and tactics overcome Undead resilience
     if (hasTag(attackerTags, UnitTag::Humanoid)) {
-        if (hasTag(defenderTags, UnitTag::Undead)) bonus *= 1.10f;
+        if (hasTag(defenderTags, UnitTag::Undead)) bonus *= 1.06f;
     }
 
     // Beast deals bonus damage to Void, Undead, and Mechanical (primal instinct disrupts clockwork)
     if (hasTag(attackerTags, UnitTag::Beast)) {
-        if (hasTag(defenderTags, UnitTag::Void))       bonus *= 1.08f;
-        if (hasTag(defenderTags, UnitTag::Undead))     bonus *= 1.06f;
-        if (hasTag(defenderTags, UnitTag::Mechanical)) bonus *= 1.12f;
+        if (hasTag(defenderTags, UnitTag::Void))       bonus *= 1.05f;
+        if (hasTag(defenderTags, UnitTag::Undead))     bonus *= 1.07f;
+        if (hasTag(defenderTags, UnitTag::Mechanical)) bonus *= 1.10f;
     }
 
     // Void units deal bonus damage to BloodBound (entropic void unravels blood-bonds)
     if (hasTag(attackerTags, UnitTag::Void)) {
-        if (hasTag(defenderTags, UnitTag::BloodBound)) bonus *= 1.08f;
+        if (hasTag(defenderTags, UnitTag::BloodBound)) bonus *= 1.03f;
+    }
+
+    // Void energy seeps through ordered Humanoid defenses (non-Holy, non-BloodBound only)
+    if (hasTag(attackerTags, UnitTag::Void)
+        && hasTag(defenderTags, UnitTag::Humanoid)
+        && !hasTag(defenderTags, UnitTag::Holy)
+        && !hasTag(defenderTags, UnitTag::BloodBound)) {
+        bonus *= 1.10f;
     }
 
     // Holy light sears Void energy — counters VO's widespread advantage
     if (hasTag(attackerTags, UnitTag::Holy)) {
-        if (hasTag(defenderTags, UnitTag::Void)) bonus *= 1.13f;
+        if (hasTag(defenderTags, UnitTag::Void)) bonus *= 1.04f;
     }
 
     // Humanoid ingenuity overcomes Mechanical brute-force
     if (hasTag(attackerTags, UnitTag::Humanoid)) {
-        if (hasTag(defenderTags, UnitTag::Mechanical)) bonus *= 1.06f;
+        if (hasTag(defenderTags, UnitTag::Mechanical)) bonus *= 1.04f;
     }
 
     // Mechanical and Holy have a mutual rivalry — precision disrupts void, faith resists steel
+    // Mechanical targeting systems override organic evasion (Humanoid) and grinding clockwork
+    // tears through undead frames
     if (hasTag(attackerTags, UnitTag::Mechanical)) {
-        if (hasTag(defenderTags, UnitTag::Holy)) bonus *= 0.95f;
-        if (hasTag(defenderTags, UnitTag::Void)) bonus *= 1.04f;
+        if (hasTag(defenderTags, UnitTag::Holy))     bonus *= 0.97f;
+        if (hasTag(defenderTags, UnitTag::Void))     bonus *= 1.04f;
+        if (hasTag(defenderTags, UnitTag::Humanoid)) bonus *= 1.07f;
+        if (hasTag(defenderTags, UnitTag::Undead))   bonus *= 1.10f;
     }
 
     return bonus;
@@ -249,10 +271,12 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
     }
 
     // Amalgamate adaptation: OrganicMech units gain stats after taking enough hits
+    // Void energy disrupts the flesh-graft bonding — Void attackers don't trigger adaptation
     if (finalDmg > 0 && defender.alive && hasTag(defender.tags, UnitTag::OrganicMech)
+        && !hasTag(attacker.tags, UnitTag::Void)
         && defender.adaptationsGained < 4) {
         defender.hitsTaken++;
-        int threshold = defender.rapidEvolution ? 1 : (defender.adaptationFast ? 2 : 4);
+        int threshold = defender.rapidEvolution ? 1 : (defender.adaptationFast ? 2 : 5);
         if (defender.hitsTaken >= threshold) {
             defender.hitsTaken = 0;
             int gain = defender.adaptationDouble ? 2 : 1;

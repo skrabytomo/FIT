@@ -137,7 +137,7 @@ Hero ArmyBuilder::buildHero(FactionId faction, int weeks)
         break;
     case FactionId::Convergence:
         h.skills.learn(SID::DEFENSE_SKILL);
-        if (level >= 5) h.skills.upgrade(SID::DEFENSE_SKILL);
+        if (level >= 7) h.skills.upgrade(SID::DEFENSE_SKILL);
         if (level >= 7) h.skills.learn(SID::TACTICS);
         break;
     default:

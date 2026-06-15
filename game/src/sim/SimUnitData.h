@@ -38,7 +38,7 @@ struct UnitSimData
 static constexpr UnitSimData SIM_UNITS[] = {
     // ── Holy Order ────────────────────────────────────────────────────────────
     //  name                 faction                tier  hp  atk def dmn dmx spd rng sht fly 2nd  tags                                          gr  uw  gold
-    {"Penitent",        FactionId::HolyOrder, 1, 14, 3, 3, 1,  3, 4,  0,  0, false, false, UnitTag::Humanoid|UnitTag::Holy,  14, 1,   65},
+    {"Penitent",        FactionId::HolyOrder, 1, 14, 3, 3, 1,  3, 5,  0,  0, false, false, UnitTag::Humanoid|UnitTag::Holy,  14, 1,   65},
     {"Torch Bearer",    FactionId::HolyOrder, 2, 20, 4, 5, 2,  5, 5,  0,  0, false, false, UnitTag::Humanoid|UnitTag::Holy,  10, 2,  115},
     {"Plague Doctor",   FactionId::HolyOrder, 3, 28, 5, 5, 4,  7, 6,  5, 10, false, false, UnitTag::Humanoid|UnitTag::Holy,   7, 3,  205},
     {"Penitent Knight", FactionId::HolyOrder, 4, 58, 9, 9, 7, 13, 7,  0,  0, true,  false, UnitTag::Humanoid|UnitTag::Holy,   5, 5,  350},
@@ -47,18 +47,17 @@ static constexpr UnitSimData SIM_UNITS[] = {
 
     // ── Crimson Wardens ───────────────────────────────────────────────────────
     {"Skeleton",        FactionId::CrimsonWardens, 1, 12, 2, 3, 1,  3, 5, 0,  0, false, false, UnitTag::Undead,  13, 1,   60},
-    {"Bone Archer",     FactionId::CrimsonWardens, 2, 22, 4, 4, 3,  6, 5, 5,  2, false, false, UnitTag::Undead,  10, 2,  115},
+    {"Bone Archer",     FactionId::CrimsonWardens, 2, 22, 4, 4, 3,  5, 5, 5,  3, false, false, UnitTag::Undead,  10, 2,  115},
     {"Wight",           FactionId::CrimsonWardens, 3, 45, 6, 6, 6, 10, 6, 0,  0, false, false, UnitTag::Undead,   7, 3,  200},
     {"Vampire",         FactionId::CrimsonWardens, 4, 55, 9, 6, 8, 14,10, 0,  0, true,  false, UnitTag::Undead,   5, 5,  360},
-    {"Lich",            FactionId::CrimsonWardens, 5, 75,12, 9,13, 21, 8, 6,  8, false, false, UnitTag::Undead,   3, 7,  610},
+    {"Lich",            FactionId::CrimsonWardens, 5, 75,12, 9,13, 21, 8, 6,  3, false, false, UnitTag::Undead,   3, 7,  610},
     {"Bone Dragon",     FactionId::CrimsonWardens, 6,155,17,14,22, 38,11, 0,  0, true,  false, UnitTag::Undead,   2, 9, 1250},
 
     // ── Thornkin ─────────────────────────────────────────────────────────────
-    // T2-T3 HP and DEF raised: Vine Crawler 22→28 HP was worst tier-3 outlier (Wight has 40).
-    // T1 speed 3→4, T3 speed 4→5 to slightly close gap with CW (still slower).
+    // T1 speed 4→5 and HP 12→14, T2 speed 4→5 and HP 20→23 to compete vs BS fast melee.
     // Base stats include rough Symbiosis +1 equivalent (Symbiosis Web not applied in sim).
-    {"Sproutling",      FactionId::Thornkin, 1, 12, 2, 3, 1,  3, 4, 0, 0, false, false, UnitTag::Beast,  14, 1,   55},
-    {"Briar",           FactionId::Thornkin, 2, 20, 4, 4, 3,  6, 4, 0, 0, false, false, UnitTag::Beast,  10, 2,  110},
+    {"Sproutling",      FactionId::Thornkin, 1, 12, 2, 3, 1,  3, 5, 0, 0, false, false, UnitTag::Beast,  14, 1,   55},
+    {"Briar",           FactionId::Thornkin, 2, 20, 4, 4, 3,  6, 5, 0, 0, false, false, UnitTag::Beast,  10, 2,  110},
     {"Vine Crawler",    FactionId::Thornkin, 3, 25, 5, 5, 5,  9, 5, 0, 0, false, false, UnitTag::Beast,   7, 3,  185},
     {"Grove Guardian",  FactionId::Thornkin, 4, 58, 9, 8, 9, 15, 5, 0, 0, false, false, UnitTag::Beast,   5, 5,  370},
     {"Ancient Oak",     FactionId::Thornkin, 5, 92,12,11,13, 22, 6, 0, 0, false, false, UnitTag::Beast,   3, 7,  630},
@@ -75,34 +74,34 @@ static constexpr UnitSimData SIM_UNITS[] = {
     // ── Bloodsworn ────────────────────────────────────────────────────────────
     {"Bloodling",       FactionId::Bloodsworn, 1, 13, 3, 2, 2,  4, 5, 0, 0, false, false, UnitTag::Humanoid|UnitTag::BloodBound,  14, 1,   65},
     {"Berserker",       FactionId::Bloodsworn, 2, 20, 5, 4, 3,  7, 6, 0, 0, false, false, UnitTag::Humanoid|UnitTag::BloodBound,  10, 2,  115},
-    {"Blood Shaman",    FactionId::Bloodsworn, 3, 27, 5, 5, 3,  6, 6, 4, 6, false, false, UnitTag::Humanoid|UnitTag::BloodBound,   7, 3,  185},
+    {"Blood Shaman",    FactionId::Bloodsworn, 3, 27, 5, 5, 3,  6, 6, 4, 4, false, false, UnitTag::Humanoid|UnitTag::BloodBound,   7, 3,  185},
     {"Ravager",         FactionId::Bloodsworn, 4, 54,10, 7,10, 18, 8, 0, 0, false, false, UnitTag::Humanoid|UnitTag::BloodBound,   5, 5,  340},
     {"Bloodtide Warlord",FactionId::Bloodsworn,5, 72,13, 8,14, 25, 9, 0, 0, false, false, UnitTag::Humanoid|UnitTag::BloodBound,   3, 7,  590},
     {"Crimson Avatar",  FactionId::Bloodsworn, 6,140,18, 9,25, 42,11, 0, 0, false, false, UnitTag::Humanoid|UnitTag::BloodBound,   2, 9, 1150},
 
     // ── Voidkin ───────────────────────────────────────────────────────────────
-    {"Void Wisp",       FactionId::Voidkin, 1, 16, 3, 3, 1,  3, 6, 0, 0, true,  false, UnitTag::Void,  13, 1,   70},
-    {"Phase Walker",    FactionId::Voidkin, 2, 22, 4, 6, 2,  6, 6, 0, 0, true,  false, UnitTag::Void,  10, 2,  130},
+    {"Void Wisp",       FactionId::Voidkin, 1, 18, 3, 3, 1,  3, 6, 0, 0, true,  false, UnitTag::Void,  13, 1,   70},
+    {"Phase Walker",    FactionId::Voidkin, 2, 24, 4, 6, 2,  6, 6, 0, 0, true,  false, UnitTag::Void,  10, 2,  130},
     {"Rift Archer",     FactionId::Voidkin, 3, 28, 6, 5, 4,  9, 7, 5, 5, true,  false, UnitTag::Void,   7, 3,  225},
     {"Void Stalker",    FactionId::Voidkin, 4, 44, 9, 9, 9, 15,10, 0, 0, true,  false, UnitTag::Void,   5, 5,  360},
-    {"Entropy Wraith",  FactionId::Voidkin, 5, 65,12, 9,13, 22,12, 0, 0, true,  false, UnitTag::Void,   3, 7,  640},
-    {"Void Colossus",   FactionId::Voidkin, 6,120,16,12,22, 34,13, 0, 0, true,  false, UnitTag::Void,   2, 9, 1220},
+    {"Entropy Wraith",  FactionId::Voidkin, 5, 72,12,11,13, 22,12, 0, 0, true,  false, UnitTag::Void,   3, 7,  640},
+    {"Void Colossus",   FactionId::Voidkin, 6,135,16,14,22, 34,13, 0, 0, true,  false, UnitTag::Void,   2, 9, 1220},
 
     // ── Iron Assembly ─────────────────────────────────────────────────────────
     {"Automaton",       FactionId::IronAssembly, 1, 12, 3, 4, 2,  4, 5, 3,  1, false, false, UnitTag::Mechanical,  12, 1,   75},
     {"Gun Construct",   FactionId::IronAssembly, 2, 20, 4, 5, 3,  6, 5, 5,  1, false, false, UnitTag::Mechanical,   9, 2,  140},
-    {"Steam Walker",    FactionId::IronAssembly, 3, 26, 6, 6, 5, 10, 5, 0,  0, false, false, UnitTag::Mechanical,   6, 3,  215},
-    {"Siege Bot",       FactionId::IronAssembly, 4, 58, 9, 9, 9, 17, 4, 5,  2, false, false, UnitTag::Mechanical,   5, 5,  400},
+    {"Steam Walker",    FactionId::IronAssembly, 3, 30, 6, 6, 5, 10, 5, 0,  0, false, false, UnitTag::Mechanical,   6, 3,  215},
+    {"Siege Bot",       FactionId::IronAssembly, 4, 58, 8, 9, 7, 13, 4, 5,  3, false, false, UnitTag::Mechanical,   5, 5,  400},
     {"Titan Construct", FactionId::IronAssembly, 5, 75,11,11,15, 24, 5, 0,  0, false, false, UnitTag::Mechanical,   3, 7,  660},
     {"Colossus Prime",  FactionId::IronAssembly, 6,150,15,14,26, 42, 6, 0,  0, false, false, UnitTag::Mechanical,   2, 9, 1350},
 
     // ── Amalgamate ────────────────────────────────────────────────────────────
-    {"Flesh Crawler",   FactionId::Amalgamate, 1, 11, 2, 3, 1,  4, 4, 0, 0, false, false, UnitTag::OrganicMech,  12, 1,   65},
+    {"Flesh Crawler",   FactionId::Amalgamate, 1, 11, 2, 3, 1,  4, 5, 0, 0, false, false, UnitTag::OrganicMech,  12, 1,   65},
     {"Graft Soldier",   FactionId::Amalgamate, 2, 18, 4, 4, 3,  6, 5, 0, 0, false, false, UnitTag::OrganicMech,   9, 2,  115},
-    {"Bone Machine",    FactionId::Amalgamate, 3, 25, 6, 5, 5, 10, 6, 0, 0, false, false, UnitTag::OrganicMech,   8, 3,  195},
+    {"Bone Machine",    FactionId::Amalgamate, 3, 28, 5, 5, 4,  7, 6, 3, 3, false, false, UnitTag::OrganicMech,   8, 3,  195},
     {"Fleshwork Knight",FactionId::Amalgamate, 4, 60, 9, 7, 9, 16, 7, 0, 0, true,  false, UnitTag::OrganicMech,   4, 5,  360},
     {"Undying Juggernaut",FactionId::Amalgamate,5, 95,12,10,14, 23, 8, 0, 0, false, false, UnitTag::OrganicMech,   3, 7,  600},
-    {"Convergence Spawn",FactionId::Amalgamate,6,175,16,14,23, 37, 9, 0, 0, true,  false, UnitTag::OrganicMech,   2, 9, 1200},
+    {"Convergence Spawn",FactionId::Amalgamate,6,155,16,14,23, 37, 9, 0, 0, true,  false, UnitTag::OrganicMech,   2, 9, 1200},
 
     // ── Convergence ──────────────────────────────────────────────────────────
     // T3-T6 get +1 ATK/DEF to represent Resonance Well building (not applied in sim).
@@ -111,8 +110,8 @@ static constexpr UnitSimData SIM_UNITS[] = {
     {"Synthesized",     FactionId::Convergence, 2, 21, 5, 5, 3,  6, 6, 0, 0, false, false, UnitTag::Humanoid,   8, 2,  125},
     {"Harmonized",      FactionId::Convergence, 3, 33, 7, 7, 5, 10, 6, 4, 3, false, false, UnitTag::Humanoid,   7, 3,  210},
     {"Resonant",        FactionId::Convergence, 4, 58,10,10, 9, 16, 8, 0, 0, true,  false, UnitTag::Humanoid,   4, 5,  370},
-    {"Transcendent",    FactionId::Convergence, 5, 74,12,11,14, 23,10, 0, 0, true,  false, UnitTag::Humanoid,   3, 7,  640},
-    {"Unified Form",    FactionId::Convergence, 6,132,16,13,23, 37,12, 0, 0, true,  false, UnitTag::Humanoid,   2, 9, 1250},
+    {"Transcendent",    FactionId::Convergence, 5, 74,12,13,14, 23,10, 0, 0, true,  false, UnitTag::Humanoid,   3, 7,  640},
+    {"Unified Form",    FactionId::Convergence, 6,132,16,15,23, 37,12, 0, 0, true,  false, UnitTag::Humanoid,   2, 9, 1250},
 };
 // clang-format on
 

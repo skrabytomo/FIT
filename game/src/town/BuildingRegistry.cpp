@@ -273,30 +273,30 @@ void BuildingRegistry::init()
     using T = UnitTag;
 
     // T1 Penitent
-    addUnit(1001,"Penitent",       F::HolyOrder,1,P::None,  8,2,1,1,3,6, gold(30),  T::Humanoid);
-    addUnit(1002,"Penitent(A)",    F::HolyOrder,1,P::PathA, 7,2,1,1,4,7, gold(30),  T::Humanoid);
-    addUnit(1003,"Penitent(B)",    F::HolyOrder,1,P::PathB,12,2,2,1,2,4, gold(35),  T::Humanoid);
+    addUnit(1001,"Penitent",       F::HolyOrder,1,P::None, 14,3,3,1,3,5, gold(65),  T::Humanoid|T::Holy);
+    addUnit(1002,"Penitent(A)",    F::HolyOrder,1,P::PathA,13,3,3,1,4,7, gold(65),  T::Humanoid|T::Holy);
+    addUnit(1003,"Penitent(B)",    F::HolyOrder,1,P::PathB,18,3,4,1,2,4, gold(70),  T::Humanoid|T::Holy);
     // T2 Torch Bearer
-    addUnit(1004,"Torch Bearer",   F::HolyOrder,2,P::None, 15,4,3,2,5,5, goldAndRes(80,ResourceType::Iron,1), T::Humanoid);
-    addUnit(1005,"Torch Bearer(A)",F::HolyOrder,2,P::PathA,13,4,3,3,6,5, goldAndRes(90,ResourceType::Iron,1), T::Humanoid);
-    addUnit(1006,"Torch Bearer(B)",F::HolyOrder,2,P::PathB,16,5,3,2,4,5, goldAndRes(90,ResourceType::FaithStones,1), T::Humanoid|T::Holy);
+    addUnit(1004,"Torch Bearer",   F::HolyOrder,2,P::None, 20,4,5,2,5,5, goldAndRes(80,ResourceType::Iron,1), T::Humanoid|T::Holy);
+    addUnit(1005,"Torch Bearer(A)",F::HolyOrder,2,P::PathA,18,4,5,3,6,5, goldAndRes(90,ResourceType::Iron,1), T::Humanoid|T::Holy);
+    addUnit(1006,"Torch Bearer(B)",F::HolyOrder,2,P::PathB,21,5,5,2,4,5, goldAndRes(90,ResourceType::FaithStones,1), T::Humanoid|T::Holy);
     // T3 Plague Doctor
-    addUnit(1007,"Plague Doctor",  F::HolyOrder,3,P::None, 20,5,5,3,6,4, goldAndRes(150,ResourceType::FaithStones,1), T::Humanoid);
-    m_units.back().range = 5; m_units.back().shots = 8;
-    addUnit(1008,"Plague Doctor(A)",F::HolyOrder,3,P::PathA,18,4,4,2,5,4, goldAndRes(170,ResourceType::FaithStones,1), T::Humanoid);
-    addUnit(1009,"Plague Doctor(B)",F::HolyOrder,3,P::PathB,22,5,5,4,7,4, goldAndRes(160,ResourceType::Iron,1), T::Humanoid);
-    // T4 Penitent Knight
-    addUnit(1010,"Penitent Knight",F::HolyOrder,4,P::None, 40,8,7,5,10,5, goldAndRes(300,ResourceType::Iron,2), T::Humanoid);
-    addUnit(1011,"Penitent Knight(A)",F::HolyOrder,4,P::PathA,45,8,8,5,10,5, goldAndRes(350,ResourceType::Iron,2), T::Humanoid|T::Holy);
-    addUnit(1012,"Penitent Knight(B)",F::HolyOrder,4,P::PathB,38,9,6,6,11,5, goldAndRes(330,ResourceType::BloodEssence,1), T::Humanoid|T::BloodBound);
+    addUnit(1007,"Plague Doctor",  F::HolyOrder,3,P::None, 28,5,5,4,7,6, goldAndRes(150,ResourceType::FaithStones,1), T::Humanoid|T::Holy);
+    m_units.back().range = 5; m_units.back().shots = 10;
+    addUnit(1008,"Plague Doctor(A)",F::HolyOrder,3,P::PathA,26,4,4,3,6,6, goldAndRes(170,ResourceType::FaithStones,1), T::Humanoid|T::Holy);
+    addUnit(1009,"Plague Doctor(B)",F::HolyOrder,3,P::PathB,30,5,5,5,8,6, goldAndRes(160,ResourceType::Iron,1), T::Humanoid|T::Holy);
+    // T4 Penitent Knight (flying)
+    addUnit(1010,"Penitent Knight",   F::HolyOrder,4,P::None, 58,9,9,7,13,7, goldAndRes(300,ResourceType::Iron,2), T::Humanoid|T::Holy|T::Flying, true);
+    addUnit(1011,"Penitent Knight(A)",F::HolyOrder,4,P::PathA,63,9,10,7,13,7, goldAndRes(350,ResourceType::Iron,2), T::Humanoid|T::Holy|T::Flying, true);
+    addUnit(1012,"Penitent Knight(B)",F::HolyOrder,4,P::PathB,55,10,7,8,14,7, goldAndRes(330,ResourceType::BloodEssence,1), T::Humanoid|T::BloodBound|T::Flying, true);
     // T5 Seraph
-    addUnit(1013,"Seraph",         F::HolyOrder,5,P::None, 82,14,12,10,20,7, goldAndRes(700,ResourceType::FaithStones,3), T::Humanoid|T::Holy|T::Flying, true);
-    addUnit(1014,"Seraph(A)",      F::HolyOrder,5,P::PathA,82,14,12,10,20,7, goldAndRes(800,ResourceType::FaithStones,3), T::Humanoid|T::Holy|T::Flying, true);
-    addUnit(1015,"Seraph(B)",      F::HolyOrder,5,P::PathB,77,16,11,12,22,9, goldAndRes(750,ResourceType::FaithStones,4), T::Humanoid|T::Holy|T::Flying, true);
+    addUnit(1013,"Seraph",         F::HolyOrder,5,P::None, 95,13,12,14,26,9, goldAndRes(700,ResourceType::FaithStones,3), T::Humanoid|T::Holy|T::Flying, true);
+    addUnit(1014,"Seraph(A)",      F::HolyOrder,5,P::PathA,95,13,12,14,26,9, goldAndRes(800,ResourceType::FaithStones,3), T::Humanoid|T::Holy|T::Flying, true);
+    addUnit(1015,"Seraph(B)",      F::HolyOrder,5,P::PathB,90,15,11,16,28,11,goldAndRes(750,ResourceType::FaithStones,4), T::Humanoid|T::Holy|T::Flying, true);
     // T6 Winged Hussar
-    addUnit(1016,"Winged Hussar",  F::HolyOrder,6,P::None,114,17,14,14,24,8, goldAndRes(1500,ResourceType::FaithStones,5), T::Humanoid|T::Holy|T::Flying, true);
-    addUnit(1017,"Winged Hussar(A)",F::HolyOrder,6,P::PathA,114,17,14,14,24,8, goldAndRes(1800,ResourceType::FaithStones,6), T::Humanoid|T::Holy|T::Flying, true);
-    addUnit(1018,"Winged Hussar(B)",F::HolyOrder,6,P::PathB,114,17,14,14,24,8, goldAndRes(1800,ResourceType::FaithStones,8), T::Humanoid|T::Holy|T::Flying, true);
+    addUnit(1016,"Winged Hussar",   F::HolyOrder,6,P::None,165,17,15,23,38,12,goldAndRes(1500,ResourceType::FaithStones,5), T::Humanoid|T::Holy|T::Flying, true);
+    addUnit(1017,"Winged Hussar(A)",F::HolyOrder,6,P::PathA,165,17,15,23,38,12,goldAndRes(1800,ResourceType::FaithStones,6), T::Humanoid|T::Holy|T::Flying, true);
+    addUnit(1018,"Winged Hussar(B)",F::HolyOrder,6,P::PathB,165,17,15,23,38,12,goldAndRes(1800,ResourceType::FaithStones,8), T::Humanoid|T::Holy|T::Flying, true);
 
     // ── CRIMSON WARDENS ───────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::CW_HALL; b.name="Catacombs Throne";
@@ -337,16 +337,16 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(2500,ResourceType::FaithStones,4);
       b.prerequisites={BID::CW_DEATH_ALTAR}; m_buildings.push_back(b); }
 
-    addUnit(2001,"Skeleton",    F::CrimsonWardens,1,P::None,  6,2,1,1, 2,4, gold(40),        T::Undead);
-    addUnit(2002,"Bone Archer", F::CrimsonWardens,2,P::None, 10,3,2,2, 4,5, gold(90),        T::Undead);
-    m_units.back().range = 5; m_units.back().shots = 2;
-    addUnit(2003,"Wight",       F::CrimsonWardens,3,P::None, 22,5,4,3, 7,6, goldAndRes(180,ResourceType::FaithStones,1), T::Undead);
+    addUnit(2001,"Skeleton",    F::CrimsonWardens,1,P::None, 12,2,3,1, 3,5, gold(60),        T::Undead);
+    addUnit(2002,"Bone Archer", F::CrimsonWardens,2,P::None, 22,4,4,3, 5,5, gold(115),       T::Undead);
+    m_units.back().range = 5; m_units.back().shots = 3;
+    addUnit(2003,"Wight",       F::CrimsonWardens,3,P::None, 45,6,6,6,10,6, goldAndRes(200,ResourceType::FaithStones,1), T::Undead);
     m_units.back().regenerates = true;
-    addUnit(2004,"Vampire",     F::CrimsonWardens,4,P::None, 40,8,5,7,13,9, goldAndRes(380,ResourceType::FaithStones,2), T::Undead|T::Flying, true);
+    addUnit(2004,"Vampire",     F::CrimsonWardens,4,P::None, 55,9,6,8,14,10,goldAndRes(360,ResourceType::FaithStones,2), T::Undead|T::Flying, true);
     m_units.back().vampiric = true;
-    addUnit(2005,"Lich",        F::CrimsonWardens,5,P::None, 69,11,8,12,20,8,goldAndRes(720,ResourceType::FaithStones,3), T::Undead);
-    m_units.back().range = 6; m_units.back().shots = 6;
-    addUnit(2006,"Bone Dragon", F::CrimsonWardens,6,P::None,140,16,13,20,35,11,goldAndRes(1500,ResourceType::FaithStones,5), T::Undead|T::Flying, true);
+    addUnit(2005,"Lich",        F::CrimsonWardens,5,P::None, 75,12,9,13,21,8,goldAndRes(610,ResourceType::FaithStones,3), T::Undead);
+    m_units.back().range = 6; m_units.back().shots = 3;
+    addUnit(2006,"Bone Dragon", F::CrimsonWardens,6,P::None,155,17,14,22,38,11,goldAndRes(1250,ResourceType::FaithStones,5), T::Undead|T::Flying, true);
 
     // ── THORNKIN ─────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::TK_GROVE_HEART; b.name="Grove Heart";
@@ -387,13 +387,13 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(2500,ResourceType::VerdantSap,4);
       b.prerequisites={BID::TK_ANCIENT_CIRCLE}; m_buildings.push_back(b); }
 
-    addUnit(3001,"Sproutling",    F::Thornkin,1,P::None,  8,1,2,1, 2,4, gold(45),        T::Beast);
-    addUnit(3002,"Briar",         F::Thornkin,2,P::None, 22,3,4,2, 5,5, goldAndRes(100,ResourceType::VerdantSap,1), T::Beast);
-    addUnit(3003,"Vine Crawler",  F::Thornkin,3,P::None, 35,6,5,4, 8,5, goldAndRes(200,ResourceType::VerdantSap,1), T::Beast);
-    m_units.back().regenerates = true;   // Vine Crawler regenerates each turn
-    addUnit(3004,"Grove Guardian",F::Thornkin,4,P::None, 62,8,8,8,14,6, goldAndRes(400,ResourceType::VerdantSap,2), T::Beast);
-    addUnit(3005,"Ancient Oak",   F::Thornkin,5,P::None, 90,11,10,12,20,7,goldAndRes(750,ResourceType::VerdantSap,3), T::Beast);
-    addUnit(3006,"World Thorn",   F::Thornkin,6,P::None,160,15,14,22,35,8,goldAndRes(1500,ResourceType::VerdantSap,5), T::Beast);
+    addUnit(3001,"Sproutling",    F::Thornkin,1,P::None, 12,2,3,1, 3,5, gold(55),        T::Beast);
+    addUnit(3002,"Briar",         F::Thornkin,2,P::None, 20,4,4,3, 6,5, goldAndRes(110,ResourceType::VerdantSap,1), T::Beast);
+    addUnit(3003,"Vine Crawler",  F::Thornkin,3,P::None, 25,5,5,5, 9,5, goldAndRes(185,ResourceType::VerdantSap,1), T::Beast);
+    m_units.back().regenerates = true;
+    addUnit(3004,"Grove Guardian",F::Thornkin,4,P::None, 58,9,8,9,15,5, goldAndRes(370,ResourceType::VerdantSap,2), T::Beast);
+    addUnit(3005,"Ancient Oak",   F::Thornkin,5,P::None, 92,12,11,13,22,6,goldAndRes(630,ResourceType::VerdantSap,3), T::Beast);
+    addUnit(3006,"World Thorn",   F::Thornkin,6,P::None,158,16,14,24,38,7,goldAndRes(1300,ResourceType::VerdantSap,5), T::Beast);
 
     // ── ETERNAL EMPIRE ────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::EE_THRONE; b.name="Imperial Throne";
@@ -434,13 +434,13 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(2500,ResourceType::Mercury,4);
       b.prerequisites={BID::EE_NECROPOLIS}; m_buildings.push_back(b); }
 
-    addUnit(4001,"Conscript",      F::EternalEmpire,1,P::None,  8,2,2,1, 3,4, gold(45),        T::Humanoid|T::Undead);
-    addUnit(4002,"Revenant",       F::EternalEmpire,2,P::None, 14,4,3,2, 5,5, goldAndRes(95,ResourceType::BloodEssence,1), T::Undead);
-    addUnit(4003,"Shade Archer",   F::EternalEmpire,3,P::None, 20,5,3,4, 7,6, goldAndRes(190,ResourceType::Mercury,1), T::Undead);
+    addUnit(4001,"Conscript",      F::EternalEmpire,1,P::None, 12,2,3,1, 3,4, gold(65),        T::Humanoid|T::Undead);
+    addUnit(4002,"Revenant",       F::EternalEmpire,2,P::None, 20,4,4,3, 6,5, goldAndRes(120,ResourceType::BloodEssence,1), T::Undead);
+    addUnit(4003,"Shade Archer",   F::EternalEmpire,3,P::None, 32,5,5,4, 8,6, goldAndRes(210,ResourceType::Mercury,1), T::Undead);
     m_units.back().range = 5; m_units.back().shots = 3;
-    addUnit(4004,"Steel Guardian", F::EternalEmpire,4,P::None, 50,8,9,7,13,7, goldAndRes(380,ResourceType::Mercury,2), T::Construct|T::Undead);
-    addUnit(4005,"Phantom Knight", F::EternalEmpire,5,P::None, 77,11,10,10,18,8,goldAndRes(720,ResourceType::Mercury,3), T::Undead|T::Flying, true);
-    addUnit(4006,"Immortal",       F::EternalEmpire,6,P::None,111,13,11,18,28,10,goldAndRes(1400,ResourceType::Mercury,5), T::Undead|T::Flying, true);
+    addUnit(4004,"Steel Guardian", F::EternalEmpire,4,P::None, 55,9,10,8,14,7, goldAndRes(380,ResourceType::Mercury,2), T::Construct|T::Undead);
+    addUnit(4005,"Phantom Knight", F::EternalEmpire,5,P::None, 83,12,11,11,20,8, goldAndRes(600,ResourceType::Mercury,3), T::Undead|T::Flying, true);
+    addUnit(4006,"Immortal",       F::EternalEmpire,6,P::None,122,14,12,20,30,10,goldAndRes(1100,ResourceType::Mercury,5), T::Undead|T::Flying, true);
 
     // ── BLOODSWORN ────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::BS_WAR_HALL; b.name="War Hall";
@@ -481,13 +481,13 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(2500,ResourceType::BloodEssence,4);
       b.prerequisites={BID::BS_BLOOD_ALTAR}; m_buildings.push_back(b); }
 
-    addUnit(5001,"Bloodling",          F::Bloodsworn,1,P::None,  9,3,1,2, 4,5, gold(50),        T::Humanoid|T::BloodBound);
-    addUnit(5002,"Berserker",          F::Bloodsworn,2,P::None, 16,5,2,3, 7,7, goldAndRes(110,ResourceType::BloodEssence,1), T::Humanoid|T::BloodBound);
-    addUnit(5003,"Blood Shaman",       F::Bloodsworn,3,P::None, 22,6,3,5, 9,6, goldAndRes(200,ResourceType::BloodEssence,1), T::Humanoid|T::BloodBound);
-    m_units.back().range = 4; m_units.back().shots = 5;
-    addUnit(5004,"Ravager",            F::Bloodsworn,4,P::None, 45,10,4,9,18,8, goldAndRes(400,ResourceType::BloodEssence,2), T::Humanoid|T::BloodBound);
-    addUnit(5005,"Bloodtide Warlord",  F::Bloodsworn,5,P::None, 70,13,7,14,24,9,goldAndRes(750,ResourceType::BloodEssence,3), T::Humanoid|T::BloodBound);
-    addUnit(5006,"Crimson Avatar",     F::Bloodsworn,6,P::None,130,18,8,24,40,11,goldAndRes(1500,ResourceType::BloodEssence,5), T::Humanoid|T::BloodBound);
+    addUnit(5001,"Bloodling",          F::Bloodsworn,1,P::None, 13,3,2,2, 4,5, gold(65),        T::Humanoid|T::BloodBound);
+    addUnit(5002,"Berserker",          F::Bloodsworn,2,P::None, 20,5,4,3, 7,6, goldAndRes(115,ResourceType::BloodEssence,1), T::Humanoid|T::BloodBound);
+    addUnit(5003,"Blood Shaman",       F::Bloodsworn,3,P::None, 27,5,5,3, 6,6, goldAndRes(185,ResourceType::BloodEssence,1), T::Humanoid|T::BloodBound);
+    m_units.back().range = 4; m_units.back().shots = 4;
+    addUnit(5004,"Ravager",            F::Bloodsworn,4,P::None, 54,10,7,10,18,8, goldAndRes(340,ResourceType::BloodEssence,2), T::Humanoid|T::BloodBound);
+    addUnit(5005,"Bloodtide Warlord",  F::Bloodsworn,5,P::None, 72,13,8,14,25,9,goldAndRes(590,ResourceType::BloodEssence,3), T::Humanoid|T::BloodBound);
+    addUnit(5006,"Crimson Avatar",     F::Bloodsworn,6,P::None,140,18,9,25,42,11,goldAndRes(1150,ResourceType::BloodEssence,5), T::Humanoid|T::BloodBound);
 
     // ── VOIDKIN ───────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::VK_NEXUS; b.name="Void Nexus";
@@ -528,13 +528,13 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(2500,ResourceType::VerdantSap,4);
       b.prerequisites={BID::VK_RIFT_GATE}; m_buildings.push_back(b); }
 
-    addUnit(6001,"Void Wisp",      F::Voidkin,1,P::None,  6,2,2,1, 3,6, gold(45),        T::Void|T::Flying, true);
-    addUnit(6002,"Phase Walker",   F::Voidkin,2,P::None, 12,4,5,2, 5,8, goldAndRes(100,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
-    addUnit(6003,"Rift Archer",    F::Voidkin,3,P::None, 20,6,4,4, 8,7, goldAndRes(190,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
+    addUnit(6001,"Void Wisp",      F::Voidkin,1,P::None, 18,3,3,1, 3,6, gold(70),        T::Void|T::Flying, true);
+    addUnit(6002,"Phase Walker",   F::Voidkin,2,P::None, 24,4,6,2, 6,6, goldAndRes(130,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
+    addUnit(6003,"Rift Archer",    F::Voidkin,3,P::None, 28,6,5,4, 9,7, goldAndRes(225,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
     m_units.back().range = 5; m_units.back().shots = 5;
-    addUnit(6004,"Void Stalker",   F::Voidkin,4,P::None, 40,8,8,8,14,10,goldAndRes(380,ResourceType::VerdantSap,2), T::Void|T::Flying, true);
-    addUnit(6005,"Entropy Wraith", F::Voidkin,5,P::None, 60,11,8,12,20,12,goldAndRes(720,ResourceType::VerdantSap,3), T::Void|T::Flying, true);
-    addUnit(6006,"Void Colossus",  F::Voidkin,6,P::None,110,15,11,20,32,13,goldAndRes(1400,ResourceType::VerdantSap,5), T::Void|T::Flying, true);
+    addUnit(6004,"Void Stalker",   F::Voidkin,4,P::None, 44,9,9,9,15,10,goldAndRes(360,ResourceType::VerdantSap,2), T::Void|T::Flying, true);
+    addUnit(6005,"Entropy Wraith", F::Voidkin,5,P::None, 72,12,11,13,22,12,goldAndRes(640,ResourceType::VerdantSap,3), T::Void|T::Flying, true);
+    addUnit(6006,"Void Colossus",  F::Voidkin,6,P::None,135,16,14,22,34,13,goldAndRes(1220,ResourceType::VerdantSap,5), T::Void|T::Flying, true);
 
     // ── IRON ASSEMBLY ─────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::IA_FORGE_HALL; b.name="Forge Hall";
@@ -575,15 +575,15 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(2500,ResourceType::Iron,6);
       b.minWeek=3; b.prerequisites={BID::IA_BLUEPRINT_VAULT}; m_buildings.push_back(b); }
 
-    addUnit(7001,"Automaton",       F::IronAssembly,1,P::None, 10,2,3,1, 3,3, goldAndRes(55,ResourceType::Iron,1),  T::Mechanical);
+    addUnit(7001,"Automaton",       F::IronAssembly,1,P::None, 12,3,4,2, 4,5, goldAndRes(75,ResourceType::Iron,1),  T::Mechanical);
     m_units.back().range = 3; m_units.back().shots = 1;
-    addUnit(7002,"Gun Construct",   F::IronAssembly,2,P::None, 18,4,4,3, 6,4, goldAndRes(110,ResourceType::Iron,2), T::Mechanical);
+    addUnit(7002,"Gun Construct",   F::IronAssembly,2,P::None, 20,4,5,3, 6,5, goldAndRes(140,ResourceType::Iron,2), T::Mechanical);
     m_units.back().range = 5; m_units.back().shots = 1;
-    addUnit(7003,"Steam Walker",    F::IronAssembly,3,P::None, 35,6,6,5, 9,5, goldAndRes(210,ResourceType::Iron,3), T::Mechanical);
-    addUnit(7004,"Siege Bot",       F::IronAssembly,4,P::None, 60,9,9,9,16,4, goldAndRes(400,ResourceType::Iron,5), T::Mechanical);
-    m_units.back().range = 5; m_units.back().shots = 2;
-    addUnit(7005,"Titan Construct", F::IronAssembly,5,P::None, 76,11,11,14,22,5,goldAndRes(780,ResourceType::Iron,7), T::Mechanical);
-    addUnit(7006,"Colossus Prime",  F::IronAssembly,6,P::None,158,15,15,25,40,6,goldAndRes(1600,ResourceType::Iron,10), T::Mechanical);
+    addUnit(7003,"Steam Walker",    F::IronAssembly,3,P::None, 30,6,6,5,10,5, goldAndRes(215,ResourceType::Iron,3), T::Mechanical);
+    addUnit(7004,"Siege Bot",       F::IronAssembly,4,P::None, 58,8,9,7,13,4, goldAndRes(400,ResourceType::Iron,5), T::Mechanical);
+    m_units.back().range = 5; m_units.back().shots = 3;
+    addUnit(7005,"Titan Construct", F::IronAssembly,5,P::None, 75,11,11,15,24,5,goldAndRes(660,ResourceType::Iron,7), T::Mechanical);
+    addUnit(7006,"Colossus Prime",  F::IronAssembly,6,P::None,150,15,14,26,42,6,goldAndRes(1350,ResourceType::Iron,10), T::Mechanical);
 
     // ── AMALGAMATE ────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::AM_GRAFTING_HALL; b.name="Grafting Hall";
@@ -624,12 +624,13 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(2500,ResourceType::Iron,3);
       b.prerequisites={BID::AM_FLESH_VAULT}; m_buildings.push_back(b); }
 
-    addUnit(8001,"Flesh Crawler",     F::Amalgamate,1,P::None, 10,2,2,1, 4,4, gold(50),        T::OrganicMech);
-    addUnit(8002,"Graft Soldier",     F::Amalgamate,2,P::None, 20,4,4,3, 6,5, goldAndRes(105,ResourceType::Iron,1), T::OrganicMech);
-    addUnit(8003,"Bone Machine",      F::Amalgamate,3,P::None, 38,7,5,5,10,6, goldAndRes(210,ResourceType::Iron,2), T::OrganicMech);
-    addUnit(8004,"Fleshwork Knight",  F::Amalgamate,4,P::None, 65,9,7,9,17,7, goldAndRes(420,ResourceType::BloodEssence,2), T::OrganicMech|T::Flying, true);
-    addUnit(8005,"Undying Juggernaut",F::Amalgamate,5,P::None,100,12,10,14,24,8,goldAndRes(780,ResourceType::BloodEssence,3), T::OrganicMech);
-    addUnit(8006,"Convergence Spawn", F::Amalgamate,6,P::None,178,16,14,24,38,9,goldAndRes(1500,ResourceType::BloodEssence,5), T::OrganicMech|T::Flying, true);
+    addUnit(8001,"Flesh Crawler",     F::Amalgamate,1,P::None, 11,2,3,1, 4,5, gold(65),        T::OrganicMech);
+    addUnit(8002,"Graft Soldier",     F::Amalgamate,2,P::None, 18,4,4,3, 6,5, goldAndRes(115,ResourceType::Iron,1), T::OrganicMech);
+    addUnit(8003,"Bone Machine",      F::Amalgamate,3,P::None, 28,5,5,4, 7,6, goldAndRes(195,ResourceType::Iron,2), T::OrganicMech);
+    m_units.back().range = 3; m_units.back().shots = 3;
+    addUnit(8004,"Fleshwork Knight",  F::Amalgamate,4,P::None, 60,9,7,9,16,7, goldAndRes(360,ResourceType::BloodEssence,2), T::OrganicMech|T::Flying, true);
+    addUnit(8005,"Undying Juggernaut",F::Amalgamate,5,P::None, 95,12,10,14,23,8,goldAndRes(600,ResourceType::BloodEssence,3), T::OrganicMech);
+    addUnit(8006,"Convergence Spawn", F::Amalgamate,6,P::None,155,16,14,23,37,9,goldAndRes(1200,ResourceType::BloodEssence,5), T::OrganicMech|T::Flying, true);
 
     // ── CONVERGENCE ───────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::CV_SYNTHESIS_HUB; b.name="Synthesis Hub";
@@ -668,12 +669,13 @@ void BuildingRegistry::init()
       b.category=BuildingCategory::Support; b.faction=F::Convergence;
       b.cost=gold(3500); b.prerequisites={BID::CV_RESONANCE_WELL}; m_buildings.push_back(b); }
 
-    addUnit(9001,"Awakened",      F::Convergence,1,P::None,  9,3,3,2, 4,5, gold(60),   T::Humanoid);
-    addUnit(9002,"Synthesized",   F::Convergence,2,P::None, 18,5,5,3, 6,6, gold(120),  T::Humanoid);
-    addUnit(9003,"Harmonized",    F::Convergence,3,P::None, 30,7,7,5,10,7, gold(220),  T::Humanoid);
-    addUnit(9004,"Resonant",      F::Convergence,4,P::None, 55,10,10,9,16,8, gold(430), T::Humanoid|T::Flying, true);
-    addUnit(9005,"Transcendent",  F::Convergence,5,P::None, 78,13,12,13,22,10,gold(800), T::Humanoid|T::Flying, true);
-    addUnit(9006,"Unified Form",  F::Convergence,6,P::None,136,17,15,22,36,12,gold(1600), T::Humanoid|T::Flying, true);
+    addUnit(9001,"Awakened",      F::Convergence,1,P::None, 12,3,3,2, 4,5, gold(70),   T::Humanoid);
+    addUnit(9002,"Synthesized",   F::Convergence,2,P::None, 21,5,5,3, 6,6, gold(125),  T::Humanoid);
+    addUnit(9003,"Harmonized",    F::Convergence,3,P::None, 33,7,7,5,10,6, gold(210),  T::Humanoid);
+    m_units.back().range = 4; m_units.back().shots = 3;
+    addUnit(9004,"Resonant",      F::Convergence,4,P::None, 58,10,10,9,16,8, gold(370), T::Humanoid|T::Flying, true);
+    addUnit(9005,"Transcendent",  F::Convergence,5,P::None, 74,12,13,14,23,10,gold(640), T::Humanoid|T::Flying, true);
+    addUnit(9006,"Unified Form",  F::Convergence,6,P::None,132,16,15,23,37,12,gold(1250), T::Humanoid|T::Flying, true);
 }
 
 const BuildingDef* BuildingRegistry::getBuildingDef(int id) const {
