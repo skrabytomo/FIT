@@ -17,7 +17,7 @@ enum class SkillTier : uint8_t { Basic = 0, Advanced, Master };
 // 7xx = Flesh Power skills
 // 8xx = faction-specific
 
-namespace SID {
+namespace SkillID {
     // Combat
     constexpr int OFFENSE       = 101;
     constexpr int DEFENSE_SKILL = 102;

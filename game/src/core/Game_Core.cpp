@@ -844,7 +844,7 @@ void Game::luaAddXP(int amount)
                 *cls, hero.skills, hero.level, allSkills, hero.faction);
         }
         if (m_levelUpOffers.empty())
-            m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+            m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
         m_pendingLevelUps = hero.level - oldLvl;
         m_showLevelUpModal = true;
     }

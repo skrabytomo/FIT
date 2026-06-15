@@ -676,7 +676,7 @@ void Game::doEndTurn()
                                     *cls, h.skills, h.level, allSkills, h.faction);
                             }
                             if (m_levelUpOffers.empty())
-                                m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                                m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
                             m_pendingLevelUps = h.level - oldLvl5;
                             m_showLevelUpModal = true;
                             { ScriptContext lvCtx; lvCtx.heroId = h.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
@@ -809,7 +809,7 @@ void Game::doEndTurn()
                                     *cls, h.skills, h.level, allSkills, h.faction);
                             }
                             if (m_levelUpOffers.empty())
-                                m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                                m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
                             m_pendingLevelUps = h.level - oldLvl17;
                             m_showLevelUpModal = true;
                             { ScriptContext lvCtx; lvCtx.heroId = h.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
@@ -1131,7 +1131,7 @@ void Game::checkTileEvents()
                                 *cls, hero.skills, hero.level, allSkills, hero.faction);
                         }
                         if (m_levelUpOffers.empty())
-                            m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                            m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
                         m_pendingLevelUps = hero.level - oldLvlXP;
                         m_showLevelUpModal = true;
                         m_audio.playSound("levelup");
@@ -1243,7 +1243,7 @@ void Game::checkTileEvents()
                                     *cls, qHero.skills, qHero.level, allSkills, qHero.faction);
                             }
                             if (m_levelUpOffers.empty())
-                                m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                                m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
                             m_pendingLevelUps = qHero.level - oldLvlQ;
                             m_showLevelUpModal = true;
                             { ScriptContext lvCtx; lvCtx.heroId = qHero.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
@@ -1283,7 +1283,7 @@ void Game::checkTileEvents()
                                 *cls, hero.skills, hero.level, allSkills, hero.faction);
                         }
                         if (m_levelUpOffers.empty())
-                            m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                            m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
                         m_pendingLevelUps = hero.level - oldLvlFS;
                         m_showLevelUpModal = true;
                         { ScriptContext lvCtx; lvCtx.heroId = hero.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
@@ -1967,7 +1967,7 @@ void Game::renderLevelUpModal()
                             *ncls, hero.skills, hero.level, allSkills, hero.faction);
                     }
                     if (m_levelUpOffers.empty())
-                        m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                        m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
                     // Keep m_showLevelUpModal true so the next modal opens immediately
                 } else {
                     m_pendingLevelUps = 0;

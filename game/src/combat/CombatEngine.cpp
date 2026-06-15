@@ -85,8 +85,8 @@ void CombatEngine::startBattle(
 
     // Apply TACTICS skill: bonus to hero copies before transferring to units
     auto applyTactics = [](Hero& hero) {
-        if (const SkillInstance* s = hero.skills.getSkill(SID::TACTICS)) {
-            if (const SkillDef* def = findSkillDef(SID::TACTICS)) {
+        if (const SkillInstance* s = hero.skills.getSkill(SkillID::TACTICS)) {
+            if (const SkillDef* def = findSkillDef(SkillID::TACTICS)) {
                 int v = def->values[static_cast<int>(s->tier)];
                 hero.attack  += v;
                 hero.defense += v;
@@ -118,22 +118,22 @@ void CombatEngine::startBattle(
                         fn(u, def->values[static_cast<int>(s->tier)]);
                 }
             };
-            applyIf(SID::OFFENSE,       [](CombatUnit& u, int v){ u.attack  += v; });
-            applyIf(SID::DEFENSE_SKILL, [](CombatUnit& u, int v){ u.defense += v; });
-            applyIf(SID::LEADERSHIP,    [](CombatUnit& u, int v){
+            applyIf(SkillID::OFFENSE,       [](CombatUnit& u, int v){ u.attack  += v; });
+            applyIf(SkillID::DEFENSE_SKILL, [](CombatUnit& u, int v){ u.defense += v; });
+            applyIf(SkillID::LEADERSHIP,    [](CombatUnit& u, int v){
                 u.morale = std::min(100, u.morale + v);
             });
-            applyIf(SID::LUCK, [](CombatUnit& u, int v){ u.luck += v; });
+            applyIf(SkillID::LUCK, [](CombatUnit& u, int v){ u.luck += v; });
             // ARCHERY — only for ranged units
             if (u.range > 0 && u.shotsLeft > 0)
-                applyIf(SID::ARCHERY, [](CombatUnit& u, int v){ u.attack += v; });
+                applyIf(SkillID::ARCHERY, [](CombatUnit& u, int v){ u.attack += v; });
         }
 
         // ETERNAL_CMD: grant second-life to all this hero's units (+% stats on revival)
-        if (const SkillInstance* s = hero.skills.getSkill(SID::ETERNAL_CMD)) {
+        if (const SkillInstance* s = hero.skills.getSkill(SkillID::ETERNAL_CMD)) {
             bool fullHeal = hero.eternalLegionSpecialty;
             int strBonus = 0;
-            if (const SkillDef* def = findSkillDef(SID::ETERNAL_CMD))
+            if (const SkillDef* def = findSkillDef(SkillID::ETERNAL_CMD))
                 strBonus = def->values[static_cast<int>(s->tier)]; // 10/20/30
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive) continue;
@@ -153,8 +153,8 @@ void CombatEngine::startBattle(
         }
 
         // DESPERATION (HolyOrder): Holy units start with a pre-charged desperation meter
-        if (const SkillInstance* s = skills.getSkill(SID::DESPERATION)) {
-            if (const SkillDef* def = findSkillDef(SID::DESPERATION)) {
+        if (const SkillInstance* s = skills.getSkill(SkillID::DESPERATION)) {
+            if (const SkillDef* def = findSkillDef(SkillID::DESPERATION)) {
                 int headStart = def->values[static_cast<int>(s->tier)];
                 for (auto& u : m_grid.units()) {
                     if (u.isPlayer != isPlayer || !u.alive) continue;
@@ -167,8 +167,8 @@ void CombatEngine::startBattle(
         }
 
         // INSPIRATION (HolyOrder): all allied units receive a morale bonus at battle start
-        if (const SkillInstance* s = skills.getSkill(SID::INSPIRATION)) {
-            if (const SkillDef* def = findSkillDef(SID::INSPIRATION)) {
+        if (const SkillInstance* s = skills.getSkill(SkillID::INSPIRATION)) {
+            if (const SkillDef* def = findSkillDef(SkillID::INSPIRATION)) {
                 int moraleGain = def->values[static_cast<int>(s->tier)];
                 for (auto& u : m_grid.units()) {
                     if (u.isPlayer != isPlayer || !u.alive || u.moraleImmune) continue;
@@ -180,7 +180,7 @@ void CombatEngine::startBattle(
 
         // ADAPTATION (Amalgamate): OrganicMech units adapt faster under fire
         // Basic: threshold 2 hits; Advanced: threshold 2 hits + double stat gain; Master: every hit
-        if (const SkillInstance* s = skills.getSkill(SID::ADAPTATION)) {
+        if (const SkillInstance* s = skills.getSkill(SkillID::ADAPTATION)) {
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive) continue;
                 if (!hasTag(u.tags, UnitTag::OrganicMech)) continue;
@@ -197,9 +197,9 @@ void CombatEngine::startBattle(
         }
 
         // BLOOD_POOL (Bloodsworn): BloodBound units start with enhanced morale
-        if (const SkillInstance* s = skills.getSkill(SID::BLOOD_POOL)) {
+        if (const SkillInstance* s = skills.getSkill(SkillID::BLOOD_POOL)) {
             int bonus = 0;
-            if (const SkillDef* def = findSkillDef(SID::BLOOD_POOL))
+            if (const SkillDef* def = findSkillDef(SkillID::BLOOD_POOL))
                 bonus = def->values[static_cast<int>(s->tier)];
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive || u.moraleImmune) continue;
@@ -210,9 +210,9 @@ void CombatEngine::startBattle(
         }
 
         // POSSESSION (Voidkin): Void units start with bonus luck
-        if (const SkillInstance* s = skills.getSkill(SID::POSSESSION)) {
+        if (const SkillInstance* s = skills.getSkill(SkillID::POSSESSION)) {
             int luckBonus = 0;
-            if (const SkillDef* def = findSkillDef(SID::POSSESSION))
+            if (const SkillDef* def = findSkillDef(SkillID::POSSESSION))
                 luckBonus = def->values[static_cast<int>(s->tier)];
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive) continue;
@@ -223,9 +223,9 @@ void CombatEngine::startBattle(
         }
 
         // MIRRORING (Convergence): Humanoid units gain a bonus to their weaker combat stat
-        if (const SkillInstance* s = skills.getSkill(SID::MIRRORING)) {
+        if (const SkillInstance* s = skills.getSkill(SkillID::MIRRORING)) {
             int mirrorBonus = 0;
-            if (const SkillDef* def = findSkillDef(SID::MIRRORING))
+            if (const SkillDef* def = findSkillDef(SkillID::MIRRORING))
                 mirrorBonus = def->values[static_cast<int>(s->tier)];
             for (auto& u : m_grid.units()) {
                 if (u.isPlayer != isPlayer || !u.alive) continue;
@@ -550,8 +550,8 @@ void CombatEngine::advanceTurn()
             m_enemyHero.mana  = std::min(m_enemyHero.maxMana,  m_enemyHero.mana  + 3);
             // MYSTICISM: extra mana regen per round
             auto applyMysticism = [](Hero& h) {
-                if (const SkillInstance* s = h.skills.getSkill(SID::MYSTICISM)) {
-                    if (const SkillDef* def = findSkillDef(SID::MYSTICISM))
+                if (const SkillInstance* s = h.skills.getSkill(SkillID::MYSTICISM)) {
+                    if (const SkillDef* def = findSkillDef(SkillID::MYSTICISM))
                         h.mana = std::min(h.maxMana,
                             h.mana + def->values[static_cast<int>(s->tier)]);
                 }
@@ -1326,8 +1326,8 @@ void CombatEngine::applySymbiosisRound()
 {
     // Check if either hero has SYMBIOSIS skill; apply per side
     auto getSymbiosisValue = [](const Hero& hero) -> int {
-        if (const SkillInstance* s = hero.skills.getSkill(SID::SYMBIOSIS)) {
-            if (const SkillDef* def = findSkillDef(SID::SYMBIOSIS))
+        if (const SkillInstance* s = hero.skills.getSkill(SkillID::SYMBIOSIS)) {
+            if (const SkillDef* def = findSkillDef(SkillID::SYMBIOSIS))
                 return def->values[static_cast<int>(s->tier)];
         }
         return 0;
@@ -1943,9 +1943,9 @@ void CombatEngine::applyWardenMarkSplash(CombatUnit& attacker, HexCoord targetPo
                                           uint32_t targetId, int damage)
 {
     const Hero& hero = attacker.isPlayer ? m_playerHero : m_enemyHero;
-    const SkillInstance* si = hero.skills.getSkill(SID::WARDEN_MARK);
+    const SkillInstance* si = hero.skills.getSkill(SkillID::WARDEN_MARK);
     if (!si) return;
-    const SkillDef* def = findSkillDef(SID::WARDEN_MARK);
+    const SkillDef* def = findSkillDef(SkillID::WARDEN_MARK);
     if (!def) return;
 
     int splashMax = def->values[static_cast<int>(si->tier)]

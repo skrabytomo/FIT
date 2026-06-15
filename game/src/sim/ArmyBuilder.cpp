@@ -89,56 +89,56 @@ Hero ArmyBuilder::buildHero(FactionId faction, int weeks)
     int level = h.level;
 
     // Universal combat skill (all factions)
-    h.skills.learn(SID::OFFENSE);
-    if (level >= 5) h.skills.upgrade(SID::OFFENSE);  // Advanced at level 5
+    h.skills.learn(SkillID::OFFENSE);
+    if (level >= 5) h.skills.upgrade(SkillID::OFFENSE);  // Advanced at level 5
 
     // Faction signature skills
     switch (faction) {
     case FactionId::HolyOrder:
-        h.skills.learn(SID::LEADERSHIP);
-        if (level >= 5) h.skills.upgrade(SID::LEADERSHIP);
-        if (level >= 7) h.skills.learn(SID::LIGHT_MAGIC);
+        h.skills.learn(SkillID::LEADERSHIP);
+        if (level >= 5) h.skills.upgrade(SkillID::LEADERSHIP);
+        if (level >= 7) h.skills.learn(SkillID::LIGHT_MAGIC);
         break;
     case FactionId::CrimsonWardens:
-        h.skills.learn(SID::ARCHERY);
-        if (level >= 5) h.skills.upgrade(SID::ARCHERY);
-        h.skills.learn(SID::DEATH_MAGIC);
-        if (level >= 7) h.skills.upgrade(SID::DEATH_MAGIC);
+        h.skills.learn(SkillID::ARCHERY);
+        if (level >= 5) h.skills.upgrade(SkillID::ARCHERY);
+        h.skills.learn(SkillID::DEATH_MAGIC);
+        if (level >= 7) h.skills.upgrade(SkillID::DEATH_MAGIC);
         break;
     case FactionId::Thornkin:
-        h.skills.learn(SID::SYMBIOSIS);
-        if (level >= 5) h.skills.upgrade(SID::SYMBIOSIS);
-        if (level >= 7) h.skills.learn(SID::NATURE_MAGIC);
+        h.skills.learn(SkillID::SYMBIOSIS);
+        if (level >= 5) h.skills.upgrade(SkillID::SYMBIOSIS);
+        if (level >= 7) h.skills.learn(SkillID::NATURE_MAGIC);
         break;
     case FactionId::EternalEmpire:
-        h.skills.learn(SID::ETERNAL_CMD);
-        h.skills.learn(SID::DEFENSE_SKILL);
-        if (level >= 5) h.skills.upgrade(SID::DEFENSE_SKILL);
+        h.skills.learn(SkillID::ETERNAL_CMD);
+        h.skills.learn(SkillID::DEFENSE_SKILL);
+        if (level >= 5) h.skills.upgrade(SkillID::DEFENSE_SKILL);
         break;
     case FactionId::Bloodsworn:
-        h.skills.learn(SID::BLOOD_MAGIC);
-        if (level >= 5) h.skills.upgrade(SID::BLOOD_MAGIC);
-        if (level >= 7) h.skills.upgrade(SID::BLOOD_MAGIC);  // Master
+        h.skills.learn(SkillID::BLOOD_MAGIC);
+        if (level >= 5) h.skills.upgrade(SkillID::BLOOD_MAGIC);
+        if (level >= 7) h.skills.upgrade(SkillID::BLOOD_MAGIC);  // Master
         break;
     case FactionId::Voidkin:
-        h.skills.learn(SID::DEFENSE_SKILL);
-        if (level >= 5) h.skills.learn(SID::TACTICS);
+        h.skills.learn(SkillID::DEFENSE_SKILL);
+        if (level >= 5) h.skills.learn(SkillID::TACTICS);
         break;
     case FactionId::IronAssembly:
-        h.skills.learn(SID::ARCHERY);
-        if (level >= 5) h.skills.upgrade(SID::ARCHERY);
-        h.skills.learn(SID::FORGE_MAGIC);
-        if (level >= 7) h.skills.upgrade(SID::FORGE_MAGIC);
+        h.skills.learn(SkillID::ARCHERY);
+        if (level >= 5) h.skills.upgrade(SkillID::ARCHERY);
+        h.skills.learn(SkillID::FORGE_MAGIC);
+        if (level >= 7) h.skills.upgrade(SkillID::FORGE_MAGIC);
         break;
     case FactionId::Amalgamate:
-        h.skills.learn(SID::FLESH_MAGIC);
-        if (level >= 5) h.skills.upgrade(SID::FLESH_MAGIC);
-        if (level >= 7) h.skills.upgrade(SID::FLESH_MAGIC);
+        h.skills.learn(SkillID::FLESH_MAGIC);
+        if (level >= 5) h.skills.upgrade(SkillID::FLESH_MAGIC);
+        if (level >= 7) h.skills.upgrade(SkillID::FLESH_MAGIC);
         break;
     case FactionId::Convergence:
-        h.skills.learn(SID::DEFENSE_SKILL);
-        if (level >= 7) h.skills.upgrade(SID::DEFENSE_SKILL);
-        if (level >= 7) h.skills.learn(SID::TACTICS);
+        h.skills.learn(SkillID::DEFENSE_SKILL);
+        if (level >= 7) h.skills.upgrade(SkillID::DEFENSE_SKILL);
+        if (level >= 7) h.skills.learn(SkillID::TACTICS);
         break;
     default:
         break;

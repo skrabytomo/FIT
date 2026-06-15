@@ -539,8 +539,8 @@ void Game::enterTown(Town* town)
     // Compute BLUEPRINT discount for Iron Assembly heroes visiting their town
     int blueprintDiscount = 0;
     if (hero && town->faction == FactionId::IronAssembly) {
-        if (const SkillInstance* s = hero->skills.getSkill(SID::BLUEPRINT))
-            if (const SkillDef* def = findSkillDef(SID::BLUEPRINT))
+        if (const SkillInstance* s = hero->skills.getSkill(SkillID::BLUEPRINT))
+            if (const SkillDef* def = findSkillDef(SkillID::BLUEPRINT))
                 blueprintDiscount = def->values[static_cast<int>(s->tier)]; // 1/2/3
     }
     m_townScreen.open(town, &m_playerResources, &m_registry, hero,

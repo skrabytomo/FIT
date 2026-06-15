@@ -841,8 +841,8 @@ void Game::exitCombat(bool playerWon)
 
         // Apply FIRST_AID: restore % of casualties from each stack
         if (playerWon) {
-            if (const SkillInstance* s = hero.skills.getSkill(SID::FIRST_AID)) {
-                if (const SkillDef* def = findSkillDef(SID::FIRST_AID)) {
+            if (const SkillInstance* s = hero.skills.getSkill(SkillID::FIRST_AID)) {
+                if (const SkillDef* def = findSkillDef(SkillID::FIRST_AID)) {
                     int healPct = def->values[static_cast<int>(s->tier)];
                     for (auto& stack : hero.army) {
                         int startCount = 0;
@@ -858,8 +858,8 @@ void Game::exitCombat(bool playerWon)
             }
 
             // Apply NECROMANCY: raise % of killed enemies as Skeletons (defId 2001)
-            if (const SkillInstance* s = hero.skills.getSkill(SID::NECROMANCY)) {
-                if (const SkillDef* def = findSkillDef(SID::NECROMANCY)) {
+            if (const SkillInstance* s = hero.skills.getSkill(SkillID::NECROMANCY)) {
+                if (const SkillDef* def = findSkillDef(SkillID::NECROMANCY)) {
                     int necroRaise = m_combat.enemyStartCount()
                                    * def->values[static_cast<int>(s->tier)] / 100;
                     if (necroRaise > 0) {
@@ -1004,7 +1004,7 @@ void Game::exitCombat(bool playerWon)
                         *cls, hero.skills, hero.level, allSkills, hero.faction);
                 }
                 if (m_levelUpOffers.empty())
-                    m_levelUpOffers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+                    m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
                 m_pendingLevelUps = levelsGained;
                 m_showLevelUpModal = true;
             }

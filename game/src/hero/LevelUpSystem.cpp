@@ -73,10 +73,10 @@ std::vector<LevelUpOffer> LevelUpSystem::generateOffers(
     if (addWildcard) {
         // General combat skills as wildcards
         static const int wildcardPool[] = {
-            SID::OFFENSE, SID::DEFENSE_SKILL, SID::ARCHERY,
-            SID::LEADERSHIP, SID::TACTICS, SID::LOGISTICS,
-            SID::SCOUTING, SID::FIRST_AID,
-            SID::LUCK, SID::MYSTICISM, SID::NECROMANCY
+            SkillID::OFFENSE, SkillID::DEFENSE_SKILL, SkillID::ARCHERY,
+            SkillID::LEADERSHIP, SkillID::TACTICS, SkillID::LOGISTICS,
+            SkillID::SCOUTING, SkillID::FIRST_AID,
+            SkillID::LUCK, SkillID::MYSTICISM, SkillID::NECROMANCY
         };
         std::vector<int> wc;
         for (int sid : wildcardPool) {
@@ -95,7 +95,7 @@ std::vector<LevelUpOffer> LevelUpSystem::generateOffers(
 
     // Fallback — always return at least 1 offer
     if (offers.empty()) {
-        offers.push_back({SID::OFFENSE, false, false, "Learn Offense"});
+        offers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
     }
 
     return offers;
