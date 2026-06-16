@@ -1480,6 +1480,17 @@ void Game::renderWorldOverlay()
         ICO_CAMPFIRE      = 26, ICO_LAVA_CRYSTAL  = 27, ICO_SWAMP_ALTAR = 28,
     };
 
+    // ── Movement range highlight ───────────────────────────────────────────────
+    // Draw a soft green overlay on every hex the active hero can reach this turn
+    if (!m_heroes.empty() && !m_reachable.empty()) {
+        for (const auto& rc : m_reachable) {
+            float sx, sy;
+            project(rc, sx, sy);
+            dl->AddCircleFilled({sx, sy}, 20.0f, IM_COL32(80, 220, 100, 35));
+            dl->AddCircle({sx, sy}, 20.0f, IM_COL32(80, 220, 100, 110), 0, 1.2f);
+        }
+    }
+
     // ── Towns ──────────────────────────────────────────────────────────────────
     for (const auto& town : m_towns) {
         const HexTile* ttile = m_map.getTile(town.pos);

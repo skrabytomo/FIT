@@ -635,6 +635,28 @@ void Game::startNewGame()
         }
         if (HexTile* ht = m_map.getTile(wt.pos)) ht->townId = wt.id;
         m_towns.push_back(wt);
+
+        // Paint faction-appropriate terrain around the town (radius 3)
+        auto factionTerrain = [](FactionId f) -> Terrain {
+            switch (f) {
+            case FactionId::HolyOrder:     return Terrain::Sacred;
+            case FactionId::CrimsonWardens:return Terrain::Highland;
+            case FactionId::Thornkin:      return Terrain::Forest;
+            case FactionId::EternalEmpire: return Terrain::Toxic;
+            case FactionId::Bloodsworn:    return Terrain::Corrupted;
+            case FactionId::Voidkin:       return Terrain::CorruptedForest;
+            case FactionId::IronAssembly:  return Terrain::Industrial;
+            case FactionId::Amalgamate:    return Terrain::Wasteland;
+            case FactionId::Convergence:   return Terrain::Plains;
+            default:                       return Terrain::Plains;
+            }
+        };
+        Terrain ft = factionTerrain(wt.faction);
+        for (auto& nc : HexGrid::range(wt.pos, 3)) {
+            HexTile* nt = m_map.getTile(nc);
+            if (nt && nt->terrain != Terrain::Water)
+                nt->terrain = ft;
+        }
     }
 
     m_worldObjects.clear();
