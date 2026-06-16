@@ -1498,7 +1498,7 @@ void Game::renderWorldOverlay()
 
         float sx, sy;
         project(town.pos, sx, sy);
-        constexpr float HS = 22.0f;
+        constexpr float HS = 36.0f;
 
         bool isPlayer = (town.ownerId == 1);
         bool isEnemy  = (town.ownerId > 1);
@@ -1508,9 +1508,9 @@ void Game::renderWorldOverlay()
                                  : IM_COL32(200, 160,  60, 255);
 
         addIcon(ico, sx, sy, HS);
-        dl->AddRect({sx - HS, sy - HS}, {sx + HS, sy + HS}, ringCol, 3.0f, 0, 1.5f);
+        dl->AddRect({sx - HS, sy - HS}, {sx + HS, sy + HS}, ringCol, 4.0f, 0, 2.0f);
         dl->AddText({sx - (float)town.name.size() * 3.5f, sy + HS + 2},
-                    IM_COL32(200, 220, 255, 200), town.name.c_str());
+                    IM_COL32(200, 220, 255, 220), town.name.c_str());
     }
 
     // ── World objects ──────────────────────────────────────────────────────────
@@ -1546,7 +1546,7 @@ void Game::renderWorldOverlay()
         float pulse = 0.5f + 0.5f * sinf(m_mapTime * 2.0f + oi * 1.1f);
         float gR    = 10.0f + pulse * 3.0f;
         ImU32 glow  = IM_COL32(255, 240, 180, static_cast<int>(pulse * 90 + 40));
-        addIcon(ico, sx, sy, 18.0f);
+        addIcon(ico, sx, sy, 22.0f);
         dl->AddCircle({sx, sy}, gR + 8.0f, glow, 0, 1.5f);
     }
 
@@ -1566,12 +1566,12 @@ void Game::renderWorldOverlay()
         case ResourceType::Mercury:      ico = ICO_RES_MERCURY; break;
         default:                         ico = 15;               break;
         }
-        addIcon(ico, sx, sy, 18.0f);
+        addIcon(ico, sx, sy, 26.0f);
         // ownership ring
         ImU32 ring = r.ownedBy == 1 ? IM_COL32(120, 180, 255, 220)
                    : r.ownedBy >  1 ? IM_COL32(255, 100, 100, 220)
                                     : IM_COL32(220, 190,  60, 160);
-        dl->AddRect({sx - 18, sy - 18}, {sx + 18, sy + 18}, ring, 3.0f, 0, 1.5f);
+        dl->AddRect({sx - 26, sy - 26}, {sx + 26, sy + 26}, ring, 3.0f, 0, 1.5f);
     }
 
     // BloodScent: any player hero with this specialty reveals Bloodsworn enemies
@@ -1744,7 +1744,11 @@ void Game::renderWorldOverlay()
                     if (days == 0) ImGui::Text("Reachable today  (%d MP)", totalCost);
                     else          ImGui::Text("%d day%s  (%d MP)", days, days == 1 ? "" : "s", totalCost);
                 } else {
-                    ImGui::TextDisabled("Unreachable");
+                    const HexTile* bt = m_map.getTile(m_hovered);
+                    if (bt && !activeHero.canEnter(bt->terrain))
+                        ImGui::TextColored({1.0f, 0.4f, 0.4f, 1.0f}, "Impassable terrain");
+                    else
+                        ImGui::TextColored({1.0f, 0.4f, 0.4f, 1.0f}, "Unreachable");
                 }
                 // Also show terrain type
                 static const char* kTerrainNames[] = {

@@ -17,10 +17,14 @@ void Game::updateTown(float dt)
 {
     (void)dt;
     const auto& mouse = m_input.mouse();
+    bool imguiWants = ImGui::GetIO().WantCaptureMouse;
 
-    if (mouse.leftDown && !ImGui::GetIO().WantCaptureMouse)
+    if (mouse.leftDown && !imguiWants)
         m_townScreen.onMouseDown(static_cast<float>(mouse.x),
                                  static_cast<float>(mouse.y));
+    if (mouse.leftUp && !imguiWants)
+        m_townScreen.onMouseUp(static_cast<float>(mouse.x),
+                               static_cast<float>(mouse.y));
     m_townScreen.onMouseMove(static_cast<float>(mouse.x),
                              static_cast<float>(mouse.y));
 }
