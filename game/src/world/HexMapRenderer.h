@@ -31,8 +31,10 @@ private:
     GLuint   m_vao  = 0;
     GLuint   m_vbo  = 0;
 
-    static constexpr int NUM_TERRAIN = 15;
-    static constexpr int HEX_VERTS   = 8; // center + 6 corners + close
+    static constexpr int NUM_TERRAIN    = 15;
+    static constexpr int MAX_VARIANTS   =  4;
+    static constexpr int HEX_VERTS      =  8; // center + 6 corners + close
 
-    Texture  m_terrainTex[NUM_TERRAIN];
+    Texture  m_terrainTex[NUM_TERRAIN][MAX_VARIANTS];
+    int      m_variantCount[NUM_TERRAIN] = {};
 };

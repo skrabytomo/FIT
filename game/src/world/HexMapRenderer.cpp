@@ -153,22 +153,24 @@ static const float s_colors[][3] = {
     {0.52f, 0.26f, 0.26f}, // FleshZone
 };
 
-static const char* s_terrainFiles[15] = {
-    "assets/terrain/plains.png",
-    "assets/terrain/forest.png",
-    "assets/terrain/highland.png",
-    "assets/terrain/corrupted.png",
-    "assets/terrain/toxic.png",
-    "assets/terrain/sacred.png",
-    "assets/terrain/industrial.png",
-    "assets/terrain/rocky.png",
-    "assets/terrain/swamp.png",
-    "assets/terrain/water.png",
-    "assets/terrain/volcanic.png",
-    "assets/terrain/barren.png",
-    "assets/terrain/wasteland.png",
-    "assets/terrain/corrupted_forest.png",
-    "assets/terrain/flesh_zone.png",
+// Base name (no extension) for each terrain — variants loaded as NAME_0.png … NAME_3.png
+// Falls back to NAME.png if no variants found
+static const char* s_terrainBase[15] = {
+    "assets/terrain/plains",
+    "assets/terrain/forest",
+    "assets/terrain/highland",
+    "assets/terrain/corrupted",
+    "assets/terrain/toxic",
+    "assets/terrain/sacred",
+    "assets/terrain/industrial",
+    "assets/terrain/rocky",
+    "assets/terrain/swamp",
+    "assets/terrain/water",
+    "assets/terrain/volcanic",
+    "assets/terrain/barren",
+    "assets/terrain/wasteland",
+    "assets/terrain/corrupted_forest",
+    "assets/terrain/flesh_zone",
 };
 
 HexMapRenderer::~HexMapRenderer()
@@ -191,18 +193,32 @@ bool HexMapRenderer::init(float hexSize, const std::string& basePath)
     m_shader.setInt("uTerrainTex", 0);
     m_shader.unbind();
 
-    // Load terrain textures (non-fatal if missing — falls back to procedural)
+    // Load terrain textures — try variant files TYPE_0.png … TYPE_3.png first,
+    // fall back to TYPE.png if no variants exist.
     int loaded = 0;
     for (int i = 0; i < NUM_TERRAIN; ++i) {
-        // Try basePath-prefixed path first, then bare relative path as fallback
-        std::string path = basePath + s_terrainFiles[i];
-        if (!m_terrainTex[i].load(path, false, false)) {
-            if (!basePath.empty())
-                m_terrainTex[i].load(s_terrainFiles[i], false, false);
+        m_variantCount[i] = 0;
+        for (int v = 0; v < MAX_VARIANTS; ++v) {
+            std::string rel = std::string(s_terrainBase[i]) + "_" + std::to_string(v) + ".png";
+            std::string full = basePath + rel;
+            if (m_terrainTex[i][v].load(full, false, false) ||
+                (!basePath.empty() && m_terrainTex[i][v].load(rel, false, false))) {
+                m_variantCount[i]++;
+            } else {
+                break; // stop at first missing variant
+            }
         }
-        if (m_terrainTex[i].ok()) loaded++;
+        // No variants — try single legacy file
+        if (m_variantCount[i] == 0) {
+            std::string rel  = std::string(s_terrainBase[i]) + ".png";
+            std::string full = basePath + rel;
+            if (m_terrainTex[i][0].load(full, false, false) ||
+                (!basePath.empty() && m_terrainTex[i][0].load(rel, false, false)))
+                m_variantCount[i] = 1;
+        }
+        if (m_variantCount[i] > 0) loaded++;
     }
-    printf("HexMapRenderer: %d/%d terrain textures loaded (hex size %.0fpx)\n",
+    printf("HexMapRenderer: %d/%d terrain types loaded (hex size %.0fpx)\n",
            loaded, NUM_TERRAIN, hexSize);
     return true;
 }
@@ -255,7 +271,10 @@ void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
         int ti = static_cast<int>(tile->terrain);
         float a = tile->visible ? 1.0f : 0.55f;
 
-        bool hasTexture = m_terrainTex[ti].ok();
+        // Pick variant deterministically from tile coords (consistent across frames)
+        int nv = m_variantCount[ti];
+        int variant = nv > 1 ? ((coord.q * 7 + coord.r * 13 + coord.q * coord.r * 3) & 0x7FFFFFFF) % nv : 0;
+        bool hasTexture = nv > 0 && m_terrainTex[ti][variant].ok();
 
         // Selected — gold outline ring
         if (coord == selected) {
@@ -266,7 +285,7 @@ void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
 
         float r, g, b;
         if (hasTexture) {
-            m_terrainTex[ti].bind(0);
+            m_terrainTex[ti][variant].bind(0);
             m_shader.setInt("uUseTexture", 1);
             // vColor.rgb = brightness tint: 1.0 normal, 1.25 hovered
             float bright = (coord == hovered) ? 1.25f : 1.0f;
