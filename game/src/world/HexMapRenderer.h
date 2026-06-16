@@ -1,7 +1,5 @@
 #pragma once
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
-#include <GL/glext.h>
+#include "../renderer/gl_includes.h"
 #include <string>
 #include "HexMap.h"
 #include "HexGrid.h"

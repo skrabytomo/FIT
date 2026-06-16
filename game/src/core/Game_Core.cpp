@@ -4,9 +4,6 @@
 #include "../hero/LevelUpSystem.h"
 #include "../world/WorldGen.h"
 #include "../world/HexGrid.h"
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
-#include <GL/glext.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
@@ -51,6 +48,10 @@ bool Game::init(const std::string& title, int width, int height)
 
     m_glCtx = SDL_GL_CreateContext(m_window);
     if (!m_glCtx) { fprintf(stderr, "GL context: %s\n", SDL_GetError()); return false; }
+#ifdef _WIN32
+    glewExperimental = GL_TRUE;
+    if (glewInit() != GLEW_OK) { fprintf(stderr, "GLEW init failed\n"); return false; }
+#endif
 
     SDL_GL_SetSwapInterval(1);
     glEnable(GL_BLEND);

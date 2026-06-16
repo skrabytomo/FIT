@@ -1,7 +1,5 @@
 #pragma once
-#define GL_GLEXT_PROTOTYPES
-#include <GL/gl.h>
-#include <GL/glext.h>
+#include "gl_includes.h"
 #include <string>
 
 class Texture

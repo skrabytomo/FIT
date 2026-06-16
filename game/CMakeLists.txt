@@ -34,6 +34,9 @@ endif()
 # ── Find system packages ───────────────────────────────────────────────────────
 find_package(SDL2   REQUIRED)
 find_package(OpenGL REQUIRED)
+if(WIN32)
+    find_package(GLEW REQUIRED)
+endif()
 find_package(SQLite3 REQUIRED)
 find_package(Lua 5.4 REQUIRED)
 
@@ -88,7 +91,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 if(WIN32)
-    target_link_libraries(${PROJECT_NAME} PRIVATE opengl32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE opengl32 GLEW::GLEW)
 elseif(APPLE)
     target_link_libraries(${PROJECT_NAME} PRIVATE "-framework OpenGL")
 elseif(UNIX)
