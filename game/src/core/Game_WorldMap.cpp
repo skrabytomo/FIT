@@ -1460,8 +1460,8 @@ void Game::renderWorldOverlay()
         if (!hasIcons) return;
         float col = static_cast<float>(idx % 8);
         float row = static_cast<float>(idx / 8);
-        ImVec2 uv0 = { col / 8.0f,          row / 4.0f };
-        ImVec2 uv1 = { (col + 1.0f) / 8.0f, (row + 1.0f) / 4.0f };
+        ImVec2 uv0 = { col / 8.0f,          row / 6.0f };
+        ImVec2 uv1 = { (col + 1.0f) / 8.0f, (row + 1.0f) / 6.0f };
         dl->AddImage(iconTex, {sx - hs, sy - hs}, {sx + hs, sy + hs}, uv0, uv1);
     };
 

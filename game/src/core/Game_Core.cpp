@@ -114,6 +114,8 @@ bool Game::init(const std::string& title, int width, int height)
 
     // Wire WorldMapHUD callbacks
     m_worldHUD.init(width, height);
+    if (m_iconTex.ok())
+        m_worldHUD.setIconTex((ImTextureID)(uintptr_t)m_iconTex.id());
     m_worldHUD.onEndTurn = [this]() { doEndTurn(); };
     m_worldHUD.onHeroClicked = [this](int idx) {
         if (idx >= 0 && idx < static_cast<int>(m_heroes.size())) {

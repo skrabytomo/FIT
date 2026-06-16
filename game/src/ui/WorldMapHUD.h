@@ -5,6 +5,7 @@
 #include "../core/TurnManager.h"
 #include <vector>
 #include <functional>
+#include <imgui.h>
 
 class WorldMapHUD
 {
@@ -25,6 +26,8 @@ public:
 
     UICallback onEndTurn;
     UIIntCallback onHeroClicked;  // index into heroes list
+
+    void setIconTex(ImTextureID tex) { m_iconTex = tex; }
 
 private:
     void buildLayout(int sw, int sh);
@@ -47,4 +50,5 @@ private:
     int   m_heroCount = 0;  // updated each draw(); used for click detection
 
     TooltipWidget m_tooltip;
+    ImTextureID m_iconTex = nullptr;
 };

@@ -76,21 +76,40 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res,
         {ResourceType::Mercury,      UITheme::DEATH_TEAL},
     };
 
+    // Resource icons in atlas: row 4, cols 0-5 (indices 32-37), atlas is 8×6 cells
+    static const int resIconIdx[] = { 32, 33, 34, 35, 36, 37 };
+    auto drawResIcon = [&](int atlasIdx, float ix, float iy, float sz) {
+        if (!m_iconTex) return;
+        float col = static_cast<float>(atlasIdx % 8);
+        float row = static_cast<float>(atlasIdx / 8);
+        ImVec2 uv0 = { col / 8.0f,          row / 6.0f };
+        ImVec2 uv1 = { (col + 1.0f) / 8.0f, (row + 1.0f) / 6.0f };
+        ImGui::GetBackgroundDrawList()->AddImage(m_iconTex, {ix, iy}, {ix+sz, iy+sz}, uv0, uv1);
+    };
+
+    int iconCount = 0;
     for (auto& d : displays) {
         int val = res.get(d.type);
         int inc = income.get(d.type);
-        // Colored dot (larger)
-        rdr.drawRect({x, y+2, 12.0f, 14.0f}, UIColor::hex(d.color));
-        // Name + value — larger font
+        // Resource icon (32×32 sprite scaled to 32px, centered in bar)
+        float iconSz = 36.0f;
+        float iconY  = y + (46.0f - iconSz) * 0.5f;
+        if (m_iconTex)
+            drawResIcon(resIconIdx[iconCount], x, iconY, iconSz);
+        else
+            rdr.drawRect({x, y+2, 12.0f, 14.0f}, UIColor::hex(d.color));
+        float textX = x + (m_iconTex ? iconSz + 4.0f : 16.0f);
+        // Name + value
         std::string label = std::string(resourceName(d.type)) + ": " + std::to_string(val);
-        rdr.drawText(label, x + 16.0f, y, UIColor::hex(d.color), 14.0f);
+        rdr.drawText(label, textX, y + 4.0f, UIColor::hex(d.color), 14.0f);
         // Income per week below
         if (inc > 0) {
             std::string incStr = "+" + std::to_string(inc) + "/wk";
-            rdr.drawText(incStr, x + 16.0f, y + 18.0f,
+            rdr.drawText(incStr, textX, y + 22.0f,
                          UIColor::rgba(0.55f, 0.85f, 0.55f), 12.0f);
         }
         x += spacing;
+        ++iconCount;
         if (x + spacing > m_screenW - 200.0f) break;
     }
 }
