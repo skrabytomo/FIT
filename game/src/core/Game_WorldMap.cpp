@@ -1592,7 +1592,7 @@ void Game::renderWorldOverlay()
         default:                         ico = 15;               break;
         }
         // Glow backdrop so mine is visible against any terrain
-        ImU32 bgGlow = IM_COL32(0, 0, 0, 120);
+        ImU32 bgGlow = IM_COL32(0, 0, 0, 150);
         dl->AddCircleFilled({sx, sy}, 30.0f, bgGlow);
         addIcon(ico, sx, sy, 28.0f);
         // Ownership ring
@@ -1600,6 +1600,17 @@ void Game::renderWorldOverlay()
                    : r.ownedBy >  1 ? IM_COL32(255, 100, 100, 255)
                                     : IM_COL32(255, 210,  60, 200);
         dl->AddCircle({sx, sy}, 30.0f, ring, 0, 2.0f);
+        // Resource name + weekly amount always shown below the icon
+        const char* resName = resourceName(r.type);
+        char label[32];
+        std::snprintf(label, sizeof(label), "%s +%d", resName, r.amount);
+        float lw = strlen(label) * 5.5f;
+        dl->AddRectFilled({sx - lw - 2, sy + 32}, {sx + lw + 2, sy + 44},
+                          IM_COL32(0, 0, 0, 170), 3.0f);
+        dl->AddText({sx - lw, sy + 33},
+                    r.ownedBy == 1 ? IM_COL32(140, 210, 255, 255)
+                                   : IM_COL32(255, 230, 120, 255),
+                    label);
     }
 
     // BloodScent: any player hero with this specialty reveals Bloodsworn enemies
