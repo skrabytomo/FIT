@@ -236,6 +236,7 @@ void HexMapRenderer::buildHexMesh()
 void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
                              HexCoord hovered, HexCoord selected)
 {
+    glDisable(GL_DEPTH_TEST);
     float proj[16];
     camera.getMatrix(proj);
 
@@ -288,6 +289,7 @@ void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
 
     glBindVertexArray(0);
     m_shader.unbind();
+    glEnable(GL_DEPTH_TEST);
 }
 
 void HexMapRenderer::drawHex(float cx, float cy,

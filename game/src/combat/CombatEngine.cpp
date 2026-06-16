@@ -918,6 +918,7 @@ bool CombatEngine::submitAction(const CombatAction& action)
 
 void CombatEngine::wait()
 {
+    if (m_phase != CombatPhase::PlayerTurn) return;
     CombatUnit* unit = activeUnit();
     if (!unit) return;
     unit->waitUsed = true;

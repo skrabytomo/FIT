@@ -28,7 +28,7 @@ void Game::updateCombat(float dt)
     float mx = static_cast<float>(mouse.x);
     float my = static_cast<float>(mouse.y);
 
-    if (mouse.leftDown) {
+    if (mouse.leftDown && !ImGui::GetIO().WantCaptureMouse) {
         bool consumed = m_combatHUD.onMouseDown(mx, my);
         if (!consumed && m_combat.phase() == CombatPhase::PlayerTurn) {
             // Convert mouse → world → hex

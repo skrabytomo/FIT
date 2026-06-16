@@ -89,7 +89,6 @@ void UIRenderer::beginFrame()
 void UIRenderer::endFrame()
 {
     flushQuads();
-    m_textQueue.clear(); // discard any text not flushed via ImGui (fallback safety)
     glEnable(GL_DEPTH_TEST);
 }
 

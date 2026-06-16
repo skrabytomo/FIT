@@ -265,7 +265,7 @@ void Game::render()
 {
     glViewport(0, 0, m_width, m_height);
     glClearColor(0.04f, 0.03f, 0.03f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     switch (m_state) {
         case GameState::MainMenu: renderMainMenu();  break;
