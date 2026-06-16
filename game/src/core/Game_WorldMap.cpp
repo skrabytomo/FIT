@@ -1480,6 +1480,31 @@ void Game::renderWorldOverlay()
         ICO_CAMPFIRE      = 26, ICO_LAVA_CRYSTAL  = 27, ICO_SWAMP_ALTAR = 28,
     };
 
+    // ── Road network ──────────────────────────────────────────────────────────
+    // Draw dirt-road paths connecting towns — render before towns/icons so they
+    // appear underneath map objects
+    if (!m_roadHexes.empty()) {
+        for (const auto& rc : m_roadHexes) {
+            const HexTile* rt = m_map.getTile(rc);
+            if (!rt || !rt->explored) continue;
+            float sx, sy;
+            project(rc, sx, sy);
+            // Base dirt circle
+            dl->AddCircleFilled({sx, sy}, 18.0f, IM_COL32(160, 130, 85, 140));
+            // Draw line segments to each explored road neighbor for continuity
+            for (const auto& nb : HexGrid::neighbors(rc)) {
+                if (m_roadHexes.count(nb)) {
+                    const HexTile* nt = m_map.getTile(nb);
+                    if (!nt || !nt->explored) continue;
+                    float nx, ny;
+                    project(nb, nx, ny);
+                    float mx = (sx + nx) * 0.5f, my = (sy + ny) * 0.5f;
+                    dl->AddLine({sx, sy}, {mx, my}, IM_COL32(160, 130, 85, 120), 10.0f);
+                }
+            }
+        }
+    }
+
     // ── Movement range highlight ───────────────────────────────────────────────
     // Draw a soft green overlay on every hex the active hero can reach this turn
     if (!m_heroes.empty() && !m_reachable.empty()) {

@@ -748,6 +748,25 @@ void Game::startNewGame()
     for (const auto& wo : m_worldObjects)
         if (wo.id >= m_nextObjId) m_nextObjId = wo.id + 1;
 
+    // Build road network connecting all towns via shortest land paths
+    m_roadHexes.clear();
+    if (m_towns.size() >= 2) {
+        auto roadCost = [this](HexCoord c) -> int {
+            const HexTile* t = m_map.getTile(c);
+            return (t && t->terrain != Terrain::Water) ? 1 : 999;
+        };
+        // Connect each town to every other town
+        for (size_t ti = 0; ti < m_towns.size(); ++ti) {
+            for (size_t tj = ti + 1; tj < m_towns.size(); ++tj) {
+                auto path = Pathfinder::find(m_map, m_towns[ti].pos, m_towns[tj].pos, roadCost);
+                for (auto& h : path) m_roadHexes.insert(h);
+                // Also insert the town tile itself
+                m_roadHexes.insert(m_towns[ti].pos);
+                m_roadHexes.insert(m_towns[tj].pos);
+            }
+        }
+    }
+
     FogOfWar::hideAll(m_map);
     FogOfWar::updateVision(m_map, m_heroes[0]);
 

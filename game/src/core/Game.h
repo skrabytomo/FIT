@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <imgui.h>
 
 #include "GameState.h"
@@ -192,6 +193,7 @@ private:
     float m_moveDstX = 0.0f, m_moveDstY = 0.0f;
 
     std::vector<HexCoord> m_reachable;
+    std::unordered_set<HexCoord, HexCoordHash> m_roadHexes;
 
     // ── Towns & resources ─────────────────────────────────────────────────────
     std::vector<Town>         m_towns;

@@ -364,7 +364,11 @@ bool TownScreen::onMouseDown(float x, float y) {
 bool TownScreen::onMouseUp(float x, float y) {
     if (!m_open) return false;
     m_closeBtn.onMouseUp(x, y);
-    for (auto& bb : m_buildBtns)   bb.btn.onMouseUp(x, y);
-    for (auto& rb : m_recruitBtns) rb.btn.onMouseUp(x, y);
+    // Snapshot vectors before iterating — onClick fires rebuildBuildingButtons()
+    // which clears m_buildBtns mid-loop, invalidating range-for iterators.
+    auto buildSnap   = m_buildBtns;
+    auto recruitSnap = m_recruitBtns;
+    for (auto& bb : buildSnap)   bb.btn.onMouseUp(x, y);
+    for (auto& rb : recruitSnap) rb.btn.onMouseUp(x, y);
     return m_mainPanel.bounds.contains(x, y);
 }
