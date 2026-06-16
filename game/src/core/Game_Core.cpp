@@ -612,7 +612,15 @@ void Game::startNewGame()
         Town& wt = wgResult.towns[i];
         if (i == 0) {
             wt.ownerId = 1;
+            // Pre-build Mage Guild and faction town hall so income starts immediately
+            int hallId = (static_cast<int>(wt.faction) + 1) * 100;
             wt.builtBuildings.push_back(BID::MAGE_GUILD);
+            wt.builtBuildings.push_back(hallId);
+            // Rebuild weeklyIncome from pre-built buildings
+            for (int bid : wt.builtBuildings) {
+                const BuildingDef* def = m_registry.getBuildingDef(bid);
+                if (def) wt.weeklyIncome.addAll(def->weeklyIncome);
+            }
         } else {
             wt.ownerId = 0;
             for (const auto& ud : m_registry.units()) {
