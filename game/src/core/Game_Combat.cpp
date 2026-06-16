@@ -115,6 +115,41 @@ void Game::renderCombat()
     m_ui.flushText(ImGui::GetBackgroundDrawList());
     renderCombatBoard();
     if (m_showSpellPanel) renderSpellPanel();
+
+    // ImGui action bar — always visible regardless of UIRenderer state
+    {
+        const char* phaseLabel =
+            m_combat.phase() == CombatPhase::PlayerTurn ? "YOUR TURN" :
+            m_combat.phase() == CombatPhase::EnemyTurn  ? "ENEMY TURN" :
+            m_combat.phase() == CombatPhase::Victory    ? "VICTORY!"   :
+            m_combat.phase() == CombatPhase::Defeat     ? "DEFEAT"     : "...";
+
+        ImGui::SetNextWindowPos(ImVec2((float)m_width - 190.f, (float)m_height - 155.f),
+                                ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(186.f, 150.f), ImGuiCond_Always);
+        ImGui::Begin("##CombatActions", nullptr,
+                     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar);
+
+        ImGui::TextUnformatted(phaseLabel);
+        ImGui::Separator();
+        bool isPlayerTurn = m_combat.phase() == CombatPhase::PlayerTurn;
+        if (!isPlayerTurn) ImGui::BeginDisabled();
+        if (ImGui::Button("Wait (end turn)", ImVec2(170, 28)))
+            m_combat.wait();
+        if (ImGui::Button("Defend", ImVec2(170, 28))) {
+            CombatAction act; act.type = ActionType::Defend;
+            m_combat.submitAction(act);
+        }
+        if (ImGui::Button("Spells", ImVec2(170, 28)))
+            m_showSpellPanel = !m_showSpellPanel;
+        if (!isPlayerTurn) ImGui::EndDisabled();
+        if (ImGui::Button("Retreat", ImVec2(170, 28)))
+            exitCombat(false);
+
+        ImGui::End();
+    }
+
     endImGuiFrame();
 }
 
