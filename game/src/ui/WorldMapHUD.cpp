@@ -18,21 +18,21 @@ void WorldMapHUD::buildLayout(int sw, int sh)
 {
     m_screenW = sw; m_screenH = sh;
 
-    // Top resource bar
-    m_topBar = {0, 0, (float)sw, 38.0f};
+    // Top resource bar — taller for readability
+    m_topBar = {0, 0, (float)sw, 56.0f};
 
     // Bottom bar
-    m_bottomBar = {0, (float)sh - 40.0f, (float)sw, 40.0f};
+    m_bottomBar = {0, (float)sh - 48.0f, (float)sw, 48.0f};
 
     // End turn button — bottom right
     m_endTurnBtn = Button("End Turn",
-        {(float)sw - 130.0f, (float)sh - 35.0f, 120.0f, 30.0f},
+        {(float)sw - 160.0f, (float)sh - 42.0f, 150.0f, 36.0f},
         [this]{ if (onEndTurn) onEndTurn(); });
     m_endTurnBtn.colorBorder  = UIColor::hex(UITheme::GOLD);
     m_endTurnBtn.colorText    = UIColor::hex(UITheme::GOLD);
 
     // Hero panel — right side
-    m_heroPanel = Panel({(float)sw - 140.0f, 36.0f, 136.0f, 200.0f});
+    m_heroPanel = Panel({(float)sw - 180.0f, 54.0f, 176.0f, 220.0f});
     m_heroPanel.title = "Heroes";
 }
 
@@ -62,9 +62,9 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res,
         UIColor::hex(UITheme::BORDER), 1.0f);
 
     // Resource icons + values
-    float x = 8.0f;
-    float y = 3.0f;
-    float spacing = 120.0f;
+    float x = 10.0f;
+    float y = 5.0f;
+    float spacing = 150.0f;
 
     struct ResDisplay { ResourceType type; unsigned color; };
     static const ResDisplay displays[] = {
@@ -79,16 +79,16 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res,
     for (auto& d : displays) {
         int val = res.get(d.type);
         int inc = income.get(d.type);
-        // Colored dot
-        rdr.drawRect({x, y+3, 8.0f, 10.0f}, UIColor::hex(d.color));
-        // Name + value
+        // Colored dot (larger)
+        rdr.drawRect({x, y+2, 12.0f, 14.0f}, UIColor::hex(d.color));
+        // Name + value — larger font
         std::string label = std::string(resourceName(d.type)) + ": " + std::to_string(val);
-        rdr.drawText(label, x + 12.0f, y, UIColor::hex(d.color), 11.0f);
+        rdr.drawText(label, x + 16.0f, y, UIColor::hex(d.color), 14.0f);
         // Income per week below
         if (inc > 0) {
             std::string incStr = "+" + std::to_string(inc) + "/wk";
-            rdr.drawText(incStr, x + 12.0f, y + 14.0f,
-                         UIColor::rgba(0.55f, 0.85f, 0.55f), 9.5f);
+            rdr.drawText(incStr, x + 16.0f, y + 18.0f,
+                         UIColor::rgba(0.55f, 0.85f, 0.55f), 12.0f);
         }
         x += spacing;
         if (x + spacing > m_screenW - 200.0f) break;
@@ -100,9 +100,9 @@ void WorldMapHUD::drawDatePanel(UIRenderer& rdr, const TurnManager& turns)
     // Day/week display — top center
     std::string date = "Week " + std::to_string(turns.week()) +
                        "  Day " + std::to_string(turns.day());
-    float tw = date.size() * 7.5f;
+    float tw = date.size() * 9.0f;
     float tx = (m_screenW - tw) * 0.5f;
-    rdr.drawText(date, tx, 9.0f, UIColor::hex(UITheme::TEXT_SECONDARY), 12.0f);
+    rdr.drawText(date, tx, 18.0f, UIColor::hex(UITheme::TEXT_SECONDARY), 15.0f);
 }
 
 void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,

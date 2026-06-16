@@ -17,23 +17,23 @@ void TownScreen::buildLayout(int sw, int sh)
 
     m_mainPanel = Panel({px, py, pw, ph});
 
-    // Close button
-    m_closeBtn = Button("X", {px + pw - 32.0f, py + 4.0f, 28.0f, 22.0f},
+    // Close button — larger and clearly labeled
+    m_closeBtn = Button("EXIT TOWN", {px + pw - 110.0f, py + 4.0f, 104.0f, 28.0f},
                          [this]{ close(); if(onClose) onClose(); });
-    m_closeBtn.colorBorder = UIColor::hex(UITheme::DANGER_RED, 0.6f);
+    m_closeBtn.colorBorder = UIColor::hex(UITheme::DANGER_RED, 0.7f);
     m_closeBtn.colorText   = UIColor::hex(UITheme::DANGER_RED);
 
     // Building tree — left 55%
-    m_buildPanel = Panel({px + 4, py + 28, pw * 0.55f - 4, ph - 36});
+    m_buildPanel = Panel({px + 4, py + 36, pw * 0.55f - 4, ph - 44});
     m_buildPanel.title = "Buildings";
 
     // Recruit panel — top right
-    m_recruitPanel = Panel({px + pw*0.55f + 4, py + 28, pw*0.45f - 8, ph*0.55f});
+    m_recruitPanel = Panel({px + pw*0.55f + 4, py + 36, pw*0.45f - 8, ph*0.55f});
     m_recruitPanel.title = "Recruit";
 
     // Income panel — bottom right
-    m_incomePanel = Panel({px + pw*0.55f + 4, py + 28 + ph*0.55f + 4,
-                           pw*0.45f - 8, ph*0.45f - 36});
+    m_incomePanel = Panel({px + pw*0.55f + 4, py + 36 + ph*0.55f + 4,
+                           pw*0.45f - 8, ph*0.45f - 44});
     m_incomePanel.title = "Weekly Income";
 }
 
@@ -75,7 +75,7 @@ void TownScreen::rebuildBuildingButtons()
     float x = m_buildPanel.bounds.x + 8;
     float y = m_buildPanel.bounds.y + 28;
     float bw = (m_buildPanel.bounds.w - 16) * 0.5f - 2;
-    float bh = 26.0f;
+    float bh = 40.0f;
     float colW = bw + 4;
     int col = 0;
 
@@ -89,14 +89,28 @@ void TownScreen::rebuildBuildingButtons()
                                          m_currentWeek, m_blueprintDiscount);
         bb.affordable = m_playerRes->canAfford(def.cost);
 
-        // Show week requirement for locked buildings
+        // Show week requirement for locked buildings, and cost for unbought ones
+        auto costStr = [&](const Resources& cost) -> std::string {
+            std::string s;
+            if (cost.get(ResourceType::Gold) > 0)
+                s += std::to_string(cost.get(ResourceType::Gold)) + "g";
+            for (int ri = 1; ri < RESOURCE_COUNT; ++ri) {
+                auto rt = static_cast<ResourceType>(ri);
+                int v = cost.get(rt);
+                if (v > 0) { if (!s.empty()) s += " "; s += std::to_string(v) + resourceName(rt)[0]; }
+            }
+            return s.empty() ? "free" : s;
+        };
+
         std::string label = def.name;
         if (bb.built) {
             label = "[BUILT] " + def.name;
         } else if (!bb.prereqMet && m_currentWeek > 0 && def.minWeek > 0) {
             int effectiveMin = std::max(1, def.minWeek - m_blueprintDiscount);
             if (m_currentWeek < effectiveMin)
-                label = "[Wk " + std::to_string(effectiveMin) + "] " + def.name;
+                label = "[Wk " + std::to_string(effectiveMin) + "] " + def.name + "  " + costStr(def.cost);
+        } else if (!bb.built) {
+            label = def.name + "  [" + costStr(def.cost) + "]";
         }
 
         Rect btnR{x + col * colW, y, bw, bh};

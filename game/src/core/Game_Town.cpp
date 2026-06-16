@@ -18,7 +18,7 @@ void Game::updateTown(float dt)
     (void)dt;
     const auto& mouse = m_input.mouse();
 
-    if (mouse.leftDown)
+    if (mouse.leftDown && !ImGui::GetIO().WantCaptureMouse)
         m_townScreen.onMouseDown(static_cast<float>(mouse.x),
                                  static_cast<float>(mouse.y));
     m_townScreen.onMouseMove(static_cast<float>(mouse.x),
@@ -60,6 +60,13 @@ void Game::renderTown()
                 m_showArtifactForgePanel = !m_showArtifactForgePanel;
             ImGui::SameLine();
         }
+        // Spacer + exit button pushed to the right
+        ImGui::SetCursorPosX(ImGui::GetContentRegionMax().x - 130.0f);
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.5f, 0.05f, 0.05f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.75f, 0.1f, 0.1f, 1.0f));
+        if (ImGui::Button("EXIT TOWN  [ESC]", ImVec2(125.0f, 0)))
+            exitTown();
+        ImGui::PopStyleColor(2);
         ImGui::End();
     }
 

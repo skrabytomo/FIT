@@ -1487,7 +1487,7 @@ void Game::renderWorldOverlay()
 
         float sx, sy;
         project(town.pos, sx, sy);
-        constexpr float HS = 14.0f;
+        constexpr float HS = 22.0f;
 
         bool isPlayer = (town.ownerId == 1);
         bool isEnemy  = (town.ownerId > 1);
@@ -1535,8 +1535,8 @@ void Game::renderWorldOverlay()
         float pulse = 0.5f + 0.5f * sinf(m_mapTime * 2.0f + oi * 1.1f);
         float gR    = 10.0f + pulse * 3.0f;
         ImU32 glow  = IM_COL32(255, 240, 180, static_cast<int>(pulse * 90 + 40));
-        addIcon(ico, sx, sy, 10.0f);
-        dl->AddCircle({sx, sy}, gR, glow, 0, 1.2f);
+        addIcon(ico, sx, sy, 18.0f);
+        dl->AddCircle({sx, sy}, gR + 8.0f, glow, 0, 1.5f);
     }
 
     // ── Resource nodes (mines) ────────────────────────────────────────────────
@@ -1555,12 +1555,12 @@ void Game::renderWorldOverlay()
         case ResourceType::Mercury:      ico = ICO_RES_MERCURY; break;
         default:                         ico = 15;               break;
         }
-        addIcon(ico, sx, sy, 10.0f);
+        addIcon(ico, sx, sy, 18.0f);
         // ownership ring
         ImU32 ring = r.ownedBy == 1 ? IM_COL32(120, 180, 255, 220)
                    : r.ownedBy >  1 ? IM_COL32(255, 100, 100, 220)
                                     : IM_COL32(220, 190,  60, 160);
-        dl->AddRect({sx - 10, sy - 10}, {sx + 10, sy + 10}, ring, 2.0f, 0, 1.2f);
+        dl->AddRect({sx - 18, sy - 18}, {sx + 18, sy + 18}, ring, 3.0f, 0, 1.5f);
     }
 
     // BloodScent: any player hero with this specialty reveals Bloodsworn enemies
