@@ -11,7 +11,7 @@ Texture::~Texture()
     if (m_id) glDeleteTextures(1, &m_id);
 }
 
-bool Texture::load(const std::string& path, bool pixelArt, bool flipV)
+bool Texture::load(const std::string& path, bool pixelArt, bool flipV, bool repeat)
 {
     stbi_set_flip_vertically_on_load(flipV ? 1 : 0);
 
@@ -29,8 +29,9 @@ bool Texture::load(const std::string& path, bool pixelArt, bool flipV)
     GLint filter = pixelArt ? GL_NEAREST : GL_LINEAR;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    GLint wrap = repeat ? GL_REPEAT : GL_CLAMP_TO_EDGE;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, m_width, m_height,
                  0, GL_RGBA, GL_UNSIGNED_BYTE, data);

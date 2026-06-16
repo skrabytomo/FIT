@@ -22,7 +22,8 @@ void main()
     gl_Position  = uProj * vec4(world, 0.0, 1.0);
     vColor       = uColor;
     vWorldPos    = world;
-    vTexCoord    = aPos * 0.5 + 0.5;
+    // World-space UVs: terrain tiles every ~2 hexes (80 units) seamlessly across hex edges
+    vTexCoord    = world * 0.0125;
 }
 )";
 
@@ -201,8 +202,8 @@ bool HexMapRenderer::init(float hexSize, const std::string& basePath)
         for (int v = 0; v < MAX_VARIANTS; ++v) {
             std::string rel = std::string(s_terrainBase[i]) + "_" + std::to_string(v) + ".png";
             std::string full = basePath + rel;
-            if (m_terrainTex[i][v].load(full, false, false) ||
-                (!basePath.empty() && m_terrainTex[i][v].load(rel, false, false))) {
+            if (m_terrainTex[i][v].load(full, false, false, true) ||
+                (!basePath.empty() && m_terrainTex[i][v].load(rel, false, false, true))) {
                 m_variantCount[i]++;
             } else {
                 break; // stop at first missing variant
@@ -212,8 +213,8 @@ bool HexMapRenderer::init(float hexSize, const std::string& basePath)
         if (m_variantCount[i] == 0) {
             std::string rel  = std::string(s_terrainBase[i]) + ".png";
             std::string full = basePath + rel;
-            if (m_terrainTex[i][0].load(full, false, false) ||
-                (!basePath.empty() && m_terrainTex[i][0].load(rel, false, false)))
+            if (m_terrainTex[i][0].load(full, false, false, true) ||
+                (!basePath.empty() && m_terrainTex[i][0].load(rel, false, false, true)))
                 m_variantCount[i] = 1;
         }
         if (m_variantCount[i] > 0) loaded++;

@@ -8,7 +8,7 @@ public:
     Texture() = default;
     ~Texture();
 
-    bool load(const std::string& path, bool pixelArt = true, bool flipV = true);
+    bool load(const std::string& path, bool pixelArt = true, bool flipV = true, bool repeat = false);
     void bind(int slot = 0) const;
     void unbind() const;
 

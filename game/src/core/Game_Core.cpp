@@ -668,7 +668,22 @@ void Game::startNewGame()
         for (size_t ci = allCoords.size() - 1; ci > 0; --ci)
             std::swap(allCoords[ci], allCoords[lcg() % (ci + 1)]);
 
-        auto pickTile = [&]() -> HexCoord {
+        HexCoord startPos = m_heroes.empty() ? HexCoord{0,0} : m_heroes[0].pos;
+        // Pick a tile — prefer tiles within minDist..maxDist of start (for first N objects)
+        int nearPickCount = 0;
+        auto pickTile = [&](int minDist = 0, int maxDist = 999) -> HexCoord {
+            for (auto& c : allCoords) {
+                const HexTile* t = m_map.getTile(c);
+                if (!t || t->terrain == Terrain::Water) continue;
+                if (t->heroId || t->townId || t->resourceId) continue;
+                bool used = false;
+                for (auto& o : m_worldObjects) if (o.pos == c) { used = true; break; }
+                if (used) continue;
+                int d = HexGrid::distance(c, startPos);
+                if (d < minDist || d > maxDist) continue;
+                return c;
+            }
+            // Fallback: any valid tile
             for (auto& c : allCoords) {
                 const HexTile* t = m_map.getTile(c);
                 if (!t || t->terrain == Terrain::Water) continue;
@@ -688,6 +703,18 @@ void Game::startNewGame()
             SPL::SMITE, SPL::REGROWTH, SPL::CURSE, SPL::BLESS, SPL::CALL_LIGHTNING,
             SPL::REINFORCE, SPL::OVERCLOCK, SPL::WITHER, SPL::BARKSKIN
         };
+        // First scroll + cache guaranteed near start (visible from turn 1)
+        {
+            HexCoord p = pickTile(6, 10);
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::SpellScroll, p,
+                kScrollSpells[lcg() % 9], ResourceType::Gold, false});
+        }
+        {
+            ResourceType rtype = ResourceType::Gold;
+            HexCoord p = pickTile(6, 10);
+            m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ResourceCache, p,
+                300 + static_cast<int>(lcg() % 300), rtype, false});
+        }
         for (int s = 0; s < 4 * scale; ++s) {
             HexCoord p = pickTile();
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::SpellScroll, p,
