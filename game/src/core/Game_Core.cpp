@@ -12,6 +12,11 @@
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#ifdef _WIN32
+#  include <direct.h>
+#else
+#  include <unistd.h>
+#endif
 extern "C" {
 #include <lua.h>
 #include <lauxlib.h>
@@ -33,6 +38,19 @@ bool Game::init(const std::string& title, int width, int height)
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return false;
+    }
+
+    // Set CWD to executable directory so relative asset paths always resolve
+    {
+        char* base = SDL_GetBasePath();
+        if (base) {
+#ifdef _WIN32
+            _chdir(base);
+#else
+            chdir(base);
+#endif
+            SDL_free(base);
+        }
     }
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);

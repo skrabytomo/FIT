@@ -664,11 +664,14 @@ bool CombatEngine::submitAction(const CombatAction& action)
             processKillEvents(*unit, *target, result);
         }
 
-        if (result.moraleTrigger)
+        if (result.moraleTrigger) {
             addLog(unit->name + " morale surge — bonus action!");
-
-        unit->hasActed = true;
-        if (!result.moraleTrigger) advanceTurn();
+            unit->hasActed = false;
+            unit->hasMoved = false;
+        } else {
+            unit->hasActed = true;
+            advanceTurn();
+        }
         return true;
     }
     case ActionType::Wait: {
