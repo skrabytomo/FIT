@@ -1591,12 +1591,15 @@ void Game::renderWorldOverlay()
         case ResourceType::Mercury:      ico = ICO_RES_MERCURY; break;
         default:                         ico = 15;               break;
         }
-        addIcon(ico, sx, sy, 26.0f);
-        // ownership ring
-        ImU32 ring = r.ownedBy == 1 ? IM_COL32(120, 180, 255, 220)
-                   : r.ownedBy >  1 ? IM_COL32(255, 100, 100, 220)
-                                    : IM_COL32(220, 190,  60, 160);
-        dl->AddRect({sx - 26, sy - 26}, {sx + 26, sy + 26}, ring, 3.0f, 0, 1.5f);
+        // Glow backdrop so mine is visible against any terrain
+        ImU32 bgGlow = IM_COL32(0, 0, 0, 120);
+        dl->AddCircleFilled({sx, sy}, 30.0f, bgGlow);
+        addIcon(ico, sx, sy, 28.0f);
+        // Ownership ring
+        ImU32 ring = r.ownedBy == 1 ? IM_COL32(120, 200, 255, 255)
+                   : r.ownedBy >  1 ? IM_COL32(255, 100, 100, 255)
+                                    : IM_COL32(255, 210,  60, 200);
+        dl->AddCircle({sx, sy}, 30.0f, ring, 0, 2.0f);
     }
 
     // BloodScent: any player hero with this specialty reveals Bloodsworn enemies
