@@ -715,6 +715,35 @@ void Game::startNewGame()
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ResourceCache, p,
                 300 + static_cast<int>(lcg() % 300), rtype, false});
         }
+
+        // Guarantee 2 resource mines visible from the start (within 5-9 hexes)
+        {
+            static const ResourceType kNearRes[] = { ResourceType::Gold, ResourceType::Iron };
+            for (int ri = 0; ri < 2; ++ri) {
+                for (auto& c : allCoords) {
+                    HexTile* t = m_map.getTile(c);
+                    if (!t || t->terrain == Terrain::Water) continue;
+                    if (t->heroId || t->townId || t->resourceId) continue;
+                    bool usedByObj = false;
+                    for (auto& o : m_worldObjects) if (o.pos == c) { usedByObj = true; break; }
+                    if (usedByObj) continue;
+                    int d = HexGrid::distance(c, startPos);
+                    if (d < 5 || d > 9) continue;
+                    bool tooClose = false;
+                    for (auto& r : m_resources)
+                        if (HexGrid::distance(c, r.pos) < 4) { tooClose = true; break; }
+                    if (tooClose) continue;
+                    ResourceNode node;
+                    node.id     = m_nextObjId++;
+                    node.pos    = c;
+                    node.type   = kNearRes[ri];
+                    node.amount = 3 + static_cast<int>(lcg() % 3);
+                    t->resourceId = node.id;
+                    m_resources.push_back(node);
+                    break;
+                }
+            }
+        }
         for (int s = 0; s < 4 * scale; ++s) {
             HexCoord p = pickTile();
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::SpellScroll, p,
