@@ -40,16 +40,20 @@ bool Game::init(const std::string& title, int width, int height)
         return false;
     }
 
-    // Set CWD to executable directory so relative asset paths always resolve
+    // Resolve executable directory for asset loading
     {
         char* base = SDL_GetBasePath();
         if (base) {
-#ifdef _WIN32
-            _chdir(base);
-#else
-            chdir(base);
-#endif
+            m_basePath = base;
             SDL_free(base);
+        }
+        // Also try to chdir there so saves/ scripts/ etc. resolve correctly
+        if (!m_basePath.empty()) {
+#ifdef _WIN32
+            _chdir(m_basePath.c_str());
+#else
+            chdir(m_basePath.c_str());
+#endif
         }
     }
 
@@ -78,18 +82,18 @@ bool Game::init(const std::string& title, int width, int height)
     m_camera.setViewport(width, height);
     m_camera.setPosition(0.0f, 0.0f);
 
-    if (!m_batch.init())           { fprintf(stderr, "SpriteBatch failed\n"); return false; }
-    if (!m_hexRenderer.init(40.0f)){ fprintf(stderr, "HexRenderer failed\n"); return false; }
-    if (!m_ui.init(width, height)) { fprintf(stderr, "UIRenderer failed\n"); return false; }
-    m_iconTex.load("assets/icons.png", true, false); // flipV=false: ImGui uses top-left UV origin
+    if (!m_batch.init())                          { fprintf(stderr, "SpriteBatch failed\n"); return false; }
+    if (!m_hexRenderer.init(40.0f, m_basePath))   { fprintf(stderr, "HexRenderer failed\n"); return false; }
+    if (!m_ui.init(width, height))                { fprintf(stderr, "UIRenderer failed\n"); return false; }
+    m_iconTex.load(m_basePath + "assets/icons.png", true, false);
 
     // Per-unit sprite sheets (optional — falls back to circles if missing)
     // File: assets/sprites/faction_F_tT.png  (F=faction 0-8, T=tier 1-6)
     for (int i = 0; i < NUM_FACTIONS; ++i)
         for (int t = 0; t < NUM_UNIT_TIERS; ++t) {
-            char path[80];
-            std::snprintf(path, sizeof(path), "assets/sprites/faction_%d_t%d.png", i, t + 1);
-            m_unitTex[i][t].load(path, false, false);
+            char rel[80];
+            std::snprintf(rel, sizeof(rel), "assets/sprites/faction_%d_t%d.png", i, t + 1);
+            m_unitTex[i][t].load(m_basePath + rel, false, false);
         }
 
     // SDL cursors

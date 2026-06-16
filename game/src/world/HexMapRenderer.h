@@ -13,7 +13,7 @@ public:
     HexMapRenderer() = default;
     ~HexMapRenderer();
 
-    bool init(float hexSize);
+    bool init(float hexSize, const std::string& basePath = "");
     void update(float dt) { m_time += dt; }
     void render(const HexMap& map, const Camera2D& camera,
                 HexCoord hovered, HexCoord selected);

@@ -34,9 +34,38 @@ void Game::renderTown()
 
     beginImGuiFrame();
     m_ui.flushText(ImGui::GetBackgroundDrawList());
-    renderMageGuild();
-    renderTavern();
-    renderArtifactForge();
+
+    // Service buttons bar — top strip above the town panel
+    {
+        const Town* town = m_townScreen.currentTown();
+        ImGui::SetNextWindowPos(ImVec2(0, 0), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2((float)m_width, 0), ImGuiCond_Always);
+        ImGui::Begin("##TownServices", nullptr,
+                     ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                     ImGuiWindowFlags_NoBackground);
+
+        if (town && town->hasBuilding(BID::MAGE_GUILD)) {
+            if (ImGui::Button(m_showMageGuildPanel ? "[Mage Guild X]" : "Mage Guild"))
+                m_showMageGuildPanel = !m_showMageGuildPanel;
+            ImGui::SameLine();
+        }
+        if (town && town->ownerId == 1) {
+            if (ImGui::Button(m_showTavernPanel ? "[Tavern X]" : "Tavern"))
+                m_showTavernPanel = !m_showTavernPanel;
+            ImGui::SameLine();
+        }
+        if (town && town->hasBuilding(BID::MARKET)) {
+            if (ImGui::Button(m_showArtifactForgePanel ? "[Forge X]" : "Artifact Forge"))
+                m_showArtifactForgePanel = !m_showArtifactForgePanel;
+            ImGui::SameLine();
+        }
+        ImGui::End();
+    }
+
+    if (m_showMageGuildPanel)    renderMageGuild();
+    if (m_showTavernPanel)       renderTavern();
+    if (m_showArtifactForgePanel) renderArtifactForge();
     if (m_showCapturePopup) renderCapturePopup();
     endImGuiFrame();
 }
@@ -75,11 +104,10 @@ void Game::renderMageGuild()
     const auto& entries_ref = entries;
     int available = town->hasBuilding(BID::MAGE_GUILD_T2) ? 4 : 2;
 
-    ImGui::SetNextWindowPos(ImVec2(20, 80), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(280, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(20, 32), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(320, 0), ImGuiCond_Always);
     if (!ImGui::Begin("Mage Guild", nullptr,
-                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                      ImGuiWindowFlags_AlwaysAutoResize)) {
+                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End(); return;
     }
 
@@ -123,11 +151,10 @@ void Game::renderArtifactForge()
     if (m_heroes.empty()) return;
     Hero& hero = m_heroes[m_activeHeroIdx];
 
-    ImGui::SetNextWindowPos(ImVec2(580, 80), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(680, 32), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(320, 0), ImGuiCond_Always);
     if (!ImGui::Begin("Artifact Forge", nullptr,
-                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                      ImGuiWindowFlags_AlwaysAutoResize)) {
+                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End(); return;
     }
 
@@ -228,11 +255,10 @@ void Game::renderTavern()
     static constexpr int MAX_HEROES = 3;
     static constexpr int NUM_CANDIDATES = 3;
 
-    ImGui::SetNextWindowPos(ImVec2(310, 80), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(350, 32), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(320, 0), ImGuiCond_Always);
     if (!ImGui::Begin("Tavern", nullptr,
-                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
-                      ImGuiWindowFlags_AlwaysAutoResize)) {
+                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End(); return;
     }
 
@@ -543,6 +569,9 @@ void Game::enterTown(Town* town)
             if (const SkillDef* def = findSkillDef(SkillID::BLUEPRINT))
                 blueprintDiscount = def->values[static_cast<int>(s->tier)]; // 1/2/3
     }
+    m_showMageGuildPanel     = false;
+    m_showTavernPanel        = false;
+    m_showArtifactForgePanel = false;
     m_townScreen.open(town, &m_playerResources, &m_registry, hero,
                       m_turns.week(), blueprintDiscount);
     // Play faction-specific theme; fall back to generic town_music

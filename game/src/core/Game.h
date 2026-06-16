@@ -158,11 +158,12 @@ private:
     void renderHideoutScreen();
 
     // ── SDL / GL ───────────────────────────────────────────────────────────────
-    SDL_Window*   m_window  = nullptr;
-    SDL_GLContext m_glCtx   = nullptr;
-    bool          m_running = false;
-    int           m_width   = 0;
-    int           m_height  = 0;
+    SDL_Window*   m_window   = nullptr;
+    SDL_GLContext m_glCtx    = nullptr;
+    bool          m_running  = false;
+    int           m_width    = 0;
+    int           m_height   = 0;
+    std::string   m_basePath;   // SDL_GetBasePath() — prefix for asset paths
 
     // ── State machine ──────────────────────────────────────────────────────────
     GameState m_state = GameState::WorldMap;
@@ -285,6 +286,11 @@ private:
     int         m_combatResultGold  = 0;
     int         m_combatResultKills = 0;
     int         m_combatResultLost  = 0;
+
+    // ── Town service overlay flags (opened via "Town Services" bar) ───────────
+    bool        m_showMageGuildPanel    = false;
+    bool        m_showTavernPanel       = false;
+    bool        m_showArtifactForgePanel = false;
 
     // ── Town capture notification ─────────────────────────────────────────────
     bool        m_showCapturePopup  = false;

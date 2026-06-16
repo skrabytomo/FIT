@@ -177,7 +177,7 @@ HexMapRenderer::~HexMapRenderer()
     if (m_vao) glDeleteVertexArrays(1, &m_vao);
 }
 
-bool HexMapRenderer::init(float hexSize)
+bool HexMapRenderer::init(float hexSize, const std::string& basePath)
 {
     m_grid = HexGrid(hexSize);
 
@@ -194,8 +194,13 @@ bool HexMapRenderer::init(float hexSize)
     // Load terrain textures (non-fatal if missing — falls back to procedural)
     int loaded = 0;
     for (int i = 0; i < NUM_TERRAIN; ++i) {
-        if (m_terrainTex[i].load(s_terrainFiles[i], false, false))
-            loaded++;
+        // Try basePath-prefixed path first, then bare relative path as fallback
+        std::string path = basePath + s_terrainFiles[i];
+        if (!m_terrainTex[i].load(path, false, false)) {
+            if (!basePath.empty())
+                m_terrainTex[i].load(s_terrainFiles[i], false, false);
+        }
+        if (m_terrainTex[i].ok()) loaded++;
     }
     printf("HexMapRenderer: %d/%d terrain textures loaded (hex size %.0fpx)\n",
            loaded, NUM_TERRAIN, hexSize);

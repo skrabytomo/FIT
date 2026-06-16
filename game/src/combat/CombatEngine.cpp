@@ -664,6 +664,10 @@ bool CombatEngine::submitAction(const CombatAction& action)
             processKillEvents(*unit, *target, result);
         }
 
+        checkVictory();
+        if (m_phase == CombatPhase::Victory || m_phase == CombatPhase::Defeat)
+            return true;
+
         if (result.moraleTrigger) {
             addLog(unit->name + " morale surge — bonus action!");
             unit->hasActed = false;
