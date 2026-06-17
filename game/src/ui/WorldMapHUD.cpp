@@ -122,12 +122,11 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res,
 
 void WorldMapHUD::drawDatePanel(UIRenderer& rdr, const TurnManager& turns)
 {
-    // Day/week display — top center
+    // Day/week display — bottom bar, left side (avoids overlapping resource icons)
     std::string date = "Week " + std::to_string(turns.week()) +
                        "  Day " + std::to_string(turns.day());
-    float tw = date.size() * 9.0f;
-    float tx = (m_screenW - tw) * 0.5f;
-    rdr.drawText(date, tx, 22.0f, UIColor::hex(UITheme::TEXT_SECONDARY), 16.0f);
+    float ty = static_cast<float>(m_screenH) - 38.0f;
+    rdr.drawText(date, 14.0f, ty, UIColor::hex(UITheme::TEXT_SECONDARY), 16.0f);
 }
 
 void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,

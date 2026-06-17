@@ -1735,6 +1735,9 @@ void Game::renderWorldOverlay()
         if (!m_fogDisabled && (!rtile || !rtile->explored)) continue;
         float sx, sy;
         project(r.pos, sx, sy);
+        // Clip icon against HUD zones
+        if (sy < 68.0f || sy > static_cast<float>(m_height) - 52.0f
+            || sx > static_cast<float>(m_width) - 185.0f) continue;
         int ico;
         switch (r.type) {
         case ResourceType::Gold:         ico = ICO_RES_GOLD;    break;

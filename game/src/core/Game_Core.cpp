@@ -791,7 +791,9 @@ void Game::startNewGame()
                     node.id     = m_nextObjId++;
                     node.pos    = c;
                     node.type   = kNearRes[ri];
-                    node.amount = 3 + static_cast<int>(lcg() % 3);
+                    node.amount = (node.type == ResourceType::Gold)
+                                 ? 250
+                                 : 3 + static_cast<int>(lcg() % 3);
                     t->resourceId = node.id;
                     m_resources.push_back(node);
                     break;

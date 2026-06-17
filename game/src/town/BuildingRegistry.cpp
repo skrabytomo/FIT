@@ -22,7 +22,7 @@ void BuildingRegistry::init()
         b.id = BID::FORT; b.name = "Fort";
         b.description = "Adds walls and gate - enables siege defense";
         b.category = BuildingCategory::Fort;
-        b.cost = gold(2000);
+        b.cost = goldAndRes(2000, ResourceType::Iron, 4);
         m_buildings.push_back(b);
     }
     {
@@ -38,10 +38,10 @@ void BuildingRegistry::init()
     {
         BuildingDef b;
         b.id = BID::WAREHOUSE; b.name = "Warehouse";
-        b.description = "Resource storage - +1 Iron weekly";
+        b.description = "Resource storage - +2 Iron weekly";
         b.category = BuildingCategory::Economy;
-        b.cost = gold(500);
-        b.weeklyIncome = res(ResourceType::Iron, 1);
+        b.cost = goldAndRes(600, ResourceType::Iron, 2);
+        b.weeklyIncome = res(ResourceType::Iron, 2);
         m_buildings.push_back(b);
     }
     {
@@ -49,7 +49,7 @@ void BuildingRegistry::init()
         b.id = BID::MAGE_GUILD; b.name = "Mage Guild";
         b.description = "Teaches 2 faction spells (Tier 1). Upgrade for 4 spells (Tier 2).";
         b.category = BuildingCategory::MageGuild;
-        b.cost = gold(2000);
+        b.cost = goldAndRes(2000, ResourceType::FaithStones, 3);
         m_buildings.push_back(b);
     }
     {
@@ -57,7 +57,7 @@ void BuildingRegistry::init()
         b.id = BID::MAGE_GUILD_T2; b.name = "Mage Guild (Tier 2)";
         b.description = "Unlocks 2 additional faction spells for purchase (spells 3 & 4).";
         b.category = BuildingCategory::MageGuild;
-        b.cost = gold(3000);
+        b.cost = goldAndRes(3000, ResourceType::FaithStones, 5);
         b.prerequisites = {BID::MAGE_GUILD};
         m_buildings.push_back(b);
     }
