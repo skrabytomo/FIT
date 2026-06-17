@@ -231,6 +231,10 @@ private:
     Texture           m_unitTex[NUM_FACTIONS][NUM_UNIT_TIERS];
     Texture           m_portraitTex[NUM_FACTIONS];
 
+    // ── Faction town art (world map + town screen banner) ─────────────────────
+    // File: assets/towns/faction_N.png  (N=0-8)
+    Texture           m_townTex[NUM_FACTIONS];
+
     // ── Per-unit combat animators (keyed by CombatUnit id) ───────────────────
     std::unordered_map<uint32_t, SpriteAnimator> m_combatAnimators;
 

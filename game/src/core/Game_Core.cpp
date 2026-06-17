@@ -119,6 +119,13 @@ bool Game::init(const std::string& title, int width, int height)
         m_portraitTex[i].load(m_basePath + rel, false, false);
     }
 
+    // Load faction town art (user-provided or placeholder)
+    for (int i = 0; i < NUM_FACTIONS; ++i) {
+        char rel[80];
+        std::snprintf(rel, sizeof(rel), "assets/towns/faction_%d.png", i);
+        m_townTex[i].load(m_basePath + rel, false, false);
+    }
+
     // Wire WorldMapHUD callbacks
     m_worldHUD.init(width, height);
     if (m_iconTex.ok())

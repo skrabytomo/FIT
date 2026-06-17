@@ -1009,9 +1009,15 @@ void Game::exitCombat(bool playerWon)
         m_hideout.addXP(50);
         m_hideout.completeMilestone(Milestone::FIRST_BATTLE_WON);
         m_triggers.fire(TriggerType::BattleWon, ctx);
-        if (m_enemyHeroes.empty()) {
-            m_showVictory = true;
-            m_audio.playSound("victory");
+        {
+            bool noEnemyHeroes = m_enemyHeroes.empty();
+            bool noEnemyTowns  = true;
+            for (const auto& t : m_towns)
+                if (t.ownerId > 1) { noEnemyTowns = false; break; }
+            if (noEnemyHeroes && noEnemyTowns) {
+                m_showVictory = true;
+                m_audio.playSound("victory");
+            }
         }
 
         // Award hero XP

@@ -618,6 +618,53 @@ void Game::doEndTurn()
             // Auto-save at start of each new week
             saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
 
+            // ── AI town building: one building per week, priority dwellings ──────────
+            {
+                Resources richRes;
+                richRes.add(ResourceType::Gold,         999999);
+                richRes.add(ResourceType::Iron,            9999);
+                richRes.add(ResourceType::FaithStones,     9999);
+                richRes.add(ResourceType::BloodEssence,    9999);
+                richRes.add(ResourceType::VerdantSap,      9999);
+                richRes.add(ResourceType::Mercury,         9999);
+
+                const auto& allBuildings = m_registry.buildings();
+
+                for (auto& town : m_towns) {
+                    if (town.ownerId <= 1) continue;
+                    town.builtToday = 0;
+
+                    bool built = false;
+                    // Priority 1: lowest unbought base dwelling (tier 1-6)
+                    for (int tier = 1; tier <= 6 && !built; ++tier) {
+                        for (const auto& def : allBuildings) {
+                            if (def.category != BuildingCategory::UnitDwelling) continue;
+                            if (def.faction != town.faction) continue;
+                            if (def.tier != tier) continue;
+                            if (def.path != UpgradePath::None) continue;
+                            Resources tmp = richRes;
+                            if (town.build(def.id, allBuildings, tmp)) {
+                                printf("AI %s built %s\n", town.name.c_str(), def.name.c_str());
+                                built = true; break;
+                            }
+                        }
+                    }
+                    // Priority 2: fort or support
+                    if (!built) {
+                        for (const auto& def : allBuildings) {
+                            if (def.faction != town.faction && def.faction != FactionId::None) continue;
+                            if (def.category != BuildingCategory::Fort &&
+                                def.category != BuildingCategory::Support) continue;
+                            Resources tmp = richRes;
+                            if (town.build(def.id, allBuildings, tmp)) {
+                                printf("AI %s built %s\n", town.name.c_str(), def.name.c_str());
+                                built = true; break;
+                            }
+                        }
+                    }
+                }
+            }
+
             // ── Weekly random event ────────────────────────────────────────────
             m_weeklyEventHeadline.clear();
             m_weeklyEventBody.clear();
@@ -1528,7 +1575,7 @@ void Game::renderWorldOverlay()
         }
     }
 
-    // ── Towns (large procedural castle silhouette) ────────────────────────────
+    // ── Towns ─────────────────────────────────────────────────────────────────
     for (const auto& town : m_towns) {
         const HexTile* ttile = m_map.getTile(town.pos);
         if (!m_fogDisabled && ttile && !ttile->visible) continue;
@@ -1538,76 +1585,62 @@ void Game::renderWorldOverlay()
 
         bool isPlayer = (town.ownerId == 1);
         bool isEnemy  = (town.ownerId > 1);
+        int  fid      = std::clamp(static_cast<int>(town.faction), 0, NUM_FACTIONS - 1);
 
-        ImU32 ringCol  = isPlayer ? IM_COL32(120, 180, 255, 255)
-                        : isEnemy ? IM_COL32(255,  90,  90, 255)
-                                  : IM_COL32(210, 165,  50, 255);
-        ImU32 bgCol    = isPlayer ? IM_COL32( 12,  22,  55, 240)
-                        : isEnemy ? IM_COL32( 55,  12,  12, 240)
-                                  : IM_COL32( 45,  35,  10, 240);
-        ImU32 wallCol  = isPlayer ? IM_COL32( 70, 110, 210, 255)
-                        : isEnemy ? IM_COL32(210,  65,  65, 255)
-                                  : IM_COL32(185, 150,  45, 255);
-        ImU32 darkCol  = IM_COL32(8, 8, 8, 220);
+        ImU32 ringCol = isPlayer ? IM_COL32(120, 180, 255, 255)
+                      : isEnemy  ? IM_COL32(255,  90,  90, 255)
+                                 : IM_COL32(210, 165,  50, 255);
+        ImU32 flagCol = isPlayer ? IM_COL32( 80, 140, 255, 230)
+                      : isEnemy  ? IM_COL32(220,  60,  60, 230)
+                                 : IM_COL32(190, 145,  30, 230);
 
-        const float CS  = 52.0f;   // half-size of the whole castle block
-        const float glow = 10.0f;
+        ImTextureID townArt = m_townTex[fid].ok()
+            ? (ImTextureID)(uintptr_t)m_townTex[fid].id() : nullptr;
+
+        const float CS   = townArt ? 75.0f : 52.0f;   // larger when real art available
+        const float glow = 12.0f;
 
         // Outer glow
         dl->AddRectFilled({sx - CS - glow, sy - CS - glow},
                           {sx + CS + glow, sy + CS + glow},
-                          (ringCol & 0x00FFFFFFu) | 0x30000000u, 8.0f);
+                          (ringCol & 0x00FFFFFFu) | 0x28000000u, 10.0f);
 
-        // Background plate
-        dl->AddRectFilled({sx - CS, sy - CS}, {sx + CS, sy + CS}, bgCol, 5.0f);
-        dl->AddRect({sx - CS, sy - CS}, {sx + CS, sy + CS}, ringCol, 5.0f, 0, 2.5f);
-
-        // ── Castle silhouette (procedural) ──────────────────────────────
-        // Side towers
-        const float TW = 13.0f, TH = CS * 0.85f;
-        dl->AddRectFilled({sx - CS + 5,       sy - TH * 0.55f},
-                          {sx - CS + 5 + TW,  sy + TH * 0.45f}, wallCol, 2.0f);
-        dl->AddRectFilled({sx + CS - 5 - TW,  sy - TH * 0.55f},
-                          {sx + CS - 5,        sy + TH * 0.45f}, wallCol, 2.0f);
-
-        // Central keep (taller, narrower)
-        const float KW = CS * 0.38f, KH = CS * 1.0f;
-        dl->AddRectFilled({sx - KW, sy - KH * 0.5f}, {sx + KW, sy + KH * 0.5f}, wallCol, 2.0f);
-
-        // Battlements on top of keep
-        const float BW = 5.5f, BH = 7.0f, BTop = sy - KH * 0.5f - BH;
-        for (float bx = sx - KW + 2; bx < sx + KW - 4; bx += BW * 2.1f)
-            dl->AddRectFilled({bx, BTop}, {bx + BW, BTop + BH}, wallCol);
-
-        // Battlements on side towers
-        for (int side = -1; side <= 1; side += 2) {
-            float tx = (side < 0) ? sx - CS + 5 : sx + CS - 5 - TW;
-            float bTop2 = sy - TH * 0.55f - 6.0f;
-            for (float bx = tx + 1; bx < tx + TW - 2; bx += 5.0f * 2.0f)
-                dl->AddRectFilled({bx, bTop2}, {bx + 5.0f, bTop2 + 6.0f}, wallCol);
+        if (townArt) {
+            // ── Faction art image ──────────────────────────────────────────
+            dl->AddImageRounded(townArt, {sx - CS, sy - CS}, {sx + CS, sy + CS},
+                                {0,0}, {1,1}, IM_COL32(255,255,255,230), 6.0f);
+        } else {
+            // ── Procedural silhouette fallback ─────────────────────────────
+            ImU32 bgCol   = isPlayer ? IM_COL32(12, 22, 55, 240)
+                          : isEnemy  ? IM_COL32(55, 12, 12, 240)
+                                     : IM_COL32(45, 35, 10, 240);
+            ImU32 wallCol = isPlayer ? IM_COL32(70,110,210,255)
+                          : isEnemy  ? IM_COL32(210,65, 65, 255)
+                                     : IM_COL32(185,150, 45, 255);
+            dl->AddRectFilled({sx-CS, sy-CS}, {sx+CS, sy+CS}, bgCol, 5.0f);
+            const float TW=13.f, TH=CS*0.85f, KW=CS*0.38f, KH=CS;
+            dl->AddRectFilled({sx-CS+5,     sy-TH*.55f},{sx-CS+5+TW, sy+TH*.45f}, wallCol,2.f);
+            dl->AddRectFilled({sx+CS-5-TW,  sy-TH*.55f},{sx+CS-5,    sy+TH*.45f}, wallCol,2.f);
+            dl->AddRectFilled({sx-KW, sy-KH*.5f},{sx+KW, sy+KH*.5f}, wallCol, 2.f);
+            for (float bx=sx-KW+2; bx<sx+KW-4; bx+=11.5f)
+                dl->AddRectFilled({bx,sy-KH*.5f-7},{bx+5.5f,sy-KH*.5f}, wallCol);
+            dl->AddRectFilled({sx-4.5f,sy+KH*.5f-14},{sx+4.5f,sy+KH*.5f},IM_COL32(8,8,8,220));
         }
 
-        // Gate / door
-        const float DW = 9.0f, DH = 14.0f;
-        dl->AddRectFilled({sx - DW * 0.5f, sy + KH * 0.5f - DH},
-                          {sx + DW * 0.5f, sy + KH * 0.5f}, darkCol);
+        // ── Ownership border + flag pole ──────────────────────────────────
+        dl->AddRect({sx - CS, sy - CS}, {sx + CS, sy + CS}, ringCol, 6.0f, 0, 2.5f);
 
-        // Window slits on keep
-        dl->AddRectFilled({sx - 3.0f, sy - KH * 0.18f}, {sx + 3.0f, sy - KH * 0.02f}, darkCol);
+        // Flag pole (top-center)
+        float poleX = sx + CS - 10.f, poleY1 = sy - CS - 18.f, poleY2 = sy - CS + 2.f;
+        dl->AddLine({poleX, poleY1}, {poleX, poleY2}, IM_COL32(180,160,100,220), 2.0f);
+        dl->AddTriangleFilled({poleX, poleY1}, {poleX + 16.f, poleY1 + 6.f},
+                              {poleX, poleY1 + 12.f}, flagCol);
 
-        // Inner ring on bg (decorative)
-        dl->AddRect({sx - CS + 3, sy - CS + 3}, {sx + CS - 3, sy + CS - 3},
-                    (ringCol & 0x00FFFFFFu) | 0x55000000u, 3.0f, 0, 1.0f);
-
-        // Town name — larger, drop-shadow
-        const float nameScale = 14.0f;
+        // ── Town name ─────────────────────────────────────────────────────
         float nameW = town.name.size() * 5.0f;
-        float nameX = sx - nameW;
-        float nameY = sy + CS + 5.0f;
-        dl->AddText(ImGui::GetFont(), nameScale, {nameX + 1, nameY + 1},
-                    IM_COL32(0, 0, 0, 200), town.name.c_str());
-        dl->AddText(ImGui::GetFont(), nameScale, {nameX, nameY},
-                    IM_COL32(210, 230, 255, 255), town.name.c_str());
+        float nameX = sx - nameW, nameY = sy + CS + 5.0f;
+        dl->AddText(ImGui::GetFont(), 14.f, {nameX+1, nameY+1}, IM_COL32(0,0,0,200), town.name.c_str());
+        dl->AddText(ImGui::GetFont(), 14.f, {nameX,   nameY},   IM_COL32(210,230,255,255), town.name.c_str());
     }
 
     // ── World objects ──────────────────────────────────────────────────────────

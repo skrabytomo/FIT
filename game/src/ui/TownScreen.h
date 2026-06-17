@@ -5,6 +5,7 @@
 #include "../data/Resources.h"
 #include "../hero/Hero.h"
 #include <functional>
+#include <imgui.h>
 
 class TownScreen
 {
@@ -67,4 +68,17 @@ private:
     std::vector<RecruitBtn> m_recruitBtns;
 
     TooltipWidget m_tooltip;
+
+    // Faction art for the town screen banner (set from Game)
+    ImTextureID m_townBannerTex = nullptr;
+
+    // Unit sprite textures [tier-1] for the recruit panel
+    static constexpr int MAX_TIERS = 6;
+    ImTextureID m_unitTex[MAX_TIERS] = {};
+
+public:
+    void setTownBannerTex(ImTextureID t) { m_townBannerTex = t; }
+    void setUnitTex(int tierIdx, ImTextureID t) {
+        if (tierIdx >= 0 && tierIdx < MAX_TIERS) m_unitTex[tierIdx] = t;
+    }
 };

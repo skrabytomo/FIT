@@ -1,6 +1,7 @@
 #include "TownScreen.h"
 #include <sstream>
 #include <algorithm>
+#include <imgui.h>
 
 bool TownScreen::init(int sw, int sh)
 {
@@ -262,6 +263,17 @@ void TownScreen::draw(UIRenderer& rdr)
     rdr.drawRect({0,0,(float)m_screenW,(float)m_screenH},
                  UIColor::rgba(0,0,0,0.6f));
 
+    // Faction art banner: fills the right side of the panel behind recruit/income
+    if (m_townBannerTex) {
+        float bx = m_recruitPanel.bounds.x;
+        float by = m_mainPanel.bounds.y;
+        float bw = m_recruitPanel.bounds.w;
+        float bh = m_mainPanel.bounds.h;
+        ImDrawList* dl = ImGui::GetBackgroundDrawList();
+        dl->AddImageRounded(m_townBannerTex, {bx, by}, {bx + bw, by + bh},
+                            {0,0}, {1,1}, IM_COL32(255,255,255,55), 6.0f);
+    }
+
     m_mainPanel.draw(rdr);
     drawBuildingTree(rdr);
     drawRecruitPanel(rdr);
@@ -279,32 +291,167 @@ void TownScreen::drawBuildingTree(UIRenderer& rdr)
 void TownScreen::drawRecruitPanel(UIRenderer& rdr)
 {
     m_recruitPanel.draw(rdr);
-    if (m_recruitBtns.empty()) {
-        rdr.drawText("No units available — build a unit dwelling in Buildings",
-                     m_recruitPanel.bounds.x + 8,
-                     m_recruitPanel.bounds.y + 40,
-                     UIColor::hex(UITheme::TEXT_DISABLED), 12.0f);
-    }
-    for (auto& rb : m_recruitBtns) rb.btn.draw(rdr);
 
-    // Hero army summary below recruit buttons
-    if (m_hero && !m_hero->army.empty()) {
-        float ax = m_recruitPanel.bounds.x + 8;
-        float ay = m_recruitPanel.bounds.bottom() - 16.0f
-                 - static_cast<float>(m_hero->army.size()) * 14.0f;
-        rdr.drawText("Army:", ax, ay - 14.0f,
-                     UIColor::hex(UITheme::TEXT_SECONDARY), 11.0f);
-        for (auto& s : m_hero->army) {
-            if (s.count <= 0) continue;
-            std::string line = "  x" + std::to_string(s.count);
-            if (m_registry) {
-                for (const auto& ud : m_registry->units())
-                    if (ud.id == s.defId) { line = ud.name + " x" + std::to_string(s.count); break; }
+    // ── HoMM3-style creature recruitment cards (ImGui) ──────────────────────
+    ImGui::SetNextWindowPos({m_recruitPanel.bounds.x, m_recruitPanel.bounds.y});
+    ImGui::SetNextWindowSize({m_recruitPanel.bounds.w, m_recruitPanel.bounds.h});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg,  ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_Border,    ImVec4(0,0,0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6,28));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,   ImVec2(4,4));
+
+    ImGui::Begin("##recruit_cards", nullptr,
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+
+    if (!m_town || !m_registry || m_town->dwellings.empty()) {
+        ImGui::TextDisabled("No units available");
+        ImGui::TextDisabled("Build a unit dwelling in Buildings");
+    } else {
+        // 2-column card grid
+        const float cardW  = (m_recruitPanel.bounds.w - 20.0f) * 0.5f;
+        const float cardH  = 110.0f;
+        const float sprW   = 56.0f;
+
+        // Faction color tint for card headers
+        auto factionHdr = [](FactionId f) -> ImVec4 {
+            switch (f) {
+            case FactionId::HolyOrder:     return {0.85f,0.80f,0.35f,1.f};
+            case FactionId::CrimsonWardens:return {0.80f,0.20f,0.20f,1.f};
+            case FactionId::Thornkin:      return {0.25f,0.65f,0.25f,1.f};
+            case FactionId::EternalEmpire: return {0.50f,0.30f,0.70f,1.f};
+            case FactionId::Bloodsworn:    return {0.70f,0.10f,0.10f,1.f};
+            case FactionId::Voidkin:       return {0.20f,0.55f,0.70f,1.f};
+            case FactionId::IronAssembly:  return {0.55f,0.55f,0.60f,1.f};
+            case FactionId::Amalgamate:    return {0.50f,0.35f,0.20f,1.f};
+            case FactionId::Convergence:   return {0.60f,0.50f,0.30f,1.f};
+            default:                       return {0.60f,0.60f,0.60f,1.f};
             }
-            rdr.drawText(line, ax, ay, UIColor::hex(UITheme::TEXT_PRIMARY), 11.0f);
-            ay += 14.0f;
+        };
+        ImVec4 hdrCol = factionHdr(m_town->faction);
+
+        int col = 0;
+        for (auto& dw : m_town->dwellings) {
+            // Find matching unit definition
+            const UnitDef* ud = nullptr;
+            if (m_registry) {
+                for (const auto& u : m_registry->units()) {
+                    if (u.faction == m_town->faction && u.tier == dw.tier && u.path == dw.path) {
+                        ud = &u; break;
+                    }
+                }
+            }
+            if (!ud) continue;
+
+            if (col == 1) ImGui::SameLine();
+            col = (col + 1) % 2;
+
+            ImGui::PushID(dw.buildingId);
+            ImGui::BeginGroup();
+
+            // Card background
+            ImVec2 cardMin = ImGui::GetCursorScreenPos();
+            ImVec2 cardMax = {cardMin.x + cardW, cardMin.y + cardH};
+            ImDrawList* dl = ImGui::GetWindowDrawList();
+            dl->AddRectFilled(cardMin, cardMax, IM_COL32(18,20,28,240), 4.0f);
+            dl->AddRect(cardMin, cardMax,
+                IM_COL32((int)(hdrCol.x*200),(int)(hdrCol.y*200),(int)(hdrCol.z*200),180), 4.0f, 0, 1.5f);
+
+            // Unit sprite (first idle frame)
+            ImTextureID spr = (dw.tier >= 1 && dw.tier <= MAX_TIERS)
+                              ? m_unitTex[dw.tier - 1] : nullptr;
+            if (spr) {
+                float u0 = 0.0f, u1 = 1.0f / 8.0f; // first of 8 frames
+                dl->AddImage(spr,
+                    {cardMin.x + 2, cardMin.y + 18},
+                    {cardMin.x + 2 + sprW, cardMin.y + 18 + sprW},
+                    {u0, 0}, {u1, 1});
+            } else {
+                dl->AddRectFilled({cardMin.x+2, cardMin.y+18},
+                                  {cardMin.x+2+sprW, cardMin.y+18+sprW},
+                                  IM_COL32(30,30,40,200), 3.0f);
+                dl->AddText({cardMin.x + 16, cardMin.y + 42},
+                            IM_COL32((int)(hdrCol.x*255),(int)(hdrCol.y*255),(int)(hdrCol.z*255),180),
+                            ("T" + std::to_string(dw.tier)).c_str());
+            }
+
+            // Unit name header
+            ImGui::SetCursorScreenPos({cardMin.x + 4, cardMin.y + 2});
+            ImGui::PushStyleColor(ImGuiCol_Text,
+                ImVec4(hdrCol.x, hdrCol.y, hdrCol.z, 1.0f));
+            ImGui::TextUnformatted(ud->name.c_str());
+            ImGui::PopStyleColor();
+
+            // Stats column (right of sprite)
+            float sx2 = cardMin.x + sprW + 6, sy2 = cardMin.y + 18;
+            const float rowH = 13.0f;
+            auto statRow = [&](const char* label, int val) {
+                char buf[32];
+                std::snprintf(buf, sizeof(buf), "%s %d", label, val);
+                dl->AddText({sx2, sy2}, IM_COL32(200,200,210,255), buf);
+                sy2 += rowH;
+            };
+            statRow("ATK", ud->attack);
+            statRow("DEF", ud->defense);
+            char dmgBuf[24];
+            std::snprintf(dmgBuf, sizeof(dmgBuf), "DMG %d-%d", ud->damage_min, ud->damage_max);
+            dl->AddText({sx2, sy2}, IM_COL32(200,200,210,255), dmgBuf); sy2 += rowH;
+            statRow("HP ", ud->hp);
+            statRow("SPD", ud->speed);
+            statRow("GRW", dw.available);
+
+            // Available + cost
+            ImGui::SetCursorScreenPos({cardMin.x + 4, cardMin.y + cardH - 28});
+            bool canAfford = m_playerRes &&
+                             m_playerRes->get(ResourceType::Gold) >= ud->cost.get(ResourceType::Gold) * dw.available;
+            ImGui::TextDisabled("Avail: %d  (%dg)", dw.available,
+                                ud->cost.get(ResourceType::Gold) * dw.available);
+
+            // Recruit button
+            ImGui::SetCursorScreenPos({cardMin.x + 4, cardMin.y + cardH - 14});
+            bool hasUnits = (dw.available > 0);
+            if (!hasUnits || !canAfford) ImGui::BeginDisabled();
+
+            ImGui::PushStyleColor(ImGuiCol_Button,
+                ImVec4(hdrCol.x*0.3f, hdrCol.y*0.3f, hdrCol.z*0.3f, 0.9f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                ImVec4(hdrCol.x*0.5f, hdrCol.y*0.5f, hdrCol.z*0.5f, 1.0f));
+
+            if (ImGui::Button("Recruit All##btn", {cardW - 8.0f, 12.0f})) {
+                // Perform recruitment
+                int capturedTier = dw.tier;
+                UpgradePath capturedPath = dw.path;
+                const UnitDef* mu = ud;
+                bool alreadyHasStack = false;
+                for (const auto& s : m_hero->army)
+                    if (s.defId == mu->id) { alreadyHasStack = true; break; }
+                if (m_hero && m_playerRes && (alreadyHasStack || m_hero->army.size() < 7)) {
+                    float costMult = m_hero->efficientSpecialty ? 0.8f : 1.0f;
+                    int recruited = m_town->recruit(capturedTier, 999, *m_playerRes,
+                                                    m_registry->units(), costMult);
+                    if (recruited > 0) {
+                        bool merged = false;
+                        for (auto& s : m_hero->army)
+                            if (s.defId == mu->id) { s.count += recruited; merged = true; break; }
+                        if (!merged) m_hero->army.push_back({mu->id, recruited});
+                        rebuildRecruitButtons();
+                    }
+                }
+            }
+
+            ImGui::PopStyleColor(2);
+            if (!hasUnits || !canAfford) ImGui::EndDisabled();
+
+            // Dummy to consume the card area
+            ImGui::SetCursorScreenPos({cardMin.x, cardMax.y + 4});
+            ImGui::EndGroup();
+            ImGui::PopID();
         }
     }
+
+    ImGui::End();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
 }
 
 void TownScreen::drawIncomePanel(UIRenderer& rdr)

@@ -589,6 +589,15 @@ void Game::enterTown(Town* town)
     m_showArtifactForgePanel = false;
     m_townScreen.open(town, &m_playerResources, &m_registry, hero,
                       m_turns.week(), blueprintDiscount);
+    // Wire faction art + unit textures for the recruit panel
+    {
+        int fid = std::clamp(static_cast<int>(town->faction), 0, NUM_FACTIONS - 1);
+        m_townScreen.setTownBannerTex(m_townTex[fid].ok()
+            ? (ImTextureID)(uintptr_t)m_townTex[fid].id() : nullptr);
+        for (int t = 0; t < NUM_UNIT_TIERS; ++t)
+            m_townScreen.setUnitTex(t, m_unitTex[fid][t].ok()
+                ? (ImTextureID)(uintptr_t)m_unitTex[fid][t].id() : nullptr);
+    }
     // Play faction-specific theme; fall back to generic town_music
     int fid = static_cast<int>(town->faction);
     if (fid >= 0 && fid < 9) {
