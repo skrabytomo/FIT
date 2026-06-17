@@ -280,7 +280,7 @@ void TownScreen::drawRecruitPanel(UIRenderer& rdr)
 {
     m_recruitPanel.draw(rdr);
     if (m_recruitBtns.empty()) {
-        rdr.drawText("No units available",
+        rdr.drawText("No units available — build a unit dwelling in Buildings",
                      m_recruitPanel.bounds.x + 8,
                      m_recruitPanel.bounds.y + 40,
                      UIColor::hex(UITheme::TEXT_DISABLED), 12.0f);

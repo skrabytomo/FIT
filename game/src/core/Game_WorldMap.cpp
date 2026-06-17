@@ -167,7 +167,7 @@ void Game::updateWorldMap(float dt)
         SDL_SetCursor(fight ? m_cursorFight : m_cursorArrow);
     }
 
-    if (mouse.leftDown) {
+    if (mouse.leftDown && !ImGui::GetIO().WantCaptureMouse) {
         bool uiHandled = m_worldHUD.onMouseDown(
             static_cast<float>(mouse.x), static_cast<float>(mouse.y));
 
