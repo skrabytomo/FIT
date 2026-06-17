@@ -93,7 +93,7 @@ void Game::renderMainMenu()
 
         // Map size
         ImGui::Text("Map Size:");
-        static const char* kMapSizeLabels[] = { "Small (16)", "Medium (24)", "Large (32)", "XLarge (48)" };
+        static const char* kMapSizeLabels[] = { "Small (24)", "Medium (36)", "Large (52)", "XLarge (72)" };
         for (int i = 0; i < 4; ++i) {
             if (i > 0) ImGui::SameLine();
             bool sel = (m_newGameMapSize == i);

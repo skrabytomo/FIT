@@ -603,7 +603,22 @@ bool CombatEngine::submitAction(const CombatAction& action)
                 std::to_string(action.target.q) + "," +
                 std::to_string(action.target.r) + ")");
         }
-        // Moving doesn't end turn — player can still attack
+        // Auto-end turn if no attack is possible from the new position
+        {
+            bool canAttack = false;
+            if (unit->range > 0 && unit->shotsLeft > 0) {
+                canAttack = true;  // ranged unit still has shots
+            } else {
+                for (const auto& other : m_grid.units()) {
+                    if (!other.alive || other.isPlayer) continue;
+                    if (HexGrid::distance(unit->pos, other.pos) == 1) { canAttack = true; break; }
+                }
+            }
+            if (!canAttack) {
+                unit->hasActed = true;
+                advanceTurn();
+            }
+        }
         return true;
     }
     case ActionType::Attack: {

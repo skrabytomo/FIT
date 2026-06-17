@@ -1117,7 +1117,7 @@ void Game::checkTileEvents()
         }
         case Terrain::Volcanic: {
             // Lava heat — kill one unit from a random stack (not the last one)
-            if (totalCount > 2) {
+            if (totalCount > 2 && !hero.army.empty()) {
                 int idx = static_cast<int>((hero.pos.q * 31 + hero.pos.r * 17) % (int)hero.army.size());
                 for (int i = 0; i < (int)hero.army.size(); ++i) {
                     int try_ = (idx + i) % (int)hero.army.size();
@@ -1480,10 +1480,13 @@ void Game::checkTileEvents()
     }
 
     // Hero collision — player meets player → unit exchange; player meets enemy → combat
-    if (tile->heroId != 0 && tile->heroId != hero.id) {
-        // Check allied heroes first
+    // NOTE: tile->heroId is already overwritten with the player's own id at this point,
+    // so we check by position rather than by heroId.
+    {
+        // Check allied heroes (by position)
         for (int i = 0; i < static_cast<int>(m_heroes.size()); ++i) {
-            if (m_heroes[i].id == tile->heroId && i != m_activeHeroIdx) {
+            if (i == m_activeHeroIdx) continue;
+            if (m_heroes[i].pos == hero.pos) {
                 m_showUnitExchange = true;
                 m_exchangeHeroIdx  = i;
                 m_exchangeSelSlotA = -1;
@@ -1491,11 +1494,13 @@ void Game::checkTileEvents()
                 return;
             }
         }
-        // Enemy hero
+        // Enemy hero (by position)
         Hero* enemyPtr = nullptr;
         for (auto& e : m_enemyHeroes)
-            if (e.id == tile->heroId) { enemyPtr = &e; break; }
+            if (e.pos == hero.pos) { enemyPtr = &e; break; }
         if (enemyPtr) {
+            // Move enemy off this tile so the player can stand here after combat
+            if (HexTile* et = m_map.getTile(enemyPtr->pos)) et->heroId = 0;
             m_lastCombatEnemyId = enemyPtr->id;
             auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
             auto eUnits = makeHeroUnits(*enemyPtr, m_registry.units(), false);

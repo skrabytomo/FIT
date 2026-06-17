@@ -46,12 +46,12 @@ enum class MapSize { Small, Medium, Large, XLarge };
 
 inline int mapRadius(MapSize s) {
     switch (s) {
-        case MapSize::Small:  return 16;
-        case MapSize::Medium: return 24;
-        case MapSize::Large:  return 32;
-        case MapSize::XLarge: return 48;
+        case MapSize::Small:  return 24;
+        case MapSize::Medium: return 36;
+        case MapSize::Large:  return 52;
+        case MapSize::XLarge: return 72;
     }
-    return 24;
+    return 36;
 }
 
 // ── HexMap ────────────────────────────────────────────────────────────────────
