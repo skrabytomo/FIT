@@ -935,6 +935,16 @@ void Game::onTileClicked(HexCoord h)
     const HexTile* tile = m_map.getTile(h);
     if (!tile) return;
 
+    // Left-click on a player-owned town opens the town screen directly
+    if (tile->townId != 0) {
+        for (auto& t : m_towns) {
+            if (t.id == tile->townId && t.ownerId == 1) {
+                enterTown(&t);
+                return;
+            }
+        }
+    }
+
     Hero& hero = m_heroes[m_activeHeroIdx];
     if (!hero.canEnter(tile->terrain)) return;
     if (m_moveT < 1.0f) return;
