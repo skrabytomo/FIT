@@ -1004,13 +1004,16 @@ void Game::onTileClicked(HexCoord h)
     const HexTile* tile = m_map.getTile(h);
     if (!tile) return;
 
-    // Left-click on a player-owned town opens the town screen directly
-    if (tile->townId != 0) {
+    // Left-click on a player-owned town: open if hero is on/adjacent, else path there
+    if (tile->townId != 0 && !m_heroes.empty()) {
+        Hero& clickHero = m_heroes[m_activeHeroIdx];
         for (auto& t : m_towns) {
-            if (t.id == tile->townId && t.ownerId == 1) {
+            if (t.id != tile->townId || t.ownerId != 1) continue;
+            if (clickHero.pos == h || HexGrid::distance(clickHero.pos, h) <= 1) {
                 enterTown(&t);
                 return;
             }
+            break; // far away — fall through to pathfinding
         }
     }
 
@@ -1587,6 +1590,7 @@ void Game::renderWorldOverlay()
             if (!rt || !rt->explored) continue;
             float sx, sy;
             project(rc, sx, sy);
+            if (sy < HUD_TOP + 22.0f || sy > HUD_BOTTOM) continue;
             // Base dirt circle
             dl->AddCircleFilled({sx, sy}, 18.0f, IM_COL32(160, 130, 85, 140));
             // Draw line segments to each explored road neighbor for continuity
@@ -1597,6 +1601,7 @@ void Game::renderWorldOverlay()
                     float nx, ny;
                     project(nb, nx, ny);
                     float mx = (sx + nx) * 0.5f, my = (sy + ny) * 0.5f;
+                    if (my < HUD_TOP + 22.0f || my > HUD_BOTTOM) continue;
                     dl->AddLine({sx, sy}, {mx, my}, IM_COL32(160, 130, 85, 120), 10.0f);
                 }
             }
@@ -1609,6 +1614,7 @@ void Game::renderWorldOverlay()
         for (const auto& rc : m_reachable) {
             float sx, sy;
             project(rc, sx, sy);
+            if (sy < HUD_TOP || sy > HUD_BOTTOM) continue;
             dl->AddCircleFilled({sx, sy}, 20.0f, IM_COL32(80, 220, 100, 35));
             dl->AddCircle({sx, sy}, 20.0f, IM_COL32(80, 220, 100, 110), 0, 1.2f);
         }

@@ -20,7 +20,7 @@ void BuildingRegistry::init()
     {
         BuildingDef b;
         b.id = BID::FORT; b.name = "Fort";
-        b.description = "Adds walls and gate — enables siege defense";
+        b.description = "Adds walls and gate - enables siege defense";
         b.category = BuildingCategory::Fort;
         b.cost = gold(2000);
         m_buildings.push_back(b);
@@ -28,7 +28,7 @@ void BuildingRegistry::init()
     {
         BuildingDef b;
         b.id = BID::MARKET; b.name = "Market";
-        b.description = "Converts resources — +500 Gold weekly, +1 unit growth";
+        b.description = "Converts resources - +500 Gold weekly, +1 unit growth";
         b.category = BuildingCategory::Economy;
         b.cost = gold(1000);
         b.weeklyIncome = gold(500);
@@ -38,7 +38,7 @@ void BuildingRegistry::init()
     {
         BuildingDef b;
         b.id = BID::WAREHOUSE; b.name = "Warehouse";
-        b.description = "Resource storage — +1 Iron weekly";
+        b.description = "Resource storage - +1 Iron weekly";
         b.category = BuildingCategory::Economy;
         b.cost = gold(500);
         b.weeklyIncome = res(ResourceType::Iron, 1);
@@ -66,7 +66,7 @@ void BuildingRegistry::init()
     {
         BuildingDef b;
         b.id = BID::HO_HALL; b.name = "Cathedral Hall";
-        b.description = "Town Hall — +1000 Gold weekly, +2 unit growth";
+        b.description = "Town Hall - +1000 Gold weekly, +2 unit growth";
         b.category = BuildingCategory::Economy;
         b.faction = FactionId::HolyOrder;
         b.cost = gold(500);
@@ -75,7 +75,7 @@ void BuildingRegistry::init()
         m_buildings.push_back(b);
     }
 
-    // T1 — Penitent
+    // T1 - Penitent
     {
         BuildingDef b;
         b.id = BID::HO_T1_BASE; b.name = "Prison Yard";
@@ -89,7 +89,7 @@ void BuildingRegistry::init()
     }
     {
         BuildingDef b;
-        b.id = BID::HO_T1_A; b.name = "Prison Yard — Fast Death";
+        b.id = BID::HO_T1_A; b.name = "Prison Yard - Fast Death";
         b.description = "Penitents die faster, feed Desperation harder";
         b.category = BuildingCategory::UnitDwelling;
         b.faction = FactionId::HolyOrder;
@@ -100,7 +100,7 @@ void BuildingRegistry::init()
     }
     {
         BuildingDef b;
-        b.id = BID::HO_T1_B; b.name = "Prison Yard — Hardened";
+        b.id = BID::HO_T1_B; b.name = "Prison Yard - Hardened";
         b.description = "Penitents tankier, slower meter feed";
         b.category = BuildingCategory::UnitDwelling;
         b.faction = FactionId::HolyOrder;
@@ -110,7 +110,7 @@ void BuildingRegistry::init()
         m_buildings.push_back(b);
     }
 
-    // T2 — Torch Bearer
+    // T2 - Torch Bearer
     {
         BuildingDef b;
         b.id = BID::HO_T2_BASE; b.name = "Militia Barracks";
@@ -125,7 +125,7 @@ void BuildingRegistry::init()
     }
     {
         BuildingDef b;
-        b.id = BID::HO_T2_A; b.name = "Militia Barracks — Arsonist";
+        b.id = BID::HO_T2_A; b.name = "Militia Barracks - Arsonist";
         b.description = "Torch Bearers spread fire on death";
         b.category = BuildingCategory::UnitDwelling;
         b.faction = FactionId::HolyOrder;
@@ -136,7 +136,7 @@ void BuildingRegistry::init()
     }
     {
         BuildingDef b;
-        b.id = BID::HO_T2_B; b.name = "Militia Barracks — Devoted";
+        b.id = BID::HO_T2_B; b.name = "Militia Barracks - Devoted";
         b.description = "Torch Bearers empower nearby units while alive";
         b.category = BuildingCategory::UnitDwelling;
         b.faction = FactionId::HolyOrder;
@@ -146,7 +146,7 @@ void BuildingRegistry::init()
         m_buildings.push_back(b);
     }
 
-    // T3 — Plague Doctor
+    // T3 - Plague Doctor
     {
         BuildingDef b;
         b.id = BID::HO_T3_BASE; b.name = "Apothecary";
@@ -161,7 +161,7 @@ void BuildingRegistry::init()
     }
     {
         BuildingDef b;
-        b.id = BID::HO_T3_A; b.name = "Apothecary — Sacrifice";
+        b.id = BID::HO_T3_A; b.name = "Apothecary - Sacrifice";
         b.category = BuildingCategory::UnitDwelling;
         b.faction = FactionId::HolyOrder;
         b.tier = 3; b.weeklyGrowth = 7;
@@ -171,7 +171,7 @@ void BuildingRegistry::init()
     }
     {
         BuildingDef b;
-        b.id = BID::HO_T3_B; b.name = "Apothecary — Toxic Cloud";
+        b.id = BID::HO_T3_B; b.name = "Apothecary - Toxic Cloud";
         b.category = BuildingCategory::UnitDwelling;
         b.faction = FactionId::HolyOrder;
         b.tier = 3; b.weeklyGrowth = 6;
@@ -180,7 +180,7 @@ void BuildingRegistry::init()
         m_buildings.push_back(b);
     }
 
-    // T4 — Penitent Knight
+    // T4 - Penitent Knight
     {
         BuildingDef b;
         b.id = BID::HO_T4_BASE; b.name = "Knight's Penance Hall";
@@ -192,16 +192,16 @@ void BuildingRegistry::init()
         b.upgradeA = BID::HO_T4_A; b.upgradeB = BID::HO_T4_B;
         m_buildings.push_back(b);
     }
-    { BuildingDef b; b.id=BID::HO_T4_A; b.name="Knight's Penance — Shield";
+    { BuildingDef b; b.id=BID::HO_T4_A; b.name="Knight's Penance - Shield";
       b.tier=4; b.weeklyGrowth=5; b.category=BuildingCategory::UnitDwelling;
       b.faction=FactionId::HolyOrder; b.cost=goldAndRes(2000,ResourceType::Iron,2);
       b.prerequisites={BID::HO_T4_BASE}; m_buildings.push_back(b); }
-    { BuildingDef b; b.id=BID::HO_T4_B; b.name="Knight's Penance — Bleed";
+    { BuildingDef b; b.id=BID::HO_T4_B; b.name="Knight's Penance - Bleed";
       b.tier=4; b.weeklyGrowth=4; b.category=BuildingCategory::UnitDwelling;
       b.faction=FactionId::HolyOrder; b.cost=goldAndRes(2000,ResourceType::BloodEssence,1);
       b.prerequisites={BID::HO_T4_BASE}; m_buildings.push_back(b); }
 
-    // T5 — Seraph
+    // T5 - Seraph
     {
         BuildingDef b;
         b.id = BID::HO_T5_BASE; b.name = "Binding Spire";
@@ -213,16 +213,16 @@ void BuildingRegistry::init()
         b.upgradeA = BID::HO_T5_A; b.upgradeB = BID::HO_T5_B;
         m_buildings.push_back(b);
     }
-    { BuildingDef b; b.id=BID::HO_T5_A; b.name="Binding Spire — Wide Aura";
+    { BuildingDef b; b.id=BID::HO_T5_A; b.name="Binding Spire - Wide Aura";
       b.tier=5; b.weeklyGrowth=3; b.category=BuildingCategory::UnitDwelling;
       b.faction=FactionId::HolyOrder; b.cost=goldAndRes(4000,ResourceType::FaithStones,3);
       b.prerequisites={BID::HO_T5_BASE}; m_buildings.push_back(b); }
-    { BuildingDef b; b.id=BID::HO_T5_B; b.name="Binding Spire — Unchained";
+    { BuildingDef b; b.id=BID::HO_T5_B; b.name="Binding Spire - Unchained";
       b.tier=5; b.weeklyGrowth=2; b.category=BuildingCategory::UnitDwelling;
       b.faction=FactionId::HolyOrder; b.cost=goldAndRes(4000,ResourceType::FaithStones,4);
       b.prerequisites={BID::HO_T5_BASE}; m_buildings.push_back(b); }
 
-    // T6 — Winged Hussar
+    // T6 - Winged Hussar
     {
         BuildingDef b;
         b.id = BID::HO_T6_BASE; b.name = "Hussar Sanctum";
@@ -234,11 +234,11 @@ void BuildingRegistry::init()
         b.upgradeA = BID::HO_T6_A; b.upgradeB = BID::HO_T6_B;
         m_buildings.push_back(b);
     }
-    { BuildingDef b; b.id=BID::HO_T6_A; b.name="Hussar Sanctum — Desperation";
+    { BuildingDef b; b.id=BID::HO_T6_A; b.name="Hussar Sanctum - Desperation";
       b.tier=6; b.weeklyGrowth=1; b.category=BuildingCategory::UnitDwelling;
       b.faction=FactionId::HolyOrder; b.cost=goldAndRes(8000,ResourceType::FaithStones,6);
       b.prerequisites={BID::HO_T6_BASE}; m_buildings.push_back(b); }
-    { BuildingDef b; b.id=BID::HO_T6_B; b.name="Hussar Sanctum — Both Meters";
+    { BuildingDef b; b.id=BID::HO_T6_B; b.name="Hussar Sanctum - Both Meters";
       b.tier=6; b.weeklyGrowth=1; b.category=BuildingCategory::UnitDwelling;
       b.faction=FactionId::HolyOrder; b.cost=goldAndRes(8000,ResourceType::FaithStones,8);
       b.prerequisites={BID::HO_T6_BASE}; m_buildings.push_back(b); }
@@ -300,7 +300,7 @@ void BuildingRegistry::init()
 
     // ── CRIMSON WARDENS ───────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::CW_HALL; b.name="Catacombs Throne";
-      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.description="Town Hall - +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
       b.faction=F::CrimsonWardens; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::CW_T1; b.name="Ossuary"; b.tier=1; b.weeklyGrowth=15;
@@ -350,7 +350,7 @@ void BuildingRegistry::init()
 
     // ── THORNKIN ─────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::TK_GROVE_HEART; b.name="Grove Heart";
-      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.description="Town Hall - +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
       b.faction=F::Thornkin; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::TK_T1; b.name="Sprout Hollow"; b.tier=1; b.weeklyGrowth=14;
@@ -397,7 +397,7 @@ void BuildingRegistry::init()
 
     // ── ETERNAL EMPIRE ────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::EE_THRONE; b.name="Imperial Throne";
-      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.description="Town Hall - +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
       b.faction=F::EternalEmpire; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::EE_T1; b.name="Conscript Pen"; b.tier=1; b.weeklyGrowth=13;
@@ -429,7 +429,7 @@ void BuildingRegistry::init()
       b.cost=goldAndRes(1500,ResourceType::BloodEssence,2);
       b.prerequisites={BID::EE_THRONE}; m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::EE_MONUMENT; b.name="Monument of Eternity";
-      b.description="Undead and Holy units gain Second Life — revive once at half HP on death";
+      b.description="Undead and Holy units gain Second Life - revive once at half HP on death";
       b.category=BuildingCategory::Support; b.faction=F::EternalEmpire;
       b.cost=goldAndRes(2500,ResourceType::Mercury,4);
       b.prerequisites={BID::EE_NECROPOLIS}; m_buildings.push_back(b); }
@@ -444,7 +444,7 @@ void BuildingRegistry::init()
 
     // ── BLOODSWORN ────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::BS_WAR_HALL; b.name="War Hall";
-      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.description="Town Hall - +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
       b.faction=F::Bloodsworn; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::BS_T1; b.name="Bloodling Pen"; b.tier=1; b.weeklyGrowth=14;
@@ -491,7 +491,7 @@ void BuildingRegistry::init()
 
     // ── VOIDKIN ───────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::VK_NEXUS; b.name="Void Nexus";
-      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.description="Town Hall - +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
       b.faction=F::Voidkin; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::VK_T1; b.name="Wisp Hollow"; b.tier=1; b.weeklyGrowth=13;
@@ -538,7 +538,7 @@ void BuildingRegistry::init()
 
     // ── IRON ASSEMBLY ─────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::IA_FORGE_HALL; b.name="Forge Hall";
-      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.description="Town Hall - +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
       b.faction=F::IronAssembly; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::IA_T1; b.name="Automaton Works"; b.tier=1; b.weeklyGrowth=12;
@@ -587,7 +587,7 @@ void BuildingRegistry::init()
 
     // ── AMALGAMATE ────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::AM_GRAFTING_HALL; b.name="Grafting Hall";
-      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.description="Town Hall - +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
       b.faction=F::Amalgamate; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::AM_T1; b.name="Flesh Crawler Vat"; b.tier=1; b.weeklyGrowth=13;
@@ -634,7 +634,7 @@ void BuildingRegistry::init()
 
     // ── CONVERGENCE ───────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::CV_SYNTHESIS_HUB; b.name="Synthesis Hub";
-      b.description="Town Hall — +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
+      b.description="Town Hall - +1000 Gold weekly, +2 unit growth"; b.category=BuildingCategory::Economy;
       b.faction=F::Convergence; b.cost=gold(500); b.weeklyIncome=gold(1000); b.growthBonus=2;
       m_buildings.push_back(b); }
     { BuildingDef b; b.id=BID::CV_T1; b.name="Awakening Chamber"; b.tier=1; b.weeklyGrowth=11;

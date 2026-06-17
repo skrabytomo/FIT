@@ -19,14 +19,14 @@ void WorldMapHUD::buildLayout(int sw, int sh)
     m_screenW = sw; m_screenH = sh;
 
     // Top resource bar — taller for readability
-    m_topBar = {0, 0, (float)sw, 56.0f};
+    m_topBar = {0, 0, (float)sw, 68.0f};
 
     // Bottom bar
-    m_bottomBar = {0, (float)sh - 48.0f, (float)sw, 48.0f};
+    m_bottomBar = {0, (float)sh - 52.0f, (float)sw, 48.0f};
 
     // End turn button — bottom right
     m_endTurnBtn = Button("End Turn",
-        {(float)sw - 160.0f, (float)sh - 42.0f, 150.0f, 36.0f},
+        {(float)sw - 160.0f, (float)sh - 46.0f, 150.0f, 36.0f},
         [this]{ if (onEndTurn) onEndTurn(); });
     m_endTurnBtn.colorBorder  = UIColor::hex(UITheme::GOLD);
     m_endTurnBtn.colorText    = UIColor::hex(UITheme::GOLD);
@@ -70,7 +70,7 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res,
     // Resource icons + values
     float x = 10.0f;
     float y = 5.0f;
-    float spacing = 150.0f;
+    float spacing = 185.0f;
 
     struct ResDisplay { ResourceType type; unsigned color; };
     static const ResDisplay displays[] = {
@@ -98,7 +98,7 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res,
         int val = res.get(d.type);
         int inc = income.get(d.type);
         // Resource icon (32×32 sprite scaled to 32px, centered in bar)
-        float iconSz = 36.0f;
+        float iconSz = 40.0f;
         float iconY  = y + (46.0f - iconSz) * 0.5f;
         if (m_iconTex)
             drawResIcon(resIconIdx[iconCount], x, iconY, iconSz);
@@ -107,7 +107,7 @@ void WorldMapHUD::drawResourceBar(UIRenderer& rdr, const Resources& res,
         float textX = x + (m_iconTex ? iconSz + 4.0f : 16.0f);
         // Name + value
         std::string label = std::string(resourceName(d.type)) + ": " + std::to_string(val);
-        rdr.drawText(label, textX, y + 4.0f, UIColor::hex(d.color), 14.0f);
+        rdr.drawText(label, textX, y + 4.0f, UIColor::hex(d.color), 15.0f);
         // Income per week below
         if (inc > 0) {
             std::string incStr = "+" + std::to_string(inc) + "/wk";
@@ -127,7 +127,7 @@ void WorldMapHUD::drawDatePanel(UIRenderer& rdr, const TurnManager& turns)
                        "  Day " + std::to_string(turns.day());
     float tw = date.size() * 9.0f;
     float tx = (m_screenW - tw) * 0.5f;
-    rdr.drawText(date, tx, 18.0f, UIColor::hex(UITheme::TEXT_SECONDARY), 15.0f);
+    rdr.drawText(date, tx, 22.0f, UIColor::hex(UITheme::TEXT_SECONDARY), 16.0f);
 }
 
 void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,

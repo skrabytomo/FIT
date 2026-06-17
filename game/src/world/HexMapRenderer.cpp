@@ -265,13 +265,15 @@ void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
 
     for (auto& coord : map.coords()) {
         const HexTile* tile = map.getTile(coord);
-        if (!tile || (!fogDisabled && !tile->explored)) continue;
+        if (!tile) continue;
+        bool isWater = (tile->terrain == Terrain::Water);
+        if (!fogDisabled && !tile->explored && !isWater) continue;
 
         float cx, cy;
         m_grid.hexToWorld(coord, cx, cy);
 
         int ti = static_cast<int>(tile->terrain);
-        float a = (fogDisabled || tile->visible) ? 1.0f : 0.55f;
+        float a = (fogDisabled || tile->visible || isWater) ? 1.0f : 0.55f;
 
         // Pick variant deterministically from tile coords (consistent across frames)
         int nv = m_variantCount[ti];

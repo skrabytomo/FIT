@@ -422,22 +422,20 @@ void TownScreen::drawRecruitPanel(UIRenderer& rdr)
                 ImVec4(hdrCol.x*0.5f, hdrCol.y*0.5f, hdrCol.z*0.5f, 1.0f));
 
             if (ImGui::Button("Recruit All##btn", {cardW - 8.0f, 12.0f})) {
-                // Perform recruitment
-                int capturedTier = dw.tier;
-                UpgradePath capturedPath = dw.path;
                 const UnitDef* mu = ud;
+                std::vector<UnitStack>& target = m_hero ? m_hero->army : m_town->garrison;
                 bool alreadyHasStack = false;
-                for (const auto& s : m_hero->army)
+                for (const auto& s : target)
                     if (s.defId == mu->id) { alreadyHasStack = true; break; }
-                if (m_hero && m_playerRes && (alreadyHasStack || m_hero->army.size() < 7)) {
-                    float costMult = m_hero->efficientSpecialty ? 0.8f : 1.0f;
-                    int recruited = m_town->recruit(capturedTier, 999, *m_playerRes,
+                if (m_playerRes && (alreadyHasStack || target.size() < 7)) {
+                    float costMult = (m_hero && m_hero->efficientSpecialty) ? 0.8f : 1.0f;
+                    int recruited = m_town->recruit(dw.tier, 999, *m_playerRes,
                                                     m_registry->units(), costMult);
                     if (recruited > 0) {
                         bool merged = false;
-                        for (auto& s : m_hero->army)
+                        for (auto& s : target)
                             if (s.defId == mu->id) { s.count += recruited; merged = true; break; }
-                        if (!merged) m_hero->army.push_back({mu->id, recruited});
+                        if (!merged) target.push_back({mu->id, recruited});
                         rebuildRecruitButtons();
                     }
                 }
