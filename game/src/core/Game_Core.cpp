@@ -800,6 +800,54 @@ void Game::startNewGame()
                 }
             }
         }
+
+        // Guarantee 1 faction-specific resource mine within 10 hexes of start
+        {
+            FactionId playerFaction = FactionId::None;
+            for (const auto& t : m_towns)
+                if (t.ownerId == 1) { playerFaction = t.faction; break; }
+
+            auto factionPrimaryRes = [](FactionId f) -> ResourceType {
+                switch (f) {
+                case FactionId::HolyOrder:      return ResourceType::FaithStones;
+                case FactionId::CrimsonWardens: return ResourceType::FaithStones;
+                case FactionId::Thornkin:       return ResourceType::VerdantSap;
+                case FactionId::EternalEmpire:  return ResourceType::Mercury;
+                case FactionId::Bloodsworn:     return ResourceType::BloodEssence;
+                case FactionId::Voidkin:        return ResourceType::VerdantSap;
+                case FactionId::IronAssembly:   return ResourceType::Iron;
+                case FactionId::Amalgamate:     return ResourceType::BloodEssence;
+                case FactionId::Convergence:    return ResourceType::Mercury;
+                default:                        return ResourceType::Gold;
+                }
+            };
+
+            ResourceType fres = factionPrimaryRes(playerFaction);
+            for (auto& c : allCoords) {
+                HexTile* t = m_map.getTile(c);
+                if (!t || t->terrain == Terrain::Water) continue;
+                if (t->heroId || t->townId || t->resourceId) continue;
+                bool usedByObj = false;
+                for (auto& o : m_worldObjects) if (o.pos == c) { usedByObj = true; break; }
+                if (usedByObj) continue;
+                int d = HexGrid::distance(c, startPos);
+                if (d < 4 || d > 10) continue;
+                bool tooClose = false;
+                for (auto& r : m_resources)
+                    if (HexGrid::distance(c, r.pos) < 3) { tooClose = true; break; }
+                if (tooClose) continue;
+                ResourceNode node;
+                node.id     = m_nextObjId++;
+                node.pos    = c;
+                node.type   = fres;
+                node.amount = (fres == ResourceType::Gold) ? 250 : 3 + static_cast<int>(lcg() % 3);
+                t->resourceId = node.id;
+                m_resources.push_back(node);
+                printf("Placed faction mine (%s) at (%d,%d) dist=%d\n",
+                       resourceName(fres), c.q, c.r, d);
+                break;
+            }
+        }
         for (int s = 0; s < 4 * scale; ++s) {
             HexCoord p = pickTile();
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::SpellScroll, p,

@@ -34,7 +34,18 @@ Executable: `game/build/bin/unnamed_strategy`
 - Gold mines: `node.amount = 250` (not 3-5)
 - Non-gold mines: `node.amount = 2-5`
 - Mine income added each new week in `Game_WorldMap.cpp` after `m_turns.endTurn()`
-- Building costs use `goldAndRes()` helper; shared buildings (Fort, Mage Guild) cost non-gold resources
+- Faction primary resources: HO/CW=FaithStones, TK/VK=VerdantSap, EE/CV=Mercury, BS/AM=BloodEssence, IA=Iron
+- All 9 faction Halls cost gold + faction resource (see BuildingRegistry.cpp)
+- Warehouse chain: T1(BID=3) → T2(BID=7) → T3(BID=8); each tier adds 2 Iron/wk
+- Mage Guild chain: T1(BID=5) → T2(BID=6) → T3(BID=9, 30% off) → T4(BID=10, 50% off + mana)
+- Each player start gets guaranteed faction-resource mine within 10 tiles (Game_Core.cpp)
+
+## Editor state (F2 to enter)
+- Terrain painting: click tiles to repaint
+- Town/Resource/HeroStart/Trigger/Erase tools in toolbar
+- ProGen panel: seed, players, map size, resource density → Generate button runs WorldGen
+- Save/Load: File menu or Ctrl+S/O, saves to maps/*.map
+- Resource editor hardcodes Gold/amount=3 when placing — type/amount not editable in UI yet
 
 ## Repository scope
 Only interact with `skrabytomo/fit`.

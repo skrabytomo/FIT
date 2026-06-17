@@ -15,8 +15,12 @@ namespace BID {
     constexpr int MARKET       = 2;
     constexpr int WAREHOUSE    = 3;
     constexpr int ROAD         = 4;
-    constexpr int MAGE_GUILD   = 5;   // teaches faction spells; tier 1 → 2 spells, tier 2 → 4
-    constexpr int MAGE_GUILD_T2 = 6;  // upgrade: unlocks spells 3 & 4
+    constexpr int MAGE_GUILD    = 5;   // T1: 2 spells
+    constexpr int MAGE_GUILD_T2 = 6;  // T2: 4 spells
+    constexpr int WAREHOUSE_T2  = 7;  // +4 Iron/wk
+    constexpr int WAREHOUSE_T3  = 8;  // +6 Iron/wk
+    constexpr int MAGE_GUILD_T3 = 9;  // T3: all 4 spells at 30% discount
+    constexpr int MAGE_GUILD_T4 = 10; // T4: all 4 spells at 50% discount (magic factions)
 
     // Holy Order
     constexpr int HO_HALL         = 100; // Town Hall (base income)

@@ -10,6 +10,7 @@
 #include <imgui.h>
 #include <stdio.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <cstdio>
 
 // ── Town update ───────────────────────────────────────────────────────────────
@@ -116,16 +117,38 @@ void Game::renderMageGuild()
     if (entries.empty()) return;
 
     const auto& entries_ref = entries;
-    int available = town->hasBuilding(BID::MAGE_GUILD_T2) ? 4 : 2;
 
+    // Tier determines spell access and cost discount
+    int  available = 2;
+    float costMult  = 1.0f;
+    int  tierLevel  = 1;
+    if      (town->hasBuilding(BID::MAGE_GUILD_T4)) { available=4; costMult=0.5f;  tierLevel=4; }
+    else if (town->hasBuilding(BID::MAGE_GUILD_T3)) { available=4; costMult=0.70f; tierLevel=3; }
+    else if (town->hasBuilding(BID::MAGE_GUILD_T2)) { available=4; costMult=1.0f;  tierLevel=2; }
+
+    // T4 bonus: grant hero +5 max mana on visit (one-time per visit)
+    if (tierLevel == 4) {
+        static std::unordered_set<int> s_t4BonusGiven;
+        if (s_t4BonusGiven.find(hero.id) == s_t4BonusGiven.end()) {
+            hero.maxMana += 5;
+            hero.mana     = std::min(hero.mana + 5, hero.maxMana);
+            s_t4BonusGiven.insert(hero.id);
+        }
+    }
+
+    char titleBuf[48];
+    std::snprintf(titleBuf, sizeof(titleBuf), "Mage Guild (Tier %d)###MageGuild", tierLevel);
     ImGui::SetNextWindowPos(ImVec2(20, 32), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(320, 0), ImGuiCond_Always);
-    if (!ImGui::Begin("Mage Guild", nullptr,
+    ImGui::SetNextWindowSize(ImVec2(340, 0), ImGuiCond_Always);
+    if (!ImGui::Begin(titleBuf, nullptr,
                       ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::End(); return;
     }
 
     ImGui::Text("Gold: %d", m_playerResources.get(ResourceType::Gold));
+    if (costMult < 1.0f)
+        ImGui::TextColored(ImVec4(0.4f,1.f,0.6f,1.f), "Tier %d discount: %.0f%% off",
+                           tierLevel, (1.0f - costMult) * 100.0f);
     ImGui::Separator();
 
     for (int i = 0; i < available && i < static_cast<int>(entries_ref.size()); ++i) {
@@ -139,13 +162,18 @@ void Game::renderMageGuild()
         if (alreadyKnown) {
             ImGui::TextColored(ImVec4(0.4f,1.f,0.4f,1.f), "[known] %s", sp->name);
         } else {
-            bool canAfford = m_playerResources.get(ResourceType::Gold) >= entries_ref[i].goldCost;
+            int cost = static_cast<int>(entries_ref[i].goldCost * costMult);
+            bool canAfford = m_playerResources.get(ResourceType::Gold) >= cost;
             if (!canAfford) ImGui::BeginDisabled();
-            char btn[64];
-            std::snprintf(btn, sizeof(btn), "Learn %s  (%dg)", sp->name, entries_ref[i].goldCost);
+            char btn[80];
+            if (costMult < 1.0f)
+                std::snprintf(btn, sizeof(btn), "Learn %s  (%dg, was %dg)",
+                              sp->name, cost, entries_ref[i].goldCost);
+            else
+                std::snprintf(btn, sizeof(btn), "Learn %s  (%dg)", sp->name, cost);
             if (ImGui::Button(btn, ImVec2(-1,0))) {
                 hero.knownSpells.push_back(sp->id);
-                m_playerResources.add(ResourceType::Gold, -entries_ref[i].goldCost);
+                m_playerResources.add(ResourceType::Gold, -cost);
             }
             if (!canAfford) ImGui::EndDisabled();
         }
