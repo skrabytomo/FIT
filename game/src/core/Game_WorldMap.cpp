@@ -143,18 +143,18 @@ void Game::updateWorldMap(float dt)
     if (m_input.keyHeld(SDLK_UP))    m_camera.pan(0, -PAN);
     if (m_input.keyHeld(SDLK_DOWN))  m_camera.pan(0,  PAN);
 
-    // Clamp camera so the player can't scroll off the map edge into black void
-    {
-        const float hs  = m_hexRenderer.grid().hexSize();
-        const float R   = static_cast<float>(m_map.radius());
-        const float pad = hs * 3.0f;           // half-screen of padding at edge
-        const float limX = R * hs * 1.8f + pad;
-        const float limY = R * hs * 2.0f + pad;
+    // Lambda that clamps camera position to the visible map region
+    auto clampCamera = [this]() {
+        const float hs   = m_hexRenderer.grid().hexSize();
+        const float R    = static_cast<float>(m_map.radius());
+        const float limX = R * hs * 1.5f + hs * 2.0f;
+        const float limY = R * hs * 1.732f + hs * 2.0f;
         float cx = std::clamp(m_camera.x(), -limX, limX);
         float cy = std::clamp(m_camera.y(), -limY, limY);
         if (cx != m_camera.x() || cy != m_camera.y())
             m_camera.setPosition(cx, cy);
-    }
+    };
+    clampCamera();
 
     {
         float wx, wy;
@@ -202,6 +202,7 @@ void Game::updateWorldMap(float dt)
                 float q_f   = (mx - mm_cx) / scaleX;
                 float rq_f  = (my - mm_cy) / scaleY;
                 m_camera.setPosition(hs * 1.5f * q_f, hs * 1.7320508f * rq_f);
+                clampCamera();
                 uiHandled = true;
             }
         }
@@ -266,6 +267,7 @@ void Game::updateWorldMap(float dt)
         float hx2, hy2;
         m_hexRenderer.grid().hexToWorld(nextHero.pos, hx2, hy2);
         m_camera.setPosition(hx2, hy2);
+        clampCamera();
         m_selected = {-999, -999};
         auto costFn2 = [this, &nextHero](HexCoord c) -> int {
             const HexTile* t = m_map.getTile(c);
@@ -1591,7 +1593,7 @@ void Game::renderWorldOverlay()
     // ── Towns ─────────────────────────────────────────────────────────────────
     for (const auto& town : m_towns) {
         const HexTile* ttile = m_map.getTile(town.pos);
-        if (!m_fogDisabled && ttile && !ttile->visible) continue;
+        if (!m_fogDisabled && ttile && !ttile->explored) continue;
 
         float sx, sy;
         project(town.pos, sx, sy);
@@ -1610,8 +1612,10 @@ void Game::renderWorldOverlay()
         ImTextureID townArt = m_townTex[fid].ok()
             ? (ImTextureID)(uintptr_t)m_townTex[fid].id() : nullptr;
 
-        const float CS   = townArt ? 46.0f : 44.0f;   // ~90px total, fits within one hex tile
-        const float glow = 12.0f;
+        // Scale icon with zoom but cap at half a tile so it never overflows the hex
+        const float tileR = m_hexRenderer.grid().hexSize() * m_camera.zoom() * 0.5f;
+        const float CS    = std::min(townArt ? 46.0f : 44.0f, tileR * 0.88f);
+        const float glow  = std::min(12.0f, CS * 0.25f);
 
         // Outer glow
         dl->AddRectFilled({sx - CS - glow, sy - CS - glow},
@@ -1709,23 +1713,27 @@ void Game::renderWorldOverlay()
         case ResourceType::Mercury:      ico = ICO_RES_MERCURY; break;
         default:                         ico = 15;               break;
         }
+        // Scale mine icon with zoom, capped to fit inside one tile
+        const float mineR = std::min(28.0f, m_hexRenderer.grid().hexSize() * m_camera.zoom() * 0.46f);
+        const float mineGlow = mineR + 2.0f;
         // Glow backdrop so mine is visible against any terrain
         ImU32 bgGlow = IM_COL32(0, 0, 0, 150);
-        dl->AddCircleFilled({sx, sy}, 30.0f, bgGlow);
-        addIcon(ico, sx, sy, 28.0f);
+        dl->AddCircleFilled({sx, sy}, mineGlow, bgGlow);
+        addIcon(ico, sx, sy, mineR);
         // Ownership ring
         ImU32 ring = r.ownedBy == 1 ? IM_COL32(120, 200, 255, 255)
                    : r.ownedBy >  1 ? IM_COL32(255, 100, 100, 255)
                                     : IM_COL32(255, 210,  60, 200);
-        dl->AddCircle({sx, sy}, 30.0f, ring, 0, 2.0f);
+        dl->AddCircle({sx, sy}, mineGlow, ring, 0, 2.0f);
         // Resource name + weekly amount always shown below the icon
         const char* resName = resourceName(r.type);
         char label[32];
         std::snprintf(label, sizeof(label), "%s +%d", resName, r.amount);
         float lw = strlen(label) * 5.5f;
-        dl->AddRectFilled({sx - lw - 2, sy + 32}, {sx + lw + 2, sy + 44},
+        float labelY = sy + mineGlow + 2.0f;
+        dl->AddRectFilled({sx - lw - 2, labelY}, {sx + lw + 2, labelY + 12},
                           IM_COL32(0, 0, 0, 170), 3.0f);
-        dl->AddText({sx - lw, sy + 33},
+        dl->AddText({sx - lw, labelY + 1},
                     r.ownedBy == 1 ? IM_COL32(140, 210, 255, 255)
                                    : IM_COL32(255, 230, 120, 255),
                     label);

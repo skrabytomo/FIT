@@ -631,6 +631,8 @@ void Game::startNewGame()
         Town& wt = wgResult.towns[i];
         if (i == 0) {
             wt.ownerId = 1;
+            // Force the player's starting town to match their chosen faction
+            wt.faction = static_cast<FactionId>(std::clamp(m_newGameFaction, 0, 8));
             // Pre-build Mage Guild and faction town hall so income starts immediately
             int hallId = (static_cast<int>(wt.faction) + 1) * 100;
             wt.builtBuildings.push_back(BID::MAGE_GUILD);
