@@ -125,14 +125,15 @@ void main() {
 
     vec3 col;
     if (uUseTexture != 0) {
-        // Animated UV scroll for water
         vec2 uv = vTexCoord;
         if (uTerrain == 9) {
+            // World-space UV: continuous across hex boundaries, no per-hex seams.
+            // GL_REPEAT on the sampler handles wrap — no fract() needed.
             float warpX = sin(vWorldPos.y * 0.008 + uTime * 0.7) * 0.018;
             float warpY = sin(vWorldPos.x * 0.006 - uTime * 0.5) * 0.012;
+            uv = vWorldPos * 0.012;
             uv.x += uTime * 0.022 + warpX;
             uv.y += uTime * 0.010 + warpY;
-            uv = fract(uv);
         }
 
         vec3 tex = texture(uTerrainTex, uv).rgb;
@@ -208,12 +209,14 @@ bool HexMapRenderer::init(float hexSize, const std::string& basePath)
     // fall back to TYPE.png if no variants exist.
     int loaded = 0;
     for (int i = 0; i < NUM_TERRAIN; ++i) {
+        // Water (index 9) uses GL_REPEAT so UV scroll tiles seamlessly
+        bool rep = (i == 9);
         m_variantCount[i] = 0;
         for (int v = 0; v < MAX_VARIANTS; ++v) {
             std::string rel = std::string(s_terrainBase[i]) + "_" + std::to_string(v) + ".png";
             std::string full = basePath + rel;
-            if (m_terrainTex[i][v].load(full, false, false, false) ||
-                (!basePath.empty() && m_terrainTex[i][v].load(rel, false, false, false))) {
+            if (m_terrainTex[i][v].load(full, false, false, rep) ||
+                (!basePath.empty() && m_terrainTex[i][v].load(rel, false, false, rep))) {
                 m_variantCount[i]++;
             } else {
                 break; // stop at first missing variant
@@ -223,8 +226,8 @@ bool HexMapRenderer::init(float hexSize, const std::string& basePath)
         if (m_variantCount[i] == 0) {
             std::string rel  = std::string(s_terrainBase[i]) + ".png";
             std::string full = basePath + rel;
-            if (m_terrainTex[i][0].load(full, false, false, false) ||
-                (!basePath.empty() && m_terrainTex[i][0].load(rel, false, false, false)))
+            if (m_terrainTex[i][0].load(full, false, false, rep) ||
+                (!basePath.empty() && m_terrainTex[i][0].load(rel, false, false, rep)))
                 m_variantCount[i] = 1;
         }
         if (m_variantCount[i] > 0) loaded++;
