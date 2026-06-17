@@ -37,7 +37,7 @@ void Game::updateEditor(float dt)
 // ── Editor render ─────────────────────────────────────────────────────────────
 void Game::renderEditor()
 {
-    m_hexRenderer.render(m_map, m_camera, m_hovered, {-999,-999});
+    m_hexRenderer.render(m_map, m_camera, m_hovered, {-999,-999}, true);
 
     for (auto& s : m_heroStarts) {
         float wx, wy;

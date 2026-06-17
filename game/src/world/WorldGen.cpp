@@ -394,6 +394,21 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         return false;
     };
 
+    // 8-10 Treasure Chests — multi-choice (gold/XP/stat) scattered across map
+    {
+        int chestCount = 8 + static_cast<int>(lcg(rng) % 3); // 8-10
+        static const int kStatTypes[] = { 0, 1, 2 }; // ATK, DEF, SPD
+        for (int i = 0; i < chestCount; ++i) {
+            WorldObject obj;
+            obj.id         = nextId++;
+            obj.type       = WorldObjectType::TreasureChest;
+            obj.value      = 500 + static_cast<int>(lcg(rng) % 501);   // 500-1000 gold
+            obj.questState = 300 + static_cast<int>(lcg(rng) % 301);   // 300-600 XP
+            obj.faction    = static_cast<uint8_t>(kStatTypes[lcg(rng) % 3]); // stat type
+            if (tryPlace(obj, 3)) result.worldObjects.push_back(obj);
+        }
+    }
+
     // 2 Observatories (value=5 radius, far from towns)
     for (int i = 0; i < 2; ++i) {
         WorldObject obj;

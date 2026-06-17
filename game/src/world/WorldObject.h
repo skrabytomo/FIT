@@ -23,6 +23,7 @@ enum class WorldObjectType : uint8_t
     Campfire,       // Plains: +150 gold (value=150)
     LavaCrystal,    // Volcanic: gives Mercury (value=3, resourceType=Mercury)
     SwampAltar,     // Swamp: teaches a spell (value=spellId)
+    TreasureChest,  // Multi-choice reward: value=gold, questState=xp, faction=stat(0=ATK,1=DEF,2=SPD)
 };
 
 struct WorldObject

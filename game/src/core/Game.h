@@ -322,11 +322,14 @@ private:
     int         m_exchangeSelSlotB  = -1;   // selected slot in hero B's army
 
     // ── World object interactions ─────────────────────────────────────────────
-    uint32_t m_pendingObjId        = 0;
-    bool     m_showDwellingPopup   = false;
-    bool     m_showStatShrinePopup = false;
-    bool     m_showQuestPopup      = false;
-    uint32_t m_lastBanditCampId    = 0;
+    uint32_t m_pendingObjId          = 0;
+    bool     m_showDwellingPopup     = false;
+    bool     m_showStatShrinePopup   = false;
+    bool     m_showQuestPopup        = false;
+    uint32_t m_lastBanditCampId      = 0;
+    bool     m_showTreasureChestPopup = false;
+    uint32_t m_pendingChestId         = 0;
+    void renderTreasureChestPopup();
 
     // ── Pause menu (Escape on world map) ─────────────────────────────────────
     bool m_showPauseMenu = false;

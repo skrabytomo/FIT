@@ -218,6 +218,9 @@ void Game::updateWorldMap(float dt)
             m_selected = {-999,-999};
     }
 
+    if (mouse.leftUp)
+        m_worldHUD.onMouseUp(static_cast<float>(mouse.x), static_cast<float>(mouse.y));
+
     m_worldHUD.onMouseMove(static_cast<float>(mouse.x),
                            static_cast<float>(mouse.y));
 
@@ -363,10 +366,11 @@ void Game::doEndTurn()
                         // Valuable world objects (XP, spells, stat boosts, artifacts)
                         for (const auto& obj : m_worldObjects) {
                             if (obj.collected) continue;
-                            if (obj.type == WorldObjectType::XPShrine     ||
+                            if (obj.type == WorldObjectType::XPShrine      ||
                                 obj.type == WorldObjectType::SpellScroll   ||
                                 obj.type == WorldObjectType::StatShrine    ||
                                 obj.type == WorldObjectType::ArtifactChest ||
+                                obj.type == WorldObjectType::TreasureChest ||
                                 obj.type == WorldObjectType::ForestShrine  ||
                                 obj.type == WorldObjectType::SwampAltar) {
                                 tryGoal(obj.pos, 2);
@@ -465,6 +469,11 @@ void Game::doEndTurn()
                             for (int sid : eHero.knownSpells)
                                 if (sid == obj.value) { already = true; break; }
                             if (!already) eHero.knownSpells.push_back(obj.value);
+                        } else if (obj.type == WorldObjectType::TreasureChest) {
+                            // AI always takes gold from multi-choice chests
+                            // (no popup, instant collect)
+                            printf("Enemy %s looted chest: +%d gold\n",
+                                   eHero.name.c_str(), obj.value);
                         }
                     }
 
@@ -977,9 +986,10 @@ void Game::renderWorldMap()
     if (m_showArtifactPanel)  renderArtifactPanel();
     if (m_showHeroInspect)    renderHeroInspect();
     if (m_showUnitExchange)   renderUnitExchange();
-    if (m_showDwellingPopup)    renderDwellingPopup();
-    if (m_showStatShrinePopup)  renderStatShrinePopup();
-    if (m_showQuestPopup)       renderQuestPopup();
+    if (m_showDwellingPopup)      renderDwellingPopup();
+    if (m_showStatShrinePopup)    renderStatShrinePopup();
+    if (m_showQuestPopup)         renderQuestPopup();
+    if (m_showTreasureChestPopup) renderTreasureChestPopup();
     if (m_showTownLostPopup)  renderTownLostPopup();
     if (m_showWeekSummary)    renderWeekSummary();
     if (m_showPauseMenu)      renderPauseMenu();
@@ -1430,6 +1440,13 @@ void Game::checkTileEvents()
                 m_audio.playSound("spell");
             }
             break;
+        case WorldObjectType::TreasureChest:
+            if (!obj.collected) {
+                m_pendingChestId          = obj.id;
+                m_showTreasureChestPopup  = true;
+                // Don't mark collected yet — the popup choice does that
+            }
+            break;
         }
     }
 
@@ -1719,6 +1736,7 @@ void Game::renderWorldOverlay()
         case WorldObjectType::Campfire:      ico = ICO_CAMPFIRE;        break;
         case WorldObjectType::LavaCrystal:   ico = ICO_LAVA_CRYSTAL;    break;
         case WorldObjectType::SwampAltar:    ico = ICO_SWAMP_ALTAR;     break;
+        case WorldObjectType::TreasureChest: ico = ICO_CACHE;            break;
         default:                             ico = 15;                   break;
         }
         // Idle glow pulse (each object offset slightly for variety)
@@ -2885,6 +2903,106 @@ void Game::renderStatShrinePopup()
     ImGui::SameLine();
     if (ImGui::Button("No", {80, 28}))
         m_showStatShrinePopup = false;
+
+    ImGui::End();
+}
+
+// ── Treasure chest popup ─────────────────────────────────────────────────────
+void Game::renderTreasureChestPopup()
+{
+    if (!m_showTreasureChestPopup) return;
+    WorldObject* obj = nullptr;
+    for (auto& o : m_worldObjects)
+        if (o.id == m_pendingChestId) { obj = &o; break; }
+    if (!obj || obj->collected) { m_showTreasureChestPopup = false; return; }
+
+    static const char* kStatNames[] = { "Attack", "Defense", "Movement" };
+    int statType = obj->faction % 3;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({360, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.94f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##tchest", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({1.0f, 0.82f, 0.2f, 1.0f}, "Treasure Chest");
+    ImGui::Separator();
+    ImGui::TextWrapped("You found a weathered chest. Choose your reward:");
+    ImGui::Spacing();
+
+    float bw = ImGui::GetWindowWidth() - 32.0f;
+
+    // Option A: Gold
+    char goldLbl[64];
+    std::snprintf(goldLbl, sizeof(goldLbl), "Gold  (+%d gold coins)", obj->value);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.42f, 0.05f, 1.0f));
+    if (ImGui::Button(goldLbl, ImVec2(bw, 34))) {
+        m_playerResources.add(ResourceType::Gold, obj->value);
+        char buf[32]; std::snprintf(buf, sizeof(buf), "+%d Gold", obj->value);
+        pushPickupEffect(obj->pos, buf, IM_COL32(255, 215, 0, 255));
+        m_audio.playSound("buy");
+        obj->collected = true;
+        m_showTreasureChestPopup = false;
+    }
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    // Option B: Experience
+    char xpLbl[64];
+    std::snprintf(xpLbl, sizeof(xpLbl), "Experience  (+%d XP)", obj->questState);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.4f, 0.15f, 1.0f));
+    if (ImGui::Button(xpLbl, ImVec2(bw, 34))) {
+        if (!m_heroes.empty()) {
+            Hero& hero = m_heroes[m_activeHeroIdx];
+            int oldLevel = hero.level;
+            bool leveled = hero.addXp(obj->questState);
+            if (leveled) {
+                const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                if (cls) {
+                    std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                    m_levelUpOffers = LevelUpSystem::generateOffers(*cls, hero.skills, hero.level, allSkills, hero.faction);
+                }
+                if (m_levelUpOffers.empty())
+                    m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
+                m_pendingLevelUps = hero.level - oldLevel;
+                m_showLevelUpModal = true;
+            }
+            char buf[32]; std::snprintf(buf, sizeof(buf), "+%d XP", obj->questState);
+            pushPickupEffect(obj->pos, buf, IM_COL32(120, 220, 120, 255));
+        }
+        m_audio.playSound("pickup");
+        obj->collected = true;
+        m_showTreasureChestPopup = false;
+    }
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    // Option C: Stat boost
+    char statLbl[64];
+    std::snprintf(statLbl, sizeof(statLbl), "Stat Boost  (+1 %s, permanent)", kStatNames[statType]);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.25f, 0.5f, 1.0f));
+    if (ImGui::Button(statLbl, ImVec2(bw, 34))) {
+        if (!m_heroes.empty()) {
+            Hero& hero = m_heroes[m_activeHeroIdx];
+            if (statType == 0)      hero.attack++;
+            else if (statType == 1) hero.defense++;
+            else                  { hero.maxMove += 2; hero.movePool = std::min(hero.movePool + 2, hero.maxMove); }
+            char buf[48]; std::snprintf(buf, sizeof(buf), "+1 %s!", kStatNames[statType]);
+            pushPickupEffect(obj->pos, buf, IM_COL32(100, 160, 255, 255));
+        }
+        m_audio.playSound("pickup");
+        obj->collected = true;
+        m_showTreasureChestPopup = false;
+    }
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    ImGui::Separator();
+    if (ImGui::Button("Leave it", ImVec2(bw, 26)))
+        m_showTreasureChestPopup = false;
 
     ImGui::End();
 }
