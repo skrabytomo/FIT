@@ -1528,26 +1528,86 @@ void Game::renderWorldOverlay()
         }
     }
 
-    // ── Towns ──────────────────────────────────────────────────────────────────
+    // ── Towns (large procedural castle silhouette) ────────────────────────────
     for (const auto& town : m_towns) {
         const HexTile* ttile = m_map.getTile(town.pos);
         if (!m_fogDisabled && ttile && !ttile->visible) continue;
 
         float sx, sy;
         project(town.pos, sx, sy);
-        constexpr float HS = 36.0f;
 
         bool isPlayer = (town.ownerId == 1);
         bool isEnemy  = (town.ownerId > 1);
-        int  ico      = isPlayer ? ICO_TOWN_PLAYER : isEnemy ? ICO_TOWN_ENEMY : ICO_TOWN_NEUTRAL;
-        ImU32 ringCol = isPlayer ? IM_COL32(120, 180, 255, 255)
-                       : isEnemy ? IM_COL32(255, 100, 100, 255)
-                                 : IM_COL32(200, 160,  60, 255);
 
-        addIcon(ico, sx, sy, HS);
-        dl->AddRect({sx - HS, sy - HS}, {sx + HS, sy + HS}, ringCol, 4.0f, 0, 2.0f);
-        dl->AddText({sx - (float)town.name.size() * 3.5f, sy + HS + 2},
-                    IM_COL32(200, 220, 255, 220), town.name.c_str());
+        ImU32 ringCol  = isPlayer ? IM_COL32(120, 180, 255, 255)
+                        : isEnemy ? IM_COL32(255,  90,  90, 255)
+                                  : IM_COL32(210, 165,  50, 255);
+        ImU32 bgCol    = isPlayer ? IM_COL32( 12,  22,  55, 240)
+                        : isEnemy ? IM_COL32( 55,  12,  12, 240)
+                                  : IM_COL32( 45,  35,  10, 240);
+        ImU32 wallCol  = isPlayer ? IM_COL32( 70, 110, 210, 255)
+                        : isEnemy ? IM_COL32(210,  65,  65, 255)
+                                  : IM_COL32(185, 150,  45, 255);
+        ImU32 darkCol  = IM_COL32(8, 8, 8, 220);
+
+        const float CS  = 52.0f;   // half-size of the whole castle block
+        const float glow = 10.0f;
+
+        // Outer glow
+        dl->AddRectFilled({sx - CS - glow, sy - CS - glow},
+                          {sx + CS + glow, sy + CS + glow},
+                          (ringCol & 0x00FFFFFFu) | 0x30000000u, 8.0f);
+
+        // Background plate
+        dl->AddRectFilled({sx - CS, sy - CS}, {sx + CS, sy + CS}, bgCol, 5.0f);
+        dl->AddRect({sx - CS, sy - CS}, {sx + CS, sy + CS}, ringCol, 5.0f, 0, 2.5f);
+
+        // ── Castle silhouette (procedural) ──────────────────────────────
+        // Side towers
+        const float TW = 13.0f, TH = CS * 0.85f;
+        dl->AddRectFilled({sx - CS + 5,       sy - TH * 0.55f},
+                          {sx - CS + 5 + TW,  sy + TH * 0.45f}, wallCol, 2.0f);
+        dl->AddRectFilled({sx + CS - 5 - TW,  sy - TH * 0.55f},
+                          {sx + CS - 5,        sy + TH * 0.45f}, wallCol, 2.0f);
+
+        // Central keep (taller, narrower)
+        const float KW = CS * 0.38f, KH = CS * 1.0f;
+        dl->AddRectFilled({sx - KW, sy - KH * 0.5f}, {sx + KW, sy + KH * 0.5f}, wallCol, 2.0f);
+
+        // Battlements on top of keep
+        const float BW = 5.5f, BH = 7.0f, BTop = sy - KH * 0.5f - BH;
+        for (float bx = sx - KW + 2; bx < sx + KW - 4; bx += BW * 2.1f)
+            dl->AddRectFilled({bx, BTop}, {bx + BW, BTop + BH}, wallCol);
+
+        // Battlements on side towers
+        for (int side = -1; side <= 1; side += 2) {
+            float tx = (side < 0) ? sx - CS + 5 : sx + CS - 5 - TW;
+            float bTop2 = sy - TH * 0.55f - 6.0f;
+            for (float bx = tx + 1; bx < tx + TW - 2; bx += 5.0f * 2.0f)
+                dl->AddRectFilled({bx, bTop2}, {bx + 5.0f, bTop2 + 6.0f}, wallCol);
+        }
+
+        // Gate / door
+        const float DW = 9.0f, DH = 14.0f;
+        dl->AddRectFilled({sx - DW * 0.5f, sy + KH * 0.5f - DH},
+                          {sx + DW * 0.5f, sy + KH * 0.5f}, darkCol);
+
+        // Window slits on keep
+        dl->AddRectFilled({sx - 3.0f, sy - KH * 0.18f}, {sx + 3.0f, sy - KH * 0.02f}, darkCol);
+
+        // Inner ring on bg (decorative)
+        dl->AddRect({sx - CS + 3, sy - CS + 3}, {sx + CS - 3, sy + CS - 3},
+                    (ringCol & 0x00FFFFFFu) | 0x55000000u, 3.0f, 0, 1.0f);
+
+        // Town name — larger, drop-shadow
+        const float nameScale = 14.0f;
+        float nameW = town.name.size() * 5.0f;
+        float nameX = sx - nameW;
+        float nameY = sy + CS + 5.0f;
+        dl->AddText(ImGui::GetFont(), nameScale, {nameX + 1, nameY + 1},
+                    IM_COL32(0, 0, 0, 200), town.name.c_str());
+        dl->AddText(ImGui::GetFont(), nameScale, {nameX, nameY},
+                    IM_COL32(210, 230, 255, 255), town.name.c_str());
     }
 
     // ── World objects ──────────────────────────────────────────────────────────

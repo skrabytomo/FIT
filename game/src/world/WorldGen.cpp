@@ -277,7 +277,11 @@ std::vector<ResourceNode> WorldGen::placeResources(HexMap& map,
         node.id     = nextId++;
         node.pos    = c;
         node.type   = terrainResource(tile->terrain, lcg(rng));
-        node.amount = 2 + static_cast<int>(lcg(rng) % 4);  // 2–5 per week
+        // Gold mines give 250/week (like HoMM3); other resources give 2-5/week
+        if (node.type == ResourceType::Gold)
+            node.amount = 250;
+        else
+            node.amount = 2 + static_cast<int>(lcg(rng) % 4);
 
         tile->resourceId = node.id;
         nodes.push_back(node);

@@ -634,12 +634,26 @@ void Game::startNewGame()
                 if (def) wt.weeklyIncome.addAll(def->weeklyIncome);
             }
         } else {
-            wt.ownerId = 0;
-            for (const auto& ud : m_registry.units()) {
-                if (ud.faction == wt.faction && ud.tier == 1
-                    && ud.path == UpgradePath::None) {
-                    wt.garrison.push_back({ud.id, 15});
-                    break;
+            // Assign enemy town to the corresponding AI hero (heroes are 99+i)
+            bool assignedToAI = (i >= 1 && i <= static_cast<int>(m_enemyHeroes.size()));
+            if (assignedToAI) {
+                wt.ownerId = 99u + static_cast<uint32_t>(i);
+                // Pre-build same starting buildings as the player
+                int hallId = (static_cast<int>(wt.faction) + 1) * 100;
+                wt.builtBuildings.push_back(BID::MAGE_GUILD);
+                wt.builtBuildings.push_back(hallId);
+                for (int bid : wt.builtBuildings) {
+                    const BuildingDef* def = m_registry.getBuildingDef(bid);
+                    if (def) wt.weeklyIncome.addAll(def->weeklyIncome);
+                }
+            } else {
+                wt.ownerId = 0;
+                for (const auto& ud : m_registry.units()) {
+                    if (ud.faction == wt.faction && ud.tier == 1
+                        && ud.path == UpgradePath::None) {
+                        wt.garrison.push_back({ud.id, 15});
+                        break;
+                    }
                 }
             }
         }
