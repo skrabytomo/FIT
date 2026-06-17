@@ -32,11 +32,10 @@ void Game::updateTown(float dt)
 // ── Town render ───────────────────────────────────────────────────────────────
 void Game::renderTown()
 {
+    beginImGuiFrame();          // must come BEFORE any ImGui calls in draw()
     m_ui.beginFrame();
     m_townScreen.draw(m_ui);
     m_ui.endFrame();
-
-    beginImGuiFrame();
     m_ui.flushText(ImGui::GetBackgroundDrawList());
 
     // Service buttons bar — top strip above the town panel

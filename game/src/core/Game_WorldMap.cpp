@@ -143,6 +143,19 @@ void Game::updateWorldMap(float dt)
     if (m_input.keyHeld(SDLK_UP))    m_camera.pan(0, -PAN);
     if (m_input.keyHeld(SDLK_DOWN))  m_camera.pan(0,  PAN);
 
+    // Clamp camera so the player can't scroll off the map edge into black void
+    {
+        const float hs  = m_hexRenderer.grid().hexSize();
+        const float R   = static_cast<float>(m_map.radius());
+        const float pad = hs * 3.0f;           // half-screen of padding at edge
+        const float limX = R * hs * 1.8f + pad;
+        const float limY = R * hs * 2.0f + pad;
+        float cx = std::clamp(m_camera.x(), -limX, limX);
+        float cy = std::clamp(m_camera.y(), -limY, limY);
+        if (cx != m_camera.x() || cy != m_camera.y())
+            m_camera.setPosition(cx, cy);
+    }
+
     {
         float wx, wy;
         m_camera.screenToWorld(static_cast<float>(mouse.x),
@@ -1597,7 +1610,7 @@ void Game::renderWorldOverlay()
         ImTextureID townArt = m_townTex[fid].ok()
             ? (ImTextureID)(uintptr_t)m_townTex[fid].id() : nullptr;
 
-        const float CS   = townArt ? 75.0f : 52.0f;   // larger when real art available
+        const float CS   = townArt ? 46.0f : 44.0f;   // ~90px total, fits within one hex tile
         const float glow = 12.0f;
 
         // Outer glow
