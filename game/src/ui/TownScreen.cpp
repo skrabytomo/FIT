@@ -221,9 +221,7 @@ void TownScreen::rebuildRecruitButtons()
         int capturedTier = dw.tier;
         UpgradePath capturedPath = dw.path;
         rb.btn.onClick = [this, capturedTier, capturedPath]{
-            if (!m_town || !m_playerRes || !m_registry || !m_hero) return;
-            // Find matching UnitDef before spending gold — avoids charging for units
-            // that can't be added (no def, or army full with no matching stack)
+            if (!m_town || !m_playerRes || !m_registry) return;
             const UnitDef* matchedUd = nullptr;
             for (const auto& ud : m_registry->units()) {
                 if (ud.faction == m_town->faction && ud.tier == capturedTier
@@ -232,19 +230,22 @@ void TownScreen::rebuildRecruitButtons()
                 }
             }
             if (!matchedUd) return;
-            bool alreadyHasStack = false;
-            for (const auto& s : m_hero->army)
-                if (s.defId == matchedUd->id) { alreadyHasStack = true; break; }
-            if (!alreadyHasStack && m_hero->army.size() >= 7) return;
 
-            float costMult = m_hero->efficientSpecialty ? 0.8f : 1.0f;
+            // Route units to hero army if hero is present, else to town garrison
+            std::vector<UnitStack>& target = m_hero ? m_hero->army : m_town->garrison;
+            bool alreadyHasStack = false;
+            for (const auto& s : target)
+                if (s.defId == matchedUd->id) { alreadyHasStack = true; break; }
+            if (!alreadyHasStack && target.size() >= 7) return;
+
+            float costMult = (m_hero && m_hero->efficientSpecialty) ? 0.8f : 1.0f;
             int recruited = m_town->recruit(capturedTier, 999, *m_playerRes, m_registry->units(), costMult);
             if (recruited > 0) {
                 bool merged = false;
-                for (auto& s : m_hero->army)
+                for (auto& s : target)
                     if (s.defId == matchedUd->id) { s.count += recruited; merged = true; break; }
                 if (!merged)
-                    m_hero->army.push_back({matchedUd->id, recruited});
+                    target.push_back({matchedUd->id, recruited});
             }
             rebuildRecruitButtons();
         };
@@ -303,6 +304,9 @@ void TownScreen::drawRecruitPanel(UIRenderer& rdr)
     ImGui::Begin("##recruit_cards", nullptr,
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+
+    if (!m_hero)
+        ImGui::TextColored({1.0f, 0.85f, 0.3f, 1.0f}, "No hero — units go to Garrison");
 
     if (!m_town || !m_registry || m_town->dwellings.empty()) {
         ImGui::TextDisabled("No units available");

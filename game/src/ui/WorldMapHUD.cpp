@@ -34,6 +34,10 @@ void WorldMapHUD::buildLayout(int sw, int sh)
     // Hero panel — right side
     m_heroPanel = Panel({(float)sw - 180.0f, 54.0f, 176.0f, 220.0f});
     m_heroPanel.title = "Heroes";
+
+    // Town panel — below hero panel
+    m_townPanel = Panel({(float)sw - 180.0f, 282.0f, 176.0f, 160.0f});
+    m_townPanel.title = "Towns";
 }
 
 void WorldMapHUD::draw(UIRenderer& rdr,
@@ -41,7 +45,8 @@ void WorldMapHUD::draw(UIRenderer& rdr,
                         const Resources& weeklyIncome,
                         const TurnManager& turns,
                         const std::vector<Hero>& heroes,
-                        int selectedHeroIdx)
+                        int selectedHeroIdx,
+                        const std::vector<Town>& towns)
 {
     // Keep end-turn button label in sync with day counter
     m_endTurnBtn.text = "End Turn  [Day " + std::to_string(turns.day()) + "]";
@@ -49,6 +54,7 @@ void WorldMapHUD::draw(UIRenderer& rdr,
     drawResourceBar(rdr, playerRes, weeklyIncome);
     drawDatePanel(rdr, turns);
     drawHeroPanel(rdr, heroes, selectedHeroIdx);
+    drawTownPanel(rdr, towns);
     m_endTurnBtn.draw(rdr);
     m_tooltip.draw(rdr);
 }
@@ -130,6 +136,11 @@ void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
     m_heroCount = static_cast<int>(heroes.size());
     m_heroPanel.draw(rdr);
 
+    // Hint: click selected hero again or press F8 to open hero details
+    rdr.drawText("Click selected / F8 = details",
+                 m_heroPanel.bounds.x + 4.0f, m_heroPanel.bounds.y + 13.0f,
+                 UIColor::rgba(0.5f, 0.5f, 0.5f, 0.8f), 9.0f);
+
     float y = m_heroPanel.bounds.y + 28.0f;
     float x = m_heroPanel.bounds.x + 4.0f;
     float w = m_heroPanel.bounds.w - 8.0f;
@@ -201,6 +212,38 @@ void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
     }
 }
 
+void WorldMapHUD::drawTownPanel(UIRenderer& rdr, const std::vector<Town>& towns)
+{
+    // Collect only player-owned towns (ownerId == 1)
+    std::vector<const Town*> playerTowns;
+    for (const auto& t : towns)
+        if (t.ownerId == 1) playerTowns.push_back(&t);
+
+    m_townCount = static_cast<int>(playerTowns.size());
+    if (m_townCount == 0) return;
+
+    // Resize panel height to fit towns
+    float rowH = 28.0f;
+    float panelH = 26.0f + m_townCount * (rowH + 4.0f);
+    m_townPanel.bounds.h = panelH;
+    m_townPanel.draw(rdr);
+
+    float y = m_townPanel.bounds.y + 26.0f;
+    float x = m_townPanel.bounds.x + 4.0f;
+    float w = m_townPanel.bounds.w - 8.0f;
+
+    for (int i = 0; i < m_townCount; ++i) {
+        const Town* t = playerTowns[i];
+        Rect btn{x, y, w, rowH};
+        rdr.drawRect(btn,
+            UIColor::hex(UITheme::BG_PANEL_DARK),
+            UIColor::hex(UITheme::GOLD), 1.0f);
+        rdr.drawText(t->name, x + 4.0f, y + 6.0f,
+                     UIColor::hex(UITheme::TEXT_PRIMARY), 11.0f);
+        y += rowH + 4.0f;
+    }
+}
+
 bool WorldMapHUD::onMouseMove(float x, float y) {
     m_endTurnBtn.onMouseMove(x, y);
     return false;
@@ -225,6 +268,25 @@ bool WorldMapHUD::onMouseDown(float x, float y) {
             }
         }
     }
+
+    // Town panel click — jump camera to town
+    if (onTownClicked && m_townCount > 0) {
+        float px = m_townPanel.bounds.x + 4.0f;
+        float py = m_townPanel.bounds.y + 26.0f;
+        float pw = m_townPanel.bounds.w - 8.0f;
+        float rowH = 28.0f;
+        float gap  = rowH + 4.0f;
+        if (x >= px && x <= px + pw) {
+            for (int i = 0; i < m_townCount; ++i) {
+                float ey = py + i * gap;
+                if (y >= ey && y <= ey + rowH) {
+                    onTownClicked(i);
+                    return true;
+                }
+            }
+        }
+    }
+
     return false;
 }
 bool WorldMapHUD::onMouseUp(float x, float y) {

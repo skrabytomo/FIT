@@ -136,6 +136,11 @@ bool Game::init(const std::string& title, int width, int height)
     m_worldHUD.onEndTurn = [this]() { doEndTurn(); };
     m_worldHUD.onHeroClicked = [this](int idx) {
         if (idx >= 0 && idx < static_cast<int>(m_heroes.size())) {
+            if (idx == m_activeHeroIdx) {
+                // Second click on same hero: open/close the inspect panel
+                m_showHeroInspect = !m_showHeroInspect;
+                return;
+            }
             m_activeHeroIdx = idx;
             const Hero& h = m_heroes[idx];
             float hx2, hy2;
@@ -148,6 +153,22 @@ bool Game::init(const std::string& title, int width, int height)
                 return h.moveCost(t->terrain);
             };
             m_reachable = Pathfinder::reachable(m_map, h.pos, costFn, h.movePool);
+        }
+    };
+
+    m_worldHUD.onTownClicked = [this](int idx) {
+        // Find the idx-th player-owned town and jump to it
+        int count = 0;
+        for (auto& t : m_towns) {
+            if (t.ownerId != 1) continue;
+            if (count == idx) {
+                float tx, ty;
+                m_hexRenderer.grid().hexToWorld(t.pos, tx, ty);
+                m_camera.setPosition(tx, ty);
+                enterTown(&t);
+                return;
+            }
+            ++count;
         }
     };
 

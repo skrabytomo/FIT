@@ -143,12 +143,17 @@ void Game::updateWorldMap(float dt)
     if (m_input.keyHeld(SDLK_UP))    m_camera.pan(0, -PAN);
     if (m_input.keyHeld(SDLK_DOWN))  m_camera.pan(0,  PAN);
 
-    // Lambda that clamps camera position to the visible map region
+    // Lambda that clamps camera so map edge never scrolls past viewport edge
     auto clampCamera = [this]() {
-        const float hs   = m_hexRenderer.grid().hexSize();
-        const float R    = static_cast<float>(m_map.radius());
-        const float limX = R * hs * 1.5f + hs * 2.0f;
-        const float limY = R * hs * 1.732f + hs * 2.0f;
+        const float hs    = m_hexRenderer.grid().hexSize();
+        const float R     = static_cast<float>(m_map.radius());
+        const float zoom  = m_camera.zoom();
+        const float halfW = static_cast<float>(m_width)  / (2.0f * zoom);
+        const float halfH = static_cast<float>(m_height) / (2.0f * zoom);
+        const float mapExtX = R * hs * 1.5f + hs;
+        const float mapExtY = R * hs * 1.732f + hs;
+        const float limX = std::max(0.0f, mapExtX - halfW);
+        const float limY = std::max(0.0f, mapExtY - halfH);
         float cx = std::clamp(m_camera.x(), -limX, limX);
         float cy = std::clamp(m_camera.y(), -limY, limY);
         if (cx != m_camera.x() || cy != m_camera.y())
@@ -963,11 +968,11 @@ void Game::renderWorldMap()
     beginImGuiFrame();
     m_ui.beginFrame();
     m_worldHUD.draw(m_ui, m_playerResources, m_cachedWeeklyIncome,
-                    m_turns, m_heroes, m_activeHeroIdx);
+                    m_turns, m_heroes, m_activeHeroIdx, m_towns);
     m_ui.endFrame();
     m_ui.flushText(ImGui::GetBackgroundDrawList());
     renderWorldOverlay();
-    if (m_showLevelUpModal)   renderLevelUpModal();
+    // Non-game-state overlays (can coexist with most things)
     if (m_showHideoutScreen)  renderHideoutScreen();
     if (m_showArtifactPanel)  renderArtifactPanel();
     if (m_showHeroInspect)    renderHeroInspect();
@@ -978,9 +983,11 @@ void Game::renderWorldMap()
     if (m_showTownLostPopup)  renderTownLostPopup();
     if (m_showWeekSummary)    renderWeekSummary();
     if (m_showPauseMenu)      renderPauseMenu();
-    if (m_showCombatResult)   renderCombatResultPopup();
-    if (m_showVictory)        renderVictoryModal();
-    if (m_showDefeat)         renderDefeatModal();
+    // Modal popups — only one at a time (ImGui popup stack conflict otherwise)
+    if (m_showCombatResult)        renderCombatResultPopup();
+    else if (m_showVictory)        renderVictoryModal();
+    else if (m_showDefeat)         renderDefeatModal();
+    else if (m_showLevelUpModal)   renderLevelUpModal();
     endImGuiFrame();
 }
 
@@ -1529,6 +1536,18 @@ void Game::renderWorldOverlay()
         m_camera.worldToScreen(wx, wy, sx, sy);
     };
 
+    // Returns true if a label at (lx, ly) of approx width lw is in a safe area,
+    // i.e. not overlapping the top bar, bottom bar, or right-side panels.
+    const float HUD_TOP    = 60.0f;
+    const float HUD_BOTTOM = static_cast<float>(m_height) - 52.0f;
+    const float HUD_RIGHT  = static_cast<float>(m_width)  - 185.0f;
+    auto labelOK = [&](float lx, float ly, float lw = 0.0f) -> bool {
+        if (ly < HUD_TOP)    return false;
+        if (ly > HUD_BOTTOM) return false;
+        if (lx + lw > HUD_RIGHT) return false;
+        return true;
+    };
+
     // Helper: draw one icon from the atlas centered at (sx,sy) with half-size hs
     const bool hasIcons = m_iconTex.ok();
     ImTextureID iconTex = hasIcons
@@ -1661,8 +1680,10 @@ void Game::renderWorldOverlay()
         // ── Town name ─────────────────────────────────────────────────────
         float nameW = town.name.size() * 5.0f;
         float nameX = sx - nameW, nameY = sy + CS + 5.0f;
-        dl->AddText(ImGui::GetFont(), 14.f, {nameX+1, nameY+1}, IM_COL32(0,0,0,200), town.name.c_str());
-        dl->AddText(ImGui::GetFont(), 14.f, {nameX,   nameY},   IM_COL32(210,230,255,255), town.name.c_str());
+        if (labelOK(nameX, nameY, nameW * 2.0f)) {
+            dl->AddText(ImGui::GetFont(), 14.f, {nameX+1, nameY+1}, IM_COL32(0,0,0,200), town.name.c_str());
+            dl->AddText(ImGui::GetFont(), 14.f, {nameX,   nameY},   IM_COL32(210,230,255,255), town.name.c_str());
+        }
     }
 
     // ── World objects ──────────────────────────────────────────────────────────
@@ -1730,18 +1751,20 @@ void Game::renderWorldOverlay()
                    : r.ownedBy >  1 ? IM_COL32(255, 100, 100, 255)
                                     : IM_COL32(255, 210,  60, 200);
         dl->AddCircle({sx, sy}, mineGlow, ring, 0, 2.0f);
-        // Resource name + weekly amount always shown below the icon
+        // Resource name + weekly amount shown below the icon (if not inside a HUD panel)
         const char* resName = resourceName(r.type);
         char label[32];
         std::snprintf(label, sizeof(label), "%s +%d", resName, r.amount);
         float lw = strlen(label) * 5.5f;
         float labelY = sy + mineGlow + 2.0f;
-        dl->AddRectFilled({sx - lw - 2, labelY}, {sx + lw + 2, labelY + 12},
-                          IM_COL32(0, 0, 0, 170), 3.0f);
-        dl->AddText({sx - lw, labelY + 1},
-                    r.ownedBy == 1 ? IM_COL32(140, 210, 255, 255)
-                                   : IM_COL32(255, 230, 120, 255),
-                    label);
+        if (labelOK(sx - lw - 2, labelY, lw * 2.0f + 4.0f)) {
+            dl->AddRectFilled({sx - lw - 2, labelY}, {sx + lw + 2, labelY + 12},
+                              IM_COL32(0, 0, 0, 170), 3.0f);
+            dl->AddText({sx - lw, labelY + 1},
+                        r.ownedBy == 1 ? IM_COL32(140, 210, 255, 255)
+                                       : IM_COL32(255, 230, 120, 255),
+                        label);
+        }
     }
 
     // BloodScent: any player hero with this specialty reveals Bloodsworn enemies
@@ -1771,9 +1794,12 @@ void Game::renderWorldOverlay()
             addIcon(ICO_HERO_ENEMY, sx, sy, 13.0f);
         }
         dl->AddCircle({sx, sy}, 14.0f, IM_COL32(255, 140, 140, 180), 0, 1.5f);
-        dl->AddText({sx - (float)hero.name.size() * 3.0f, sy + 15},
-                    IM_COL32(255, 160, 160, 200), hero.name.c_str());
-        if (hero.isGarrisoned)
+        {
+            float lx = sx - (float)hero.name.size() * 3.0f;
+            if (labelOK(lx, sy + 15, hero.name.size() * 6.0f))
+                dl->AddText({lx, sy + 15}, IM_COL32(255, 160, 160, 200), hero.name.c_str());
+        }
+        if (hero.isGarrisoned && labelOK(sx - 10.0f, sy - 30.0f))
             dl->AddText({sx - 10.0f, sy - 30.0f}, IM_COL32(255, 80, 80, 255), "[G]");
     }
 
@@ -1804,10 +1830,14 @@ void Game::renderWorldOverlay()
             addIcon(ICO_HERO_PLAYER, sx, sy, 13.0f);
         }
         dl->AddCircle({sx, sy}, 14.0f, ring, 0, active ? 2.0f : 1.2f);
-        dl->AddText({sx - (float)hero.name.size() * 3.0f, sy + 15},
+        {
+            float lx = sx - (float)hero.name.size() * 3.0f;
+            if (labelOK(lx, sy + 15, hero.name.size() * 6.0f))
+                dl->AddText({lx, sy + 15},
                     active ? IM_COL32(255, 230, 100, 220) : IM_COL32(200, 200, 100, 160),
                     hero.name.c_str());
-        if (hero.isGarrisoned)
+        }
+        if (hero.isGarrisoned && labelOK(sx - 10.0f, sy - 30.0f))
             dl->AddText({sx - 10.0f, sy - 30.0f}, IM_COL32(255, 200, 60, 255), "[G]");
     }
 
