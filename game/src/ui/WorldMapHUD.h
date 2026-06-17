@@ -28,6 +28,9 @@ public:
     UIIntCallback onHeroClicked;  // index into heroes list
 
     void setIconTex(ImTextureID tex) { m_iconTex = tex; }
+    void setPortraitTex(int factionIdx, ImTextureID tex) {
+        if (factionIdx >= 0 && factionIdx < 9) m_portraitTex[factionIdx] = tex;
+    }
 
 private:
     void buildLayout(int sw, int sh);
@@ -51,4 +54,5 @@ private:
 
     TooltipWidget m_tooltip;
     ImTextureID m_iconTex = nullptr;
+    ImTextureID m_portraitTex[9] = {};
 };

@@ -229,6 +229,7 @@ private:
     static constexpr int NUM_FACTIONS  = 9;
     static constexpr int NUM_UNIT_TIERS = 6;
     Texture           m_unitTex[NUM_FACTIONS][NUM_UNIT_TIERS];
+    Texture           m_portraitTex[NUM_FACTIONS];
 
     // ── Per-unit combat animators (keyed by CombatUnit id) ───────────────────
     std::unordered_map<uint32_t, SpriteAnimator> m_combatAnimators;

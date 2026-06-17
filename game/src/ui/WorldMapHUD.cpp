@@ -134,9 +134,11 @@ void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
     float x = m_heroPanel.bounds.x + 4.0f;
     float w = m_heroPanel.bounds.w - 8.0f;
 
+    auto* dl = ImGui::GetBackgroundDrawList();
     for (int i = 0; i < static_cast<int>(heroes.size()); ++i) {
         auto& h = heroes[i];
-        Rect btn{x, y, w, 48.0f};
+        float portSz = 52.0f;
+        Rect btn{x, y, w, portSz + 8.0f};
 
         UIColor bg = (i == sel) ?
             UIColor::hex(UITheme::BG_HOVER) :
@@ -147,23 +149,40 @@ void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
 
         rdr.drawRect(btn, bg, brd, 1.0f);
 
+        // Portrait: faction unit image on the left
+        float portX = x + 2.0f;
+        float portY = y + 4.0f;
+        int fid = static_cast<int>(h.faction);
+        ImTextureID portTex = (fid >= 0 && fid < 9) ? m_portraitTex[fid] : nullptr;
+        if (portTex) {
+            dl->AddImage(portTex, {portX, portY}, {portX + portSz, portY + portSz});
+            dl->AddRect({portX, portY}, {portX + portSz, portY + portSz},
+                        IM_COL32(180, 150, 80, 200), 2.0f);
+        } else {
+            rdr.drawRect({portX, portY, portSz, portSz},
+                         UIColor::hex(0x223344), UIColor::hex(UITheme::BORDER), 1.0f);
+        }
+
+        float tx = portX + portSz + 4.0f;
+        float tw = btn.x + btn.w - tx - 2.0f;
+
         // Hero name + level
-        std::string label = h.name + "  L" + std::to_string(h.level);
-        rdr.drawText(label, x + 4.0f, y + 4.0f,
+        std::string label = h.name + " L" + std::to_string(h.level);
+        rdr.drawText(label, tx, y + 4.0f,
                      UIColor::hex(UITheme::TEXT_PRIMARY), 11.0f);
 
         // Army count + mana
         int armyTotal = 0;
         for (const auto& s : h.army) armyTotal += s.count;
         std::string stats = "A:" + std::to_string(armyTotal)
-                          + "  MP:" + std::to_string(h.mana) + "/" + std::to_string(h.maxMana);
-        rdr.drawText(stats, x + 4.0f, y + 17.0f,
+                          + " MP:" + std::to_string(h.mana) + "/" + std::to_string(h.maxMana);
+        rdr.drawText(stats, tx, y + 18.0f,
                      UIColor::hex(0x88AAFF), 10.0f);
 
         // Move bar (green)
         float moveFrac = h.maxMove > 0 ?
             static_cast<float>(h.movePool) / h.maxMove : 0.0f;
-        Rect movebar{x + 4.0f, y + 30.0f, w - 8.0f, 4.0f};
+        Rect movebar{tx, y + 34.0f, tw, 4.0f};
         rdr.drawBar(movebar, moveFrac,
                     UIColor::hex(UITheme::NATURE_GREEN),
                     UIColor::hex(UITheme::BG_DARK),
@@ -172,13 +191,13 @@ void WorldMapHUD::drawHeroPanel(UIRenderer& rdr,
         // XP bar (purple)
         float xpFrac = h.xpToNext > 0 ?
             static_cast<float>(h.xp) / h.xpToNext : 1.0f;
-        Rect xpbar{x + 4.0f, y + 38.0f, w - 8.0f, 4.0f};
+        Rect xpbar{tx, y + 42.0f, tw, 4.0f};
         rdr.drawBar(xpbar, xpFrac,
                     UIColor::hex(0xAA55FF),
                     UIColor::hex(UITheme::BG_DARK),
                     UIColor::hex(UITheme::BORDER));
 
-        y += 52.0f;
+        y += portSz + 12.0f;
     }
 }
 

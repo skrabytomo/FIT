@@ -112,10 +112,20 @@ bool Game::init(const std::string& title, int width, int height)
     startNewGame();
     m_state = GameState::MainMenu;
 
+    // Load hero faction portraits (first idle frame of each faction's t1 sprite)
+    for (int i = 0; i < NUM_FACTIONS; ++i) {
+        char rel[80];
+        std::snprintf(rel, sizeof(rel), "assets/portraits/faction_%d.png", i);
+        m_portraitTex[i].load(m_basePath + rel, false, false);
+    }
+
     // Wire WorldMapHUD callbacks
     m_worldHUD.init(width, height);
     if (m_iconTex.ok())
         m_worldHUD.setIconTex((ImTextureID)(uintptr_t)m_iconTex.id());
+    for (int i = 0; i < NUM_FACTIONS; ++i)
+        if (m_portraitTex[i].ok())
+            m_worldHUD.setPortraitTex(i, (ImTextureID)(uintptr_t)m_portraitTex[i].id());
     m_worldHUD.onEndTurn = [this]() { doEndTurn(); };
     m_worldHUD.onHeroClicked = [this](int idx) {
         if (idx >= 0 && idx < static_cast<int>(m_heroes.size())) {

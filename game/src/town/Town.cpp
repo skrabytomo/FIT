@@ -43,6 +43,7 @@ int Town::weeklyGrowth(int tier) const
 
 bool Town::build(int buildingId, const std::vector<BuildingDef>& defs, Resources& playerRes)
 {
+    if (builtToday >= 1) return false;
     if (!canBuild(buildingId, defs)) return false;
 
     const BuildingDef* def = nullptr;
@@ -56,15 +57,15 @@ bool Town::build(int buildingId, const std::vector<BuildingDef>& defs, Resources
 
     playerRes.spend(def->cost);
     builtBuildings.push_back(buildingId);
+    builtToday = 1;
 
-    // If dwelling, add dwelling state
+    // If dwelling, add dwelling state and grant first week's units immediately
     if (def->category == BuildingCategory::UnitDwelling && def->tier > 0) {
-        // Check if tier slot exists
         bool found = false;
         for (auto& d : dwellings) {
             if (d.tier == def->tier) {
-                d.buildingId = buildingId;
-                d.path = def->path;
+                d.buildingId  = buildingId;
+                d.path        = def->path;
                 found = true;
                 break;
             }
@@ -74,6 +75,8 @@ bool Town::build(int buildingId, const std::vector<BuildingDef>& defs, Resources
             ds.buildingId = buildingId;
             ds.tier       = def->tier;
             ds.path       = def->path;
+            ds.available  = def->weeklyGrowth > 0 ? def->weeklyGrowth : (4 + def->tier);
+            ds.accumulated = ds.available;
             dwellings.push_back(ds);
         }
     }

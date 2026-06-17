@@ -270,6 +270,9 @@ void Game::updateWorldMap(float dt)
 // ── End Turn — full turn logic (SPACE key + HUD button) ───────────────────────
 void Game::doEndTurn()
 {
+    // Reset per-day build limit for all towns
+    for (auto& t : m_towns) t.builtToday = 0;
+
     // Restore hero movement pools and daily mana regen for enemy heroes
     for (auto& h : m_heroes)      h.movePool = h.maxMove;
     for (auto& h : m_enemyHeroes) {
@@ -895,12 +898,11 @@ void Game::renderWorldMap()
     for (auto& hero : m_enemyHeroes)
         drawHero(hero);
 
+    beginImGuiFrame();
     m_ui.beginFrame();
     m_worldHUD.draw(m_ui, m_playerResources, m_cachedWeeklyIncome,
                     m_turns, m_heroes, m_activeHeroIdx);
     m_ui.endFrame();
-
-    beginImGuiFrame();
     m_ui.flushText(ImGui::GetBackgroundDrawList());
     renderWorldOverlay();
     if (m_showLevelUpModal)   renderLevelUpModal();

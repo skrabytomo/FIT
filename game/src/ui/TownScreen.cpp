@@ -102,9 +102,13 @@ void TownScreen::rebuildBuildingButtons()
             return s.empty() ? "free" : s;
         };
 
+        bool limitReached = m_town->builtToday >= 1;
+
         std::string label = def.name;
         if (bb.built) {
             label = "[BUILT] " + def.name;
+        } else if (limitReached && !bb.built && bb.prereqMet) {
+            label = "[1/day] " + def.name + "  [" + costStr(def.cost) + "]";
         } else if (!bb.prereqMet && m_currentWeek > 0 && def.minWeek > 0) {
             int effectiveMin = std::max(1, def.minWeek - m_blueprintDiscount);
             if (m_currentWeek < effectiveMin)
@@ -115,10 +119,13 @@ void TownScreen::rebuildBuildingButtons()
 
         Rect btnR{x + col * colW, y, bw, bh};
         bb.btn = Button(label, btnR);
-        bb.btn.enabled = bb.prereqMet && !bb.built;
+        bb.btn.enabled = bb.prereqMet && !bb.built && !limitReached;
 
         if (bb.built) {
             bb.btn.colorBorder = UIColor::hex(UITheme::NATURE_GREEN, 0.5f);
+            bb.btn.colorText   = UIColor::hex(UITheme::TEXT_DISABLED);
+        } else if (limitReached && !bb.built && bb.prereqMet) {
+            bb.btn.colorBorder = UIColor::hex(UITheme::GOLD, 0.35f);
             bb.btn.colorText   = UIColor::hex(UITheme::TEXT_DISABLED);
         } else if (!bb.prereqMet) {
             bb.btn.colorBorder = UIColor::hex(UITheme::TEXT_DISABLED);
