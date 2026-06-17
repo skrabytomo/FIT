@@ -2458,28 +2458,82 @@ void Game::renderHeroInspect()
         }
     }
 
-    if (!hero.army.empty()) {
+    // ── Army portrait row ─────────────────────────────────────────────────────
+    {
         ImGui::Spacing();
         ImGui::Text("Army:");
         ImGui::Separator();
+
         const auto& unitDefs = m_registry.units();
+        const float SW = 44.0f, SH = 64.0f, GAP = 3.0f;
+        ImDrawList* dl = ImGui::GetWindowDrawList();
         int totalUnits = 0, totalHp = 0;
+        int slotIdx = 0;
+
         for (const auto& stack : hero.army) {
-            if (stack.count <= 0) continue;
-            const char* uname = "Unknown";
-            int ud_atk = 0, ud_def = 0, ud_hp = 0;
-            for (const auto& ud : unitDefs)
-                if (ud.id == stack.defId) {
-                    uname = ud.name.c_str();
-                    ud_atk = ud.attack; ud_def = ud.defense; ud_hp = ud.hp; break;
+            if (slotIdx > 0) ImGui::SameLine(0, GAP);
+
+            const UnitDef* ud = nullptr;
+            for (const auto& u : unitDefs) if (u.id == stack.defId) { ud = &u; break; }
+
+            ImTextureID tex = nullptr;
+            if (ud) {
+                int fid = std::clamp(static_cast<int>(ud->faction), 0, NUM_FACTIONS - 1);
+                int tid = std::clamp(ud->tier - 1, 0, NUM_UNIT_TIERS - 1);
+                if (m_unitTex[fid][tid].ok())
+                    tex = (ImTextureID)(uintptr_t)m_unitTex[fid][tid].id();
+            }
+
+            ImVec2 pos = ImGui::GetCursorScreenPos();
+            bool hasUnit = (stack.count > 0);
+
+            // Slot bg
+            dl->AddRectFilled(pos, {pos.x + SW, pos.y + SH}, IM_COL32(18, 20, 32, 230), 4.0f);
+            dl->AddRect(pos, {pos.x + SW, pos.y + SH},
+                        hasUnit ? IM_COL32(80, 95, 130, 200) : IM_COL32(35, 40, 58, 140),
+                        4.0f, 0, 1.5f);
+
+            if (hasUnit) {
+                float sprH2 = SH - 18.0f;
+                if (tex) {
+                    dl->AddImage(tex, {pos.x + 1, pos.y + 1}, {pos.x + SW - 1, pos.y + 1 + sprH2},
+                                 {0.0f, 0.0f}, {0.125f, 1.0f});
+                } else if (ud) {
+                    char tl[4]; std::snprintf(tl, sizeof(tl), "T%d", ud->tier);
+                    dl->AddText({pos.x + SW * 0.5f - 8, pos.y + sprH2 * 0.5f - 7},
+                                IM_COL32(130, 140, 165, 200), tl);
                 }
-            ImGui::Text("  %-22s x%-4d  ATK %d  DEF %d  HP %d",
-                        uname, stack.count, ud_atk, ud_def, ud_hp * stack.count);
-            totalUnits += stack.count;
-            totalHp    += ud_hp * stack.count;
+                char cnt[12]; std::snprintf(cnt, sizeof(cnt), "x%d", stack.count);
+                ImVec2 csz = ImGui::CalcTextSize(cnt);
+                float cx = pos.x + (SW - csz.x) * 0.5f, cy = pos.y + SH - 15.0f;
+                dl->AddText({cx + 1, cy + 1}, IM_COL32(0, 0, 0, 200), cnt);
+                dl->AddText({cx, cy},          IM_COL32(220, 225, 255, 255), cnt);
+                totalUnits += stack.count;
+                if (ud) totalHp += ud->hp * stack.count;
+            }
+
+            char bid[24]; std::snprintf(bid, sizeof(bid), "##hi_army_%d", slotIdx);
+            ImGui::InvisibleButton(bid, {SW, SH});
+
+            if (ImGui::IsItemHovered() && hasUnit && ud) {
+                ImGui::BeginTooltip();
+                ImGui::Text("%s  x%d", ud->name.c_str(), stack.count);
+                ImGui::TextDisabled("ATK %d  DEF %d  HP %d  SPD %d",
+                                    ud->attack, ud->defense, ud->hp, ud->speed);
+                ImGui::TextDisabled("Total HP: %d", ud->hp * stack.count);
+                if (ud->range > 0) ImGui::TextDisabled("Ranged  shots %d", ud->shots);
+                if (ud->flying)    ImGui::TextDisabled("Flying");
+                if (ud->vampiric)  ImGui::TextDisabled("Vampiric");
+                ImGui::EndTooltip();
+            }
+            ++slotIdx;
         }
-        ImGui::Spacing();
-        ImGui::TextDisabled("  Total: %d units, %d HP", totalUnits, totalHp);
+        if (totalUnits > 0) {
+            ImGui::Spacing();
+            ImGui::TextDisabled("  Total: %d units  |  %d HP", totalUnits, totalHp);
+        } else if (hero.army.empty()) {
+            ImGui::TextDisabled("  No units");
+        }
     }
     ImGui::End();
 }

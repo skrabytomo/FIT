@@ -295,6 +295,12 @@ private:
     int         m_combatResultKills = 0;
     int         m_combatResultLost  = 0;
 
+    // ── Garrison management overlay (in town) ─────────────────────────────────
+    bool        m_showGarrisonPanel   = false;
+    int         m_garrisonSelSlot     = -1;
+    int         m_garrisonSelSide     = -1;   // 0=hero army, 1=town garrison
+    void renderGarrisonPanel();
+
     // ── Town service overlay flags (opened via "Town Services" bar) ───────────
     bool        m_showMageGuildPanel    = false;
     bool        m_showTavernPanel       = false;
