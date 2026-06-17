@@ -389,6 +389,11 @@ void CombatEngine::startBattle(
     addLog("Battle started! Round 1");
 }
 
+void CombatEngine::applyTerrainObstacles(int count)
+{
+    m_grid.placeObstacleTiles(count, s_turnRng());
+}
+
 // ── Artifact bonuses ───────────────────────────────────────────────────────────
 void CombatEngine::applyArtifactBonuses(const ArtifactBonus& pb, const ArtifactBonus& eb)
 {

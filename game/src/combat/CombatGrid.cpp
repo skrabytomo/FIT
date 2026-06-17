@@ -269,6 +269,25 @@ void CombatGrid::setTileType(HexCoord h, CombatTileType type)
     if (tile) tile->type = type;
 }
 
+void CombatGrid::placeObstacleTiles(int count, uint32_t seed)
+{
+    std::mt19937 rng{seed};
+    int placed = 0, attempts = 0;
+    while (placed < count && attempts < 300) {
+        ++attempts;
+        int idx = static_cast<int>(rng() % static_cast<uint32_t>(m_coords.size()));
+        HexCoord h = m_coords[idx];
+        auto* tile = getTile(h);
+        if (!tile || tile->type != CombatTileType::Normal) continue;
+        // Keep cols 0-1 (player spawn) and cols 9-10 (enemy spawn) clear
+        if (h.q < 2 || h.q > COLS - 3) continue;
+        // Keep wall column clear in case of siege
+        if (h.q == 5) continue;
+        tile->type = CombatTileType::Obstacle;
+        ++placed;
+    }
+}
+
 void CombatGrid::placeRandomSpecialTiles(int count, uint32_t seed)
 {
     std::mt19937 rng{seed};

@@ -206,11 +206,27 @@ void Game::renderCombatBoard()
     if (active && active->isPlayer && !active->hasMoved)
         reach = grid.reachable(active->pos, active->speed, active->flying);
 
+    // Terrain-derived colour palette for this battle
+    ImU32 bgCol, tileBase, obstCol;
+    switch (m_combatTerrain) {
+        case Terrain::Forest:
+        case Terrain::CorruptedForest: bgCol=IM_COL32(8,18,8,255);   tileBase=IM_COL32(18,38,18,255); obstCol=IM_COL32(28,60,20,255); break;
+        case Terrain::Highland:        bgCol=IM_COL32(22,18,12,255);  tileBase=IM_COL32(50,42,30,255); obstCol=IM_COL32(75,65,45,255); break;
+        case Terrain::Rocky:           bgCol=IM_COL32(20,18,16,255);  tileBase=IM_COL32(55,50,45,255); obstCol=IM_COL32(80,72,62,255); break;
+        case Terrain::Volcanic:        bgCol=IM_COL32(20,8,4,255);    tileBase=IM_COL32(48,22,12,255); obstCol=IM_COL32(80,35,10,255); break;
+        case Terrain::Swamp:           bgCol=IM_COL32(10,14,8,255);   tileBase=IM_COL32(28,40,18,255); obstCol=IM_COL32(38,55,22,255); break;
+        case Terrain::Corrupted:       bgCol=IM_COL32(14,8,18,255);   tileBase=IM_COL32(38,22,50,255); obstCol=IM_COL32(60,30,75,255); break;
+        case Terrain::FleshZone:       bgCol=IM_COL32(22,10,10,255);  tileBase=IM_COL32(55,28,22,255); obstCol=IM_COL32(75,38,30,255); break;
+        case Terrain::Toxic:           bgCol=IM_COL32(10,16,6,255);   tileBase=IM_COL32(28,50,14,255); obstCol=IM_COL32(50,75,18,255); break;
+        case Terrain::Industrial:      bgCol=IM_COL32(16,16,18,255);  tileBase=IM_COL32(40,40,48,255); obstCol=IM_COL32(65,65,72,255); break;
+        case Terrain::Wasteland:       bgCol=IM_COL32(18,14,10,255);  tileBase=IM_COL32(48,38,26,255); obstCol=IM_COL32(68,55,38,255); break;
+        case Terrain::Barren:          bgCol=IM_COL32(16,14,10,255);  tileBase=IM_COL32(42,36,24,255); obstCol=IM_COL32(62,52,35,255); break;
+        case Terrain::Sacred:          bgCol=IM_COL32(8,10,20,255);   tileBase=IM_COL32(22,26,55,255); obstCol=IM_COL32(35,40,80,255); break;
+        default:                       bgCol=IM_COL32(14,18,10,255);  tileBase=IM_COL32(32,42,22,255); obstCol=IM_COL32(50,55,35,255); break; // Plains
+    }
+
     // Draw background
-    dl->AddRectFilled(
-        {areaX, areaY},
-        {areaX + areaW, areaY + areaH},
-        IM_COL32(18, 18, 28, 255));
+    dl->AddRectFilled({areaX, areaY}, {areaX + areaW, areaY + areaH}, bgCol);
 
     // Draw tiles
     for (const auto& h : coords) {
@@ -224,14 +240,14 @@ void Game::renderCombatBoard()
         }
 
         const CombatTile* tile = grid.getTile(h);
-        ImU32 fill = IM_COL32(32, 32, 48, 255);
+        ImU32 fill = tileBase;
         if (tile) {
             switch (tile->type) {
                 case CombatTileType::Attack:       fill = IM_COL32(70, 20, 20, 255); break;
                 case CombatTileType::Defense:      fill = IM_COL32(20, 20, 70, 255); break;
                 case CombatTileType::Speed:        fill = IM_COL32(20, 60, 20, 255); break;
                 case CombatTileType::SpeedPenalty: fill = IM_COL32(55, 40, 10, 255); break;
-                case CombatTileType::Obstacle:     fill = IM_COL32(55, 55, 55, 255); break;
+                case CombatTileType::Obstacle:     fill = obstCol; break;
                 case CombatTileType::Wall:         fill = IM_COL32(90, 90, 90, 255); break;
                 default: break;
             }
@@ -362,11 +378,52 @@ void Game::renderCombatBoard()
             }
         }
         if (!drewSprite) {
-            // Circle fallback if no sprite atlas loaded
-            uint8_t alpha = isGhost ? 110 : 230;
-            ImU32 fillCol = u.isPlayer ? IM_COL32(55, 155, 55, alpha)
-                                       : IM_COL32(185, 45, 45, alpha);
-            dl->AddCircleFilled({sx, sy}, hexR, fillCol);
+            // Hex-token fallback — faction-coloured shield anchored to the grid cell
+            static const ImU32 kFacFill[] = {
+                IM_COL32(210, 175, 55,  235), // 0 HolyOrder    gold
+                IM_COL32(175, 28,  28,  235), // 1 Bloodsworn   blood red
+                IM_COL32(35,  120, 35,  235), // 2 Thornkin     forest green
+                IM_COL32(95,  45,  155, 235), // 3 EternalEmpire purple
+                IM_COL32(155, 35,  35,  235), // 4 CrimsonWardens deep red
+                IM_COL32(75,  35,  175, 235), // 5 Voidkin      void purple
+                IM_COL32(70,  120, 175, 235), // 6 IronAssembly  steel blue
+                IM_COL32(155, 75,  35,  235), // 7 Amalgamate    flesh orange
+                IM_COL32(35,  75,  155, 235), // 8+
+            };
+            auto it2 = m_combatAnimators.find(u.id);
+            int facIdx = (it2 != m_combatAnimators.end())
+                         ? std::max(0, std::min(8, it2->second.faction))
+                         : (u.isPlayer ? 0 : 1);
+            uint8_t alpha = isGhost ? 100 : 230;
+            ImU32 fillCol = kFacFill[facIdx];
+            if (isGhost) fillCol = (fillCol & 0x00FFFFFF) | (uint32_t(alpha) << 24);
+
+            // Flat-top hex token at 76% of cell radius, centred on cell
+            float tr = hexR * 0.76f;
+            ImVec2 tkPts[6];
+            for (int vi = 0; vi < 6; vi++) {
+                float ang = (vi * 60.0f) * 3.14159265f / 180.0f; // flat-top: 0° points right
+                tkPts[vi] = {sx + tr * cosf(ang), sy + tr * sinf(ang)};
+            }
+            dl->AddConvexPolyFilled(tkPts, 6, fillCol);
+            ImU32 edgeCol = isActive ? IM_COL32(255, 220, 80, 240) : IM_COL32(200, 200, 200, 180);
+            dl->AddPolyline(tkPts, 6, edgeCol, ImDrawFlags_Closed, isActive ? 2.5f : 1.5f);
+
+            // Unit-name abbreviation centred inside the token (up to 3 chars)
+            const char* abbrev = u.name.c_str();
+            char abbrevBuf[4] = {0};
+            int nc = 0;
+            for (const char* p = abbrev; *p && nc < 3; p++) {
+                if (*p >= 32 && *p < 127) abbrevBuf[nc++] = *p;
+            }
+            ImVec2 ats = ImGui::CalcTextSize(abbrevBuf);
+            dl->AddText({sx - ats.x * 0.5f + 1, sy - ats.y * 0.5f + 1},
+                        IM_COL32(0, 0, 0, 160), abbrevBuf);
+            dl->AddText({sx - ats.x * 0.5f, sy - ats.y * 0.5f},
+                        IM_COL32(255, 255, 255, 230), abbrevBuf);
+
+            sprW = tr * 0.9f;  // override sprW/H so HP bar sits below the token
+            sprH = tr * 1.0f;
         }
 
         // Activity ring
@@ -468,14 +525,28 @@ void Game::renderCombatBoard()
                                    IM_COL32(180, 220, 255, 200));
         }
 
-        // Stack count label (bottom-center)
+        // Stack count label (bottom-center of token)
         char buf[12];
         std::snprintf(buf, sizeof(buf), "%d", u.count);
         ImVec2 ts = ImGui::CalcTextSize(buf);
         float lx = sx - ts.x * 0.5f;
-        float ly = sy + sprH * 0.02f;  // just below center
+        float ly = sy + sprH * 0.02f;
         dl->AddText({lx + 1, ly + 1}, IM_COL32(0, 0, 0, 200), buf);
         dl->AddText({lx, ly}, IM_COL32(255, 255, 255, 255), buf);
+
+        // Shots remaining indicator for ranged units (small cyan badge top-right)
+        if (u.range > 0 && u.shots > 0) {
+            char shotBuf[8];
+            std::snprintf(shotBuf, sizeof(shotBuf), "%d", u.shotsLeft);
+            ImVec2 sts = ImGui::CalcTextSize(shotBuf);
+            float bx2 = sx + sprW * 0.7f;
+            float by3 = sy - sprH * 0.7f;
+            ImU32 shotCol = u.shotsLeft > 0 ? IM_COL32(80, 200, 255, 240)
+                                             : IM_COL32(120, 120, 120, 200);
+            dl->AddRectFilled({bx2 - 2, by3 - 2}, {bx2 + sts.x + 2, by3 + sts.y + 2},
+                               IM_COL32(0, 0, 0, 160), 2.0f);
+            dl->AddText({bx2, by3}, shotCol, shotBuf);
+        }
     }
 
     // Coordinate hint for hovered hex + damage estimate tooltip
@@ -709,6 +780,11 @@ void Game::enterCombat(Hero& playerHero,
 {
     m_state = GameState::Combat;
 
+    // Capture terrain at the combat site
+    if (const HexTile* tile = m_map.getTile(playerHero.pos))
+        m_pendingCombatTerrain = tile->terrain;
+    m_combatTerrain = m_pendingCombatTerrain;
+
     // Snapshot hero army for FIRST_AID post-combat calculation
     m_battleStartArmy = playerHero.army;
 
@@ -836,6 +912,30 @@ void Game::enterCombat(Hero& playerHero,
     }
 
     m_combat.startBattle(playerHero, pUnitsGarr, enemyHero, enemyUnits, isSiege);
+
+    // Terrain-driven obstacle tiles (non-siege only; siege already has walls)
+    if (!isSiege) {
+        int obstCount = 3;
+        switch (m_combatTerrain) {
+            case Terrain::Forest:         obstCount = 7; break;
+            case Terrain::CorruptedForest:obstCount = 7; break;
+            case Terrain::Highland:       obstCount = 6; break;
+            case Terrain::Rocky:          obstCount = 6; break;
+            case Terrain::Volcanic:       obstCount = 6; break;
+            case Terrain::Swamp:          obstCount = 5; break;
+            case Terrain::Corrupted:      obstCount = 5; break;
+            case Terrain::Wasteland:      obstCount = 5; break;
+            case Terrain::FleshZone:      obstCount = 4; break;
+            case Terrain::Toxic:          obstCount = 4; break;
+            case Terrain::Industrial:     obstCount = 4; break;
+            case Terrain::Barren:         obstCount = 3; break;
+            case Terrain::Plains:         obstCount = 2; break;
+            case Terrain::Sacred:         obstCount = 2; break;
+            case Terrain::Water:          obstCount = 1; break;
+            default:                      obstCount = 3; break;
+        }
+        m_combat.applyTerrainObstacles(obstCount);
+    }
 
     // Scale enemy AI difficulty with game difficulty and enemy hero level
     {

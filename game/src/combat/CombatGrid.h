@@ -64,6 +64,8 @@ public:
     // Special tile setup
     void setTileType(HexCoord h, CombatTileType type);
     void placeRandomSpecialTiles(int count, uint32_t seed);
+    // Place Obstacle tiles in the middle area (cols 2 to COLS-3), skipping spawn zones
+    void placeObstacleTiles(int count, uint32_t seed);
     // Siege: place wall structure at column 5 with gate at center row
     void placeSiegeWalls(int wallHP, int gateHP);
     // Damage a wall tile; returns true if wall is now breached

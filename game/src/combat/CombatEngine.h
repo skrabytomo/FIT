@@ -125,6 +125,9 @@ public:
     void setSilent(bool s) { m_silent = s; }
     CombatPhase runHeadless(int maxRounds = 60);
 
+    // Place terrain-driven obstacle tiles (call after startBattle, non-siege only)
+    void applyTerrainObstacles(int count);
+
     // Seed the per-battle turn-order RNG (call alongside DamageCalc::seedRng)
     static void seedTurnRng(uint32_t seed);
 

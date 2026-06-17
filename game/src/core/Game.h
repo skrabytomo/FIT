@@ -270,6 +270,8 @@ private:
     // ── Combat tracking ───────────────────────────────────────────────────────
     uint32_t                m_lastCombatEnemyId    = 0;
     std::vector<UnitStack>  m_battleStartArmy;     // hero army snapshot before combat (for FIRST_AID)
+    Terrain                 m_pendingCombatTerrain = Terrain::Plains;
+    Terrain                 m_combatTerrain        = Terrain::Plains;
 
     // ── Persistent meta layer ──────────────────────────────────────────────────
     HideoutDB    m_hideout;
