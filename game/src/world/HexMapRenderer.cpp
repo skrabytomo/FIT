@@ -96,8 +96,12 @@ void main() {
         float w = sin(wp.y * 7.0 + wp.x * 1.8) * 0.5 + 0.5;
         pat = (w > 0.68) ? -0.14 : (w < 0.32) ? 0.09 : 0.0;
     } else if (uTerrain == 9) {
-        float w = sin(wp.x * 5.5 - uTime * 1.6) * sin(wp.y * 3.8 + uTime * 0.9);
-        pat = w * 0.14;
+        // Large rolling ocean waves — two crossing swells + small ripples
+        float w1 = sin(wp.x * 1.8 - wp.y * 0.6 - uTime * 1.1);
+        float w2 = sin(wp.x * 0.9 + wp.y * 1.4 + uTime * 0.65) * 0.7;
+        float w3 = sin(wp.x * 3.5 - uTime * 2.4) * 0.35;
+        float wn = vnoise(wp * 1.8 + vec2(uTime * 0.25, uTime * 0.15));
+        pat = (w1 + w2 + w3) * 0.11 + (wn - 0.5) * 0.08;
     } else if (uTerrain == 10) {
         float n = vnoise(wp * 3.0);
         pat = (abs(n - 0.5) < 0.06) ? 0.28 : -0.10;
@@ -123,7 +127,12 @@ void main() {
     if (uUseTexture != 0) {
         // Animated UV scroll for water
         vec2 uv = vTexCoord;
-        if (uTerrain == 9) uv.x += uTime * 0.03;
+        if (uTerrain == 9) {
+            float warpX = sin(vWorldPos.y * 0.008 + uTime * 0.7) * 0.018;
+            float warpY = sin(vWorldPos.x * 0.006 - uTime * 0.5) * 0.012;
+            uv.x += uTime * 0.022 + warpX;
+            uv.y += uTime * 0.010 + warpY;
+        }
 
         vec3 tex = texture(uTerrainTex, uv).rgb;
         col = clamp(tex + pat * 0.25, 0.0, 1.0);

@@ -59,6 +59,9 @@ void Game::renderTown()
             ImGui::SameLine();
         }
         if (town && town->hasBuilding(BID::MARKET)) {
+            if (ImGui::Button(m_showMarketPanel ? "[Market X]" : "Market"))
+                m_showMarketPanel = !m_showMarketPanel;
+            ImGui::SameLine();
             if (ImGui::Button(m_showArtifactForgePanel ? "[Forge X]" : "Artifact Forge"))
                 m_showArtifactForgePanel = !m_showArtifactForgePanel;
             ImGui::SameLine();
@@ -75,6 +78,7 @@ void Game::renderTown()
 
     if (m_showMageGuildPanel)    renderMageGuild();
     if (m_showTavernPanel)       renderTavern();
+    if (m_showMarketPanel)       renderMarketplace();
     if (m_showArtifactForgePanel) renderArtifactForge();
     if (m_showCapturePopup) renderCapturePopup();
     endImGuiFrame();
@@ -611,6 +615,122 @@ void Game::enterTown(Town* town)
 void Game::exitTown()
 {
     m_townScreen.close();
+    m_showMageGuildPanel     = false;
+    m_showTavernPanel        = false;
+    m_showArtifactForgePanel = false;
+    m_showMarketPanel        = false;
     m_audio.playMusic("worldmap_music");
     enterWorldMap();
+}
+
+// ── Marketplace — resource exchange ───────────────────────────────────────────
+void Game::renderMarketplace()
+{
+    const Town* town = m_townScreen.currentTown();
+    if (!town || !town->hasBuilding(BID::MARKET)) return;
+
+    ImGui::SetNextWindowPos(ImVec2(350, 32), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(380, 0), ImGuiCond_Always);
+    if (!ImGui::Begin("Market - Resource Exchange", nullptr,
+                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::End(); return;
+    }
+
+    // Trade rate: 4:1 standard (HoMM3 style)
+    static const int SELL_RATE = 4;
+    static const int BUY_RATE  = 1;
+
+    static const char* kResNames[] = {
+        "Gold", "Iron", "Faith Stones", "Blood Essence", "Verdant Sap", "Mercury"
+    };
+
+    ImGui::TextDisabled("Exchange rate: %d:1  (sell %d, receive 1)", SELL_RATE, SELL_RATE);
+    ImGui::Separator();
+
+    // Current resources row
+    ImGui::Text("Your resources:");
+    for (int i = 0; i < RESOURCE_COUNT; ++i) {
+        int val = m_playerResources.get(static_cast<ResourceType>(i));
+        ImGui::SameLine();
+        ImGui::Text("%s:%d", kResNames[i], val);
+    }
+    ImGui::Separator();
+
+    // Sell selector
+    ImGui::Text("Sell:");
+    ImGui::SameLine(60.0f);
+    ImGui::SetNextItemWidth(160.0f);
+    if (ImGui::BeginCombo("##sell", kResNames[m_marketSellType])) {
+        for (int i = 0; i < RESOURCE_COUNT; ++i) {
+            bool sel = (i == m_marketSellType);
+            if (ImGui::Selectable(kResNames[i], sel)) {
+                m_marketSellType = i;
+                if (m_marketBuyType == i)
+                    m_marketBuyType = (i + 1) % RESOURCE_COUNT;
+            }
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    // Buy selector
+    ImGui::Text("Buy: ");
+    ImGui::SameLine(60.0f);
+    ImGui::SetNextItemWidth(160.0f);
+    if (ImGui::BeginCombo("##buy", kResNames[m_marketBuyType])) {
+        for (int i = 0; i < RESOURCE_COUNT; ++i) {
+            if (i == m_marketSellType) continue;
+            bool sel = (i == m_marketBuyType);
+            if (ImGui::Selectable(kResNames[i], sel))
+                m_marketBuyType = i;
+            if (sel) ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+
+    ImGui::Separator();
+
+    // Quantity buttons
+    int have = m_playerResources.get(static_cast<ResourceType>(m_marketSellType));
+    int maxTrades = have / SELL_RATE;
+
+    ImGui::Text("You have: %d %s  (max %d trades)", have, kResNames[m_marketSellType], maxTrades);
+
+    if (maxTrades <= 0) {
+        ImGui::TextDisabled("Not enough %s to trade.", kResNames[m_marketSellType]);
+        ImGui::End();
+        return;
+    }
+
+    // Quick-trade buttons: 1x, 5x, 10x, MAX
+    auto doTrade = [&](int count) {
+        if (count <= 0 || count > maxTrades) return;
+        m_playerResources.add(static_cast<ResourceType>(m_marketSellType), -(count * SELL_RATE));
+        m_playerResources.add(static_cast<ResourceType>(m_marketBuyType),   count * BUY_RATE);
+    };
+
+    ImGui::Text("Trade:");
+    ImGui::SameLine();
+
+    if (maxTrades >= 1) {
+        if (ImGui::Button("x1"))  doTrade(1);
+        ImGui::SameLine();
+    }
+    if (maxTrades >= 5) {
+        if (ImGui::Button("x5"))  doTrade(5);
+        ImGui::SameLine();
+    }
+    if (maxTrades >= 10) {
+        if (ImGui::Button("x10")) doTrade(10);
+        ImGui::SameLine();
+    }
+    char maxBtn[32];
+    std::snprintf(maxBtn, sizeof(maxBtn), "Max (x%d)", maxTrades);
+    if (ImGui::Button(maxBtn)) doTrade(maxTrades);
+
+    // Preview result
+    ImGui::Separator();
+    ImGui::Text("Receive: %d %s per trade", BUY_RATE, kResNames[m_marketBuyType]);
+
+    ImGui::End();
 }

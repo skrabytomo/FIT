@@ -131,6 +131,7 @@ private:
     void renderWeekSummary();
     void renderTavern();
     void renderArtifactForge();   // craftable artifact shop in town
+    void renderMarketplace();     // resource trading (4:1 exchange)
 
     // ── Unit exchange overlay ─────────────────────────────────────────────────
     void renderUnitExchange();
@@ -298,6 +299,10 @@ private:
     bool        m_showMageGuildPanel    = false;
     bool        m_showTavernPanel       = false;
     bool        m_showArtifactForgePanel = false;
+    bool        m_showMarketPanel       = false;
+    int         m_marketSellType        = 0;   // ResourceType index to sell
+    int         m_marketBuyType         = 1;   // ResourceType index to buy
+    int         m_marketSellQty         = 4;   // multiples of trade ratio
 
     // ── Town capture notification ─────────────────────────────────────────────
     bool        m_showCapturePopup  = false;

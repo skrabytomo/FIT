@@ -56,8 +56,8 @@ void WorldGen::passNoiseTerrain(HexMap& map, const WorldGenParams& p)
     map.forEach([&](HexTile& tile) {
         int dist = HexGrid::distance(tile.coord, {0, 0});
 
-        // Force water on the outermost 2 rings — guarantees an ocean border
-        if (dist >= maxR - 1) {
+        // Force water on the outermost 4 rings — wide ocean border
+        if (dist >= maxR - 3) {
             tile.terrain = Terrain::Water;
             return;
         }
@@ -73,7 +73,7 @@ void WorldGen::passNoiseTerrain(HexMap& map, const WorldGenParams& p)
         float maxRf = static_cast<float>(maxR);
         float edge = 1.0f - (r / maxRf);        // 1 at center, 0 at edge
         float bias = 2.5f * (edge - 0.5f);      // positive at center, negative at edge
-        h += bias * 0.35f;
+        h += bias * 0.55f;                       // stronger edge push for wider water margin
 
         tile.terrain = heightToTerrain(h, waterCutoff);
     });
