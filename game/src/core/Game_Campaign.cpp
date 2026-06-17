@@ -1,5 +1,61 @@
 #include "Game.h"
+#include <imgui.h>
 #include <stdio.h>
+
+// ── Tutorial slide data ───────────────────────────────────────────────────────
+struct TutorialSlide {
+    const char* title;
+    const char* body;
+};
+
+static const TutorialSlide kTutorial[] = {
+    {
+        "Welcome to the Campaign",
+        "You are a commander in a fractured world on the brink of war.\n\n"
+        "Three chapters lie ahead — each choice you make will shape the ending.\n\n"
+        "This brief tutorial will walk you through the core mechanics."
+    },
+    {
+        "Moving Your Hero",
+        "Click any highlighted hex on the world map to move your hero there.\n\n"
+        "Each hero has a limited number of movement points per turn (shown in the HUD).\n\n"
+        "Standing on a ROAD tile costs half movement. Rough terrain costs more."
+    },
+    {
+        "Resources",
+        "Six resources drive your war machine:\n\n"
+        "  Gold   — the universal currency, earned from towns and mines.\n"
+        "  Iron   — needed for Forts and advanced constructions.\n"
+        "  Faith Stones, Verdant Sap, Mercury, Blood Essence\n"
+        "             — faction resources for advanced buildings and units.\n\n"
+        "Capture resource mines on the map to gain weekly income."
+    },
+    {
+        "Towns & Buildings",
+        "Enter one of your towns (move your hero onto its hex) to manage it.\n\n"
+        "Build dwellings to recruit new unit tiers each week.\n"
+        "Build the Fort to train and garrison troops.\n"
+        "Build the Mage Guild to learn spells.\n\n"
+        "Each faction has unique buildings — explore them all."
+    },
+    {
+        "Combat",
+        "When your hero meets an enemy on the world map, battle begins.\n\n"
+        "Combat is turn-based. Units act in initiative order (fastest first).\n"
+        "Click a highlighted hex to MOVE your unit.\n"
+        "Click an enemy unit to ATTACK it.\n\n"
+        "Use the action bar at the bottom to Wait, Defend, or cast Spells."
+    },
+    {
+        "Ending Your Turn",
+        "Press SPACE or click the 'End Turn' button in the HUD to end your turn.\n\n"
+        "Enemy AI heroes will then take their actions.\n"
+        "After all factions have acted, a new day begins.\n"
+        "After 7 days, a new week begins — your mines and towns pay out income.\n\n"
+        "Good luck, Commander."
+    },
+};
+static constexpr int kTutorialCount = static_cast<int>(sizeof(kTutorial) / sizeof(kTutorial[0]));
 
 // ── Campaign update ───────────────────────────────────────────────────────────
 void Game::updateCampaign(float dt)
@@ -9,6 +65,57 @@ void Game::updateCampaign(float dt)
     updateWorldMap(dt);
 }
 
+// ── Tutorial modal ────────────────────────────────────────────────────────────
+void Game::renderCampaignTutorial()
+{
+    ImGui::OpenPopup("Tutorial##camp");
+    ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
+    ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
+    ImGui::SetNextWindowSize(ImVec2(480, 0), ImGuiCond_Always);
+
+    if (ImGui::BeginPopupModal("Tutorial##camp", nullptr,
+        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
+
+        // Progress indicator
+        ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f),
+            "  %d / %d", m_tutorialStep + 1, kTutorialCount);
+        ImGui::SameLine();
+        ImGui::TextColored(ImVec4(1.0f, 0.82f, 0.2f, 1.0f),
+            "%s", kTutorial[m_tutorialStep].title);
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + 450.0f);
+        ImGui::TextUnformatted(kTutorial[m_tutorialStep].body);
+        ImGui::PopTextWrapPos();
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        float bw = ImGui::GetWindowWidth() - 32.0f;
+
+        bool isLast = (m_tutorialStep == kTutorialCount - 1);
+        if (isLast) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.15f, 1.0f));
+            if (ImGui::Button("Begin Campaign", ImVec2(bw, 36))) {
+                m_campaignTutorialSeen = true;
+                ImGui::CloseCurrentPopup();
+            }
+            ImGui::PopStyleColor();
+        } else {
+            if (ImGui::Button("Next  >>", ImVec2(bw * 0.6f, 32))) {
+                ++m_tutorialStep;
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Skip Tutorial", ImVec2(-1, 32))) {
+                m_campaignTutorialSeen = true;
+                ImGui::CloseCurrentPopup();
+            }
+        }
+        ImGui::EndPopup();
+    }
+}
+
 // ── Campaign render ───────────────────────────────────────────────────────────
 void Game::renderCampaign()
 {
@@ -16,7 +123,13 @@ void Game::renderCampaign()
     m_hexRenderer.render(m_map, m_camera, m_hovered, {-999,-999});
 
     beginImGuiFrame();
-    m_campaignHUD.render(m_campaign, m_lua);
+
+    if (!m_campaignTutorialSeen) {
+        renderCampaignTutorial();
+    } else {
+        m_campaignHUD.render(m_campaign, m_lua);
+    }
+
     endImGuiFrame();
 
     // End screen requested return to menu
@@ -54,11 +167,12 @@ void Game::enterCampaign()
             }
         }
     });
-    printf("Entered Campaign (F4 to exit)\n");
+    printf("Entered Campaign\n");
 }
 
 void Game::exitCampaign()
 {
-    m_state = GameState::WorldMap;
+    m_state    = GameState::MainMenu;
+    m_menuMode = 0;
     printf("Exited Campaign\n");
 }

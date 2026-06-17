@@ -78,6 +78,8 @@ void Game::renderMainMenu()
         ImGui::Spacing();
         if (ImGui::Button("Load Game",  ImVec2(bw, 40))) m_menuMode = 2;
         ImGui::Spacing();
+        if (ImGui::Button("Campaign",   ImVec2(bw, 40))) m_menuMode = 4;
+        ImGui::Spacing();
         if (ImGui::Button("Settings",   ImVec2(bw, 40))) m_menuMode = 3;
         ImGui::Spacing();
         if (ImGui::Button("Map Editor", ImVec2(bw, 40))) { enterEditor(); }
@@ -85,7 +87,7 @@ void Game::renderMainMenu()
         if (ImGui::Button("Quit",       ImVec2(bw, 40))) m_running = false;
 
         ImGui::Spacing(); ImGui::Separator();
-        ImGui::TextColored({0.4f, 0.4f, 0.4f, 1.0f}, "F5 Save  F9 Load  F2 Editor  F4 Campaign");
+        ImGui::TextColored({0.4f, 0.4f, 0.4f, 1.0f}, "F5 Save  F9 Load  F2 Editor");
     }
     // ── 1: New Game — setup + slot picker ────────────────────────────────────
     else if (m_menuMode == 1) {
@@ -275,6 +277,43 @@ void Game::renderMainMenu()
             loadSettings();   // reload from disk to undo in-session changes
             m_menuMode = 0;
         }
+    }
+    // ── 4: Campaign ───────────────────────────────────────────────────────────
+    else if (m_menuMode == 4) {
+        header("CAMPAIGN");
+
+        ImGui::TextWrapped(
+            "A three-chapter story spanning the fractured continent of Vael — "
+            "forge alliances, betray old friends, and decide the fate of the Convergence."
+        );
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // Chapter list (informational)
+        ImGui::TextColored({1.0f, 0.82f, 0.2f, 1.0f}, "Chapters:");
+        ImGui::TextDisabled("  I.   The Border Burns");
+        ImGui::TextDisabled("  II.  The Thornwood Passage");
+        ImGui::TextDisabled("  III. The Convergence Point");
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.45f, 0.15f, 1.0f));
+        if (ImGui::Button("Start Campaign", ImVec2(bw, 42))) {
+            m_menuMode              = 0;
+            m_campaignTutorialSeen  = false;   // first time = show tutorial
+            m_tutorialStep          = 0;
+            enterCampaign();
+        }
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+
+        ImGui::TextColored({0.5f, 0.8f, 0.5f, 1.0f},
+            m_campaignTutorialSeen ? "Tutorial already completed." : "First run: a short tutorial will play first.");
+
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+        if (ImGui::Button("Back##camp", ImVec2(bw, 30))) m_menuMode = 0;
     }
 
     ImGui::End();

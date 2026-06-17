@@ -367,8 +367,13 @@ private:
     SDL_Cursor* m_cursorArrow = nullptr;
     SDL_Cursor* m_cursorFight = nullptr;
 
+    // ── Campaign tutorial ─────────────────────────────────────────────────────
+    bool m_campaignTutorialSeen = false;
+    int  m_tutorialStep         = 0;
+    void renderCampaignTutorial();
+
     // ── Main menu sub-state & save slots ─────────────────────────────────────
-    int  m_menuMode      = 0;   // 0=main, 1=newgame, 2=loadgame, 3=settings
+    int  m_menuMode      = 0;   // 0=main, 1=newgame, 2=loadgame, 3=settings, 4=campaign
     int  m_activeSlot    = 0;   // which save slot (0-2) is currently in use
     int  m_newGameMapSize    = 0;   // 0=Small, 1=Medium, 2=Large, 3=XLarge
     int  m_newGameFaction    = 0;   // 0=HolyOrder ... 8=Convergence

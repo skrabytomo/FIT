@@ -284,10 +284,7 @@ void Game::update(float dt)
         if (m_state == GameState::Editor) exitEditor();
         else enterEditor();
     }
-    if (m_input.keyDown(SDLK_F4)) {
-        if (m_state == GameState::Campaign) exitCampaign();
-        else enterCampaign();
-    }
+
 
     switch (m_state) {
         case GameState::MainMenu: updateMainMenu(dt);  break;
