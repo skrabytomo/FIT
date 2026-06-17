@@ -886,7 +886,7 @@ void Game::doEndTurn()
 // ── World map render ──────────────────────────────────────────────────────────
 void Game::renderWorldMap()
 {
-    m_hexRenderer.render(m_map, m_camera, m_hovered, m_selected);
+    m_hexRenderer.render(m_map, m_camera, m_hovered, m_selected, m_fogDisabled);
 
     float proj[16];
     m_camera.getMatrix(proj);
@@ -1531,7 +1531,7 @@ void Game::renderWorldOverlay()
     // ── Towns ──────────────────────────────────────────────────────────────────
     for (const auto& town : m_towns) {
         const HexTile* ttile = m_map.getTile(town.pos);
-        if (ttile && !ttile->visible) continue;
+        if (!m_fogDisabled && ttile && !ttile->visible) continue;
 
         float sx, sy;
         project(town.pos, sx, sy);
@@ -1555,7 +1555,7 @@ void Game::renderWorldOverlay()
         const auto& obj = m_worldObjects[oi];
         if (obj.collected) continue;
         const HexTile* otile = m_map.getTile(obj.pos);
-        if (!otile || !otile->explored) continue;
+        if (!m_fogDisabled && (!otile || !otile->explored)) continue;
         float sx, sy;
         project(obj.pos, sx, sy);
         int ico;
@@ -1590,7 +1590,7 @@ void Game::renderWorldOverlay()
     // ── Resource nodes (mines) ────────────────────────────────────────────────
     for (const auto& r : m_resources) {
         const HexTile* rtile = m_map.getTile(r.pos);
-        if (!rtile || !rtile->explored) continue;
+        if (!m_fogDisabled && (!rtile || !rtile->explored)) continue;
         float sx, sy;
         project(r.pos, sx, sy);
         int ico;
@@ -1637,7 +1637,7 @@ void Game::renderWorldOverlay()
         if (hero.ghostWalkSpecialty) continue;
         const HexTile* etile = m_map.getTile(hero.pos);
         bool revealedByBloodScent = playerHasBloodScent && hero.faction == FactionId::Bloodsworn;
-        if (!etile || (!etile->visible && !revealedByBloodScent)) continue;
+        if (!m_fogDisabled && (!etile || (!etile->visible && !revealedByBloodScent))) continue;
         float sx, sy;
         project(hero.pos, sx, sy);
 

@@ -499,6 +499,10 @@ void Game::renderPauseMenu()
 
         ImGui::Spacing();
         ImGui::Separator();
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Debug");
+        ImGui::Checkbox("Disable Fog of War", &m_fogDisabled);
+        ImGui::Spacing();
+        ImGui::Separator();
         if (ImGui::Button("Quit to Desktop", ImVec2(-1, 28))) {
             m_running = false;
             ImGui::CloseCurrentPopup();

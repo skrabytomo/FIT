@@ -251,7 +251,8 @@ void HexMapRenderer::buildHexMesh()
 }
 
 void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
-                             HexCoord hovered, HexCoord selected)
+                             HexCoord hovered, HexCoord selected,
+                             bool fogDisabled)
 {
     glDisable(GL_DEPTH_TEST);
     float proj[16];
@@ -264,13 +265,13 @@ void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
 
     for (auto& coord : map.coords()) {
         const HexTile* tile = map.getTile(coord);
-        if (!tile || !tile->explored) continue;
+        if (!tile || (!fogDisabled && !tile->explored)) continue;
 
         float cx, cy;
         m_grid.hexToWorld(coord, cx, cy);
 
         int ti = static_cast<int>(tile->terrain);
-        float a = tile->visible ? 1.0f : 0.55f;
+        float a = (fogDisabled || tile->visible) ? 1.0f : 0.55f;
 
         // Pick variant deterministically from tile coords (consistent across frames)
         int nv = m_variantCount[ti];

@@ -327,6 +327,9 @@ private:
     void renderMinimap();
     bool m_showMinimap = true;
 
+    // ── Debug / cheat options ─────────────────────────────────────────────────
+    bool m_fogDisabled = false;
+
     // ── Cached weekly income (updated each turn end) ─────────────────────────
     Resources m_cachedWeeklyIncome;
 
