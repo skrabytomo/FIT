@@ -132,6 +132,7 @@ void main() {
             float warpY = sin(vWorldPos.x * 0.006 - uTime * 0.5) * 0.012;
             uv.x += uTime * 0.022 + warpX;
             uv.y += uTime * 0.010 + warpY;
+            uv = fract(uv);
         }
 
         vec3 tex = texture(uTerrainTex, uv).rgb;

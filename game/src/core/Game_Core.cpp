@@ -29,6 +29,11 @@ static std::string slotPath(int slot)
     return "saves/save" + std::to_string(slot) + ".json";
 }
 
+static std::string campaignSlotPath(int slot)
+{
+    return "saves/campaign" + std::to_string(slot) + ".json";
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 bool Game::init(const std::string& title, int width, int height)
 {
@@ -278,8 +283,18 @@ void Game::processEvents()
 void Game::update(float dt)
 {
     m_audio.update();
-    if (m_input.keyDown(SDLK_F5)) saveGame(slotPath(m_activeSlot));
-    if (m_input.keyDown(SDLK_F9)) loadGame(slotPath(m_activeSlot));
+    if (m_input.keyDown(SDLK_F5)) {
+        if (m_state == GameState::Campaign)
+            saveGame(campaignSlotPath(m_campaignActiveSlot));
+        else
+            saveGame(slotPath(m_activeSlot));
+    }
+    if (m_input.keyDown(SDLK_F9)) {
+        if (m_state == GameState::Campaign)
+            loadGame(campaignSlotPath(m_campaignActiveSlot));
+        else
+            loadGame(slotPath(m_activeSlot));
+    }
     if (m_input.keyDown(SDLK_F2)) {
         if (m_state == GameState::Editor) exitEditor();
         else enterEditor();

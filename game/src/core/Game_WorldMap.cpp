@@ -645,7 +645,10 @@ void Game::doEndTurn()
             }
 
             // Auto-save at start of each new week
-            saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
+            if (m_state == GameState::Campaign)
+                saveGame("saves/campaign" + std::to_string(m_campaignActiveSlot) + ".json");
+            else
+                saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
 
             // ── AI town building: one building per week, priority dwellings ──────────
             {
@@ -953,8 +956,11 @@ void Game::doEndTurn()
             }
 
             // Auto-save at week start if enabled
-            if (m_settingsAutoSave && m_activeSlot >= 0) {
-                saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
+            if (m_settingsAutoSave) {
+                if (m_state == GameState::Campaign)
+                    saveGame("saves/campaign" + std::to_string(m_campaignActiveSlot) + ".json");
+                else if (m_activeSlot >= 0)
+                    saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
             }
         }
     }
@@ -2646,7 +2652,10 @@ void Game::renderDefeatModal()
         if (ImGui::Button(m_finalDefeat ? "Load Last Save" : "Load Last Save", ImVec2(m_finalDefeat ? bw * 0.6f : -1, 36))) {
             m_showDefeat  = false;
             m_finalDefeat = false;
-            loadGame("saves/save" + std::to_string(m_activeSlot) + ".json");
+            if (m_state == GameState::Campaign)
+                loadGame("saves/campaign" + std::to_string(m_campaignActiveSlot) + ".json");
+            else
+                loadGame("saves/save" + std::to_string(m_activeSlot) + ".json");
             m_audio.playMusic("worldmap_music");
             ImGui::CloseCurrentPopup();
         }

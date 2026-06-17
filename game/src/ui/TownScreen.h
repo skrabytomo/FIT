@@ -76,9 +76,14 @@ private:
     static constexpr int MAX_TIERS = 6;
     ImTextureID m_unitTex[MAX_TIERS] = {};
 
+    // Recruit destination toggle
+    bool m_recruitToGarrison = false;
+
 public:
     void setTownBannerTex(ImTextureID t) { m_townBannerTex = t; }
     void setUnitTex(int tierIdx, ImTextureID t) {
         if (tierIdx >= 0 && tierIdx < MAX_TIERS) m_unitTex[tierIdx] = t;
     }
+    void setRecruitTarget(bool toGarrison) { m_recruitToGarrison = toGarrison; }
+    bool recruitToGarrison() const { return m_recruitToGarrison; }
 };

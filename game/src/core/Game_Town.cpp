@@ -62,6 +62,8 @@ void Game::renderTown()
                 m_showGarrisonPanel = !m_showGarrisonPanel;
                 m_garrisonSelSlot = -1;
                 m_garrisonSelSide = -1;
+                // Default recruit to garrison when panel opens
+                m_townScreen.setRecruitTarget(m_showGarrisonPanel);
             }
             ImGui::SameLine();
         }
@@ -683,7 +685,10 @@ void Game::renderPauseMenu()
         ImGui::Spacing();
 
         if (ImGui::Button("Save Game  [F5]", ImVec2(-1, 32))) {
-            saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
+            if (m_state == GameState::Campaign)
+                saveGame("saves/campaign" + std::to_string(m_campaignActiveSlot) + ".json");
+            else
+                saveGame("saves/save" + std::to_string(m_activeSlot) + ".json");
             m_showPauseMenu = false;
             ImGui::CloseCurrentPopup();
         }
@@ -818,6 +823,7 @@ void Game::exitTown()
     m_showGarrisonPanel      = false;
     m_garrisonSelSlot        = -1;
     m_garrisonSelSide        = -1;
+    m_townScreen.setRecruitTarget(false);
     m_audio.playMusic("worldmap_music");
     enterWorldMap();
 }

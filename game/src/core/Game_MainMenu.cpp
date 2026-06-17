@@ -4,9 +4,18 @@
 #include <imgui.h>
 #include <string>
 #include <cstdio>
+#include <cstdlib>
 
 // ── Save slot metadata ────────────────────────────────────────────────────────
-struct SlotMeta { bool exists = false; std::string heroName; std::string factionName; int day = 0, week = 0; };
+struct SlotMeta {
+    bool        exists      = false;
+    std::string heroName;
+    std::string factionName;
+    int         day         = 0;
+    int         week        = 0;
+    bool        isCampaign  = false;
+    int         missionIdx  = 0;
+};
 
 static const char* factionShortName(int factionId)
 {
@@ -24,15 +33,16 @@ static const char* factionShortName(int factionId)
     }
 }
 
-static SlotMeta readSlotMeta(int slot)
+static SlotMeta readSlotMeta(const std::string& path)
 {
     SlotMeta m;
     GameSaveData data;
-    std::string path = "saves/save" + std::to_string(slot) + ".json";
     if (!SaveLoad::loadGame(path, data)) return m;
     m.exists      = true;
     m.day         = data.day;
     m.week        = data.week;
+    m.isCampaign  = data.campaign.active;
+    m.missionIdx  = data.campaign.missionIdx;
     if (!data.heroes.empty()) {
         m.heroName    = data.heroes[0].name;
         m.factionName = factionShortName(data.heroes[0].faction);
@@ -177,8 +187,9 @@ void Game::renderMainMenu()
         ImGui::TextDisabled("Choose a slot. Existing save will be overwritten.");
         ImGui::Spacing();
 
-        for (int s = 0; s < 3; ++s) {
-            SlotMeta meta = readSlotMeta(s);
+        for (int s = 0; s < 5; ++s) {
+            std::string path = "saves/save" + std::to_string(s) + ".json";
+            SlotMeta meta = readSlotMeta(path);
             char lbl[200];
             if (meta.exists)
                 std::snprintf(lbl, sizeof(lbl),
@@ -206,32 +217,85 @@ void Game::renderMainMenu()
     // ── 2: Load Game — slot list ──────────────────────────────────────────────
     else if (m_menuMode == 2) {
         header("Load Game");
-        bool anySave = false;
 
-        for (int s = 0; s < 3; ++s) {
-            SlotMeta meta = readSlotMeta(s);
+        // General saves (5 slots)
+        ImGui::TextColored({0.7f, 0.7f, 0.7f, 1.0f}, "General Saves");
+        ImGui::Separator();
+        ImGui::Spacing();
+        bool anyGeneral = false;
+        for (int s = 0; s < 5; ++s) {
+            std::string path = "saves/save" + std::to_string(s) + ".json";
+            SlotMeta meta = readSlotMeta(path);
             if (!meta.exists) {
                 ImGui::TextDisabled("Slot %d  |  Empty", s + 1);
                 ImGui::Spacing();
                 continue;
             }
-            anySave = true;
+            anyGeneral = true;
             char lbl[200];
             std::snprintf(lbl, sizeof(lbl),
                 "Slot %d  |  %s  (%s)  Day %d  Week %d##ld%d",
                 s + 1, meta.heroName.c_str(), meta.factionName.c_str(),
                 meta.day, meta.week, s);
-            if (ImGui::Button(lbl, ImVec2(bw, 36))) {
+            float delBtnW = 52.0f;
+            if (ImGui::Button(lbl, ImVec2(bw - delBtnW - 4, 36))) {
                 m_activeSlot = s;
-                std::string path = "saves/save" + std::to_string(s) + ".json";
                 if (loadGame(path)) {
                     m_state    = GameState::WorldMap;
                     m_menuMode = 0;
                 }
             }
+            ImGui::SameLine(0, 4);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.1f, 0.1f, 1.0f));
+            char delLbl[24]; std::snprintf(delLbl, sizeof(delLbl), "Del##dg%d", s);
+            if (ImGui::Button(delLbl, ImVec2(delBtnW, 36))) {
+                std::remove(path.c_str());
+            }
+            ImGui::PopStyleColor();
             ImGui::Spacing();
         }
-        if (!anySave) { ImGui::Spacing(); ImGui::TextDisabled("No saves found."); ImGui::Spacing(); }
+        if (!anyGeneral) { ImGui::Spacing(); ImGui::TextDisabled("No general saves found."); ImGui::Spacing(); }
+
+        // Campaign saves (3 slots)
+        ImGui::Spacing();
+        ImGui::TextColored({0.7f, 0.7f, 0.7f, 1.0f}, "Campaign Saves");
+        ImGui::Separator();
+        ImGui::Spacing();
+        static const char* kMissionNames[] = { "I. The Border Burns", "II. The Thornwood Passage", "III. The Convergence Point" };
+        bool anyCampaign = false;
+        for (int s = 0; s < 3; ++s) {
+            std::string path = "saves/campaign" + std::to_string(s) + ".json";
+            SlotMeta meta = readSlotMeta(path);
+            if (!meta.exists) {
+                ImGui::TextDisabled("Camp %d  |  Empty", s + 1);
+                ImGui::Spacing();
+                continue;
+            }
+            anyCampaign = true;
+            const char* mname = (meta.missionIdx >= 0 && meta.missionIdx < 3) ? kMissionNames[meta.missionIdx] : "?";
+            char lbl[200];
+            std::snprintf(lbl, sizeof(lbl),
+                "Camp %d  |  %s  |  %s  Day %d  Week %d##ldc%d",
+                s + 1, mname, meta.heroName.c_str(), meta.day, meta.week, s);
+            float delBtnW = 52.0f;
+            if (ImGui::Button(lbl, ImVec2(bw - delBtnW - 4, 36))) {
+                m_campaignActiveSlot = s;
+                if (loadGame(path)) {
+                    m_state    = GameState::WorldMap;
+                    m_menuMode = 0;
+                }
+            }
+            ImGui::SameLine(0, 4);
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.1f, 0.1f, 1.0f));
+            char delLbl[24]; std::snprintf(delLbl, sizeof(delLbl), "Del##dc%d", s);
+            if (ImGui::Button(delLbl, ImVec2(delBtnW, 36))) {
+                std::remove(path.c_str());
+            }
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
+        }
+        if (!anyCampaign) { ImGui::Spacing(); ImGui::TextDisabled("No campaign saves found."); ImGui::Spacing(); }
+
         ImGui::Separator(); ImGui::Spacing();
         if (ImGui::Button("Back##ld", ImVec2(bw, 30))) m_menuMode = 0;
     }

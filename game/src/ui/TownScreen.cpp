@@ -231,8 +231,9 @@ void TownScreen::rebuildRecruitButtons()
             }
             if (!matchedUd) return;
 
-            // Route units to hero army if hero is present, else to town garrison
-            std::vector<UnitStack>& target = m_hero ? m_hero->army : m_town->garrison;
+            // Route to garrison or hero army based on toggle (hero required for army)
+            bool useGarrison = m_recruitToGarrison || !m_hero;
+            std::vector<UnitStack>& target = useGarrison ? m_town->garrison : m_hero->army;
             bool alreadyHasStack = false;
             for (const auto& s : target)
                 if (s.defId == matchedUd->id) { alreadyHasStack = true; break; }
@@ -264,15 +265,26 @@ void TownScreen::draw(UIRenderer& rdr)
     rdr.drawRect({0,0,(float)m_screenW,(float)m_screenH},
                  UIColor::rgba(0,0,0,0.6f));
 
-    // Faction art banner: fills the right side of the panel behind recruit/income
+    // Faction artwork in the income panel area — prominent, full-color portrait
     if (m_townBannerTex) {
-        float bx = m_recruitPanel.bounds.x;
-        float by = m_mainPanel.bounds.y;
-        float bw = m_recruitPanel.bounds.w;
-        float bh = m_mainPanel.bounds.h;
+        float ix = m_incomePanel.bounds.x;
+        float iy = m_incomePanel.bounds.y;
+        float iw = m_incomePanel.bounds.w;
+        float ih = m_incomePanel.bounds.h;
         ImDrawList* dl = ImGui::GetBackgroundDrawList();
-        dl->AddImageRounded(m_townBannerTex, {bx, by}, {bx + bw, by + bh},
-                            {0,0}, {1,1}, IM_COL32(255,255,255,55), 6.0f);
+        // Full portrait fills income panel
+        dl->AddImageRounded(m_townBannerTex, {ix + 2, iy + 2}, {ix + iw - 2, iy + ih - 2},
+                            {0,0}, {1,1}, IM_COL32(255,255,255,220), 6.0f);
+        // Dark gradient at bottom so income text remains readable
+        dl->AddRectFilledMultiColor(
+            {ix + 2, iy + ih * 0.55f}, {ix + iw - 2, iy + ih - 2},
+            IM_COL32(0,0,0,0), IM_COL32(0,0,0,0),
+            IM_COL32(0,0,0,180), IM_COL32(0,0,0,180));
+        // Subtle ghost tint over recruit panel for cohesion
+        dl->AddImageRounded(m_townBannerTex, {m_recruitPanel.bounds.x, m_recruitPanel.bounds.y},
+                            {m_recruitPanel.bounds.x + m_recruitPanel.bounds.w,
+                             m_recruitPanel.bounds.y + m_recruitPanel.bounds.h},
+                            {0,0}, {1,1}, IM_COL32(255,255,255,30), 4.0f);
     }
 
     m_mainPanel.draw(rdr);
@@ -305,8 +317,20 @@ void TownScreen::drawRecruitPanel(UIRenderer& rdr)
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
-    if (!m_hero)
-        ImGui::TextColored({1.0f, 0.85f, 0.3f, 1.0f}, "No hero — units go to Garrison");
+    // Recruit destination toggle
+    {
+        float halfW = (m_recruitPanel.bounds.w - 20.0f) * 0.5f - 2.0f;
+        bool toArmy = !m_recruitToGarrison;
+        if (toArmy) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f,0.4f,0.2f,1.f));
+        else        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f,0.18f,0.18f,1.f));
+        if (ImGui::Button("-> Hero Army", {halfW, 18})) m_recruitToGarrison = false;
+        ImGui::PopStyleColor();
+        ImGui::SameLine(0, 4);
+        if (!toArmy) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f,0.25f,0.1f,1.f));
+        else         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f,0.18f,0.18f,1.f));
+        if (ImGui::Button("-> Garrison", {halfW, 18})) m_recruitToGarrison = true;
+        ImGui::PopStyleColor();
+    }
 
     if (!m_town || !m_registry || m_town->dwellings.empty()) {
         ImGui::TextDisabled("No units available");
@@ -423,7 +447,8 @@ void TownScreen::drawRecruitPanel(UIRenderer& rdr)
 
             if (ImGui::Button("Recruit All##btn", {cardW - 8.0f, 12.0f})) {
                 const UnitDef* mu = ud;
-                std::vector<UnitStack>& target = m_hero ? m_hero->army : m_town->garrison;
+                bool useGarrison = m_recruitToGarrison || !m_hero;
+                std::vector<UnitStack>& target = useGarrison ? m_town->garrison : m_hero->army;
                 bool alreadyHasStack = false;
                 for (const auto& s : target)
                     if (s.defId == mu->id) { alreadyHasStack = true; break; }
@@ -458,11 +483,14 @@ void TownScreen::drawRecruitPanel(UIRenderer& rdr)
 
 void TownScreen::drawIncomePanel(UIRenderer& rdr)
 {
+    // Panel border only — no opaque background so faction art shows through
     m_incomePanel.draw(rdr);
     if (!m_town) return;
 
-    float x = m_incomePanel.bounds.x + 8;
-    float y = m_incomePanel.bounds.y + 28;
+    float bh = m_incomePanel.bounds.h;
+    float x  = m_incomePanel.bounds.x + 8;
+    // Start text in the lower 45% where the dark gradient covers the art
+    float y  = m_incomePanel.bounds.y + bh * 0.57f;
 
     for (int i = 0; i < RESOURCE_COUNT; ++i) {
         int income = m_town->weeklyIncome.amounts[i];
@@ -470,7 +498,7 @@ void TownScreen::drawIncomePanel(UIRenderer& rdr)
         std::string line = std::string(resourceName(static_cast<ResourceType>(i)))
                          + ": +" + std::to_string(income) + "/week";
         rdr.drawText(line, x, y, UIColor::hex(UITheme::GOLD), 12.0f);
-        y += 15.0f;
+        y += 16.0f;
     }
 }
 
