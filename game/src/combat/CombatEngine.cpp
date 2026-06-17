@@ -31,24 +31,34 @@ void CombatEngine::startBattle(
     m_log.clear();
     m_waitQueue.clear();
 
+    m_isSiege = isSiege;
     m_grid.init(48.0f);
-    if (!isSiege) m_grid.placeRandomSpecialTiles(4, s_turnRng());
+    if (!isSiege) {
+        m_grid.placeRandomSpecialTiles(4, s_turnRng());
+    } else {
+        // Siege: walls at column 5; fort building adds +50% wall HP
+        m_grid.placeSiegeWalls(40, 20);
+    }
 
-    // Place player units on left side (columns 0-1)
-    int playerRow = 1;
+    // Place player units on left side (columns 0-1 normally, or 0-3 for siege engines)
     for (auto& u : playerUnits) {
         CombatUnit copy = u;
-        copy.isPlayer = true;
+        copy.isPlayer  = true;
         copy.shotsLeft = u.shots;
+        // Siege engines start on turn 1 as "building" (acted already)
+        if (isSiege && copy.isSiegeEngine && !copy.wallBypass) copy.hasActed = true;
         uint32_t id = m_grid.addUnit(copy);
         CombatUnit* placed = m_grid.getUnit(id);
         if (placed) {
-            // Find a free spawn hex on left side
+            // Siege drill: place behind the wall (columns 6-7)
+            int startQ = 0;
+            if (isSiege && placed->wallBypass) startQ = 6;
             for (int row = 0; row < CombatGrid::ROWS; ++row) {
-                int q = 0 + (placed->stackSlot % 2);
+                int q = startQ + (placed->stackSlot % 2);
                 int r = row - (q - (q & 1)) / 2;
                 HexCoord h{q, r};
-                if (m_grid.inBounds(h) && !m_grid.getTile(h)->occupied) {
+                if (m_grid.inBounds(h) && !m_grid.getTile(h)->occupied
+                    && m_grid.getTile(h)->type != CombatTileType::Wall) {
                     m_grid.placeUnit(*placed, h);
                     break;
                 }
@@ -56,19 +66,22 @@ void CombatEngine::startBattle(
         }
     }
 
-    // Place enemy units on right side (columns 9-10)
+    // Place enemy units: normal combat right (cols 9-10), siege defenders (cols 7-10)
     for (auto& u : enemyUnits) {
         CombatUnit copy = u;
-        copy.isPlayer = false;
+        copy.isPlayer  = false;
         copy.shotsLeft = u.shots;
         uint32_t id = m_grid.addUnit(copy);
         CombatUnit* placed = m_grid.getUnit(id);
         if (placed) {
+            int startQ = isSiege ? (CombatGrid::COLS - 4 + (placed->stackSlot % 4))
+                                 : (CombatGrid::COLS - 1 - (placed->stackSlot % 2));
             for (int row = 0; row < CombatGrid::ROWS; ++row) {
-                int q = CombatGrid::COLS - 1 - (placed->stackSlot % 2);
+                int q = startQ;
                 int r = row - (q - (q & 1)) / 2;
                 HexCoord h{q, r};
-                if (m_grid.inBounds(h) && !m_grid.getTile(h)->occupied) {
+                if (m_grid.inBounds(h) && !m_grid.getTile(h)->occupied
+                    && m_grid.getTile(h)->type != CombatTileType::Wall) {
                     m_grid.placeUnit(*placed, h);
                     break;
                 }
@@ -612,6 +625,21 @@ bool CombatEngine::submitAction(const CombatAction& action)
                 for (const auto& other : m_grid.units()) {
                     if (!other.alive || other.isPlayer) continue;
                     if (HexGrid::distance(unit->pos, other.pos) == 1) { canAttack = true; break; }
+                }
+            }
+            // Siege: also allow action if adjacent to (or in range of) a wall tile
+            if (!canAttack && m_isSiege) {
+                if (unit->isSiegeEngine && unit->range > 0 && unit->shotsLeft > 0) {
+                    for (const auto& coord : m_grid.allCoords()) {
+                        if (m_grid.isWallTile(coord) &&
+                            HexGrid::distance(unit->pos, coord) <= unit->range) {
+                            canAttack = true; break;
+                        }
+                    }
+                } else {
+                    for (const auto& nb : HexGrid::neighbors(unit->pos)) {
+                        if (m_grid.isWallTile(nb)) { canAttack = true; break; }
+                    }
                 }
             }
             if (!canAttack) {
@@ -2167,4 +2195,43 @@ void CombatEngine::checkVictory()
     }
     if (!enemyAlive)  { m_phase = CombatPhase::Victory; addLog("VICTORY!"); }
     if (!playerAlive) { m_phase = CombatPhase::Defeat;  addLog("DEFEAT!"); }
+}
+
+// ── Siege: attack a wall tile ──────────────────────────────────────────────────
+bool CombatEngine::attackWall(HexCoord wallHex)
+{
+    if (!m_isSiege || m_phase != CombatPhase::PlayerTurn) return false;
+    CombatUnit* unit = activeUnit();
+    if (!unit || !unit->isPlayer) return false;
+
+    CombatTile* tile = m_grid.getTile(wallHex);
+    if (!tile || tile->type != CombatTileType::Wall || tile->wallHP <= 0) return false;
+
+    // Siege engines use their wallDamage; normal melee units deal regular damage
+    int dmg = 0;
+    if (unit->isSiegeEngine && unit->wallDamage > 0) {
+        // Battering Ram: gate only
+        if (unit->gateOnly && !(wallHex == m_grid.gateHex())) return false;
+        dmg = unit->wallDamage;
+        // Catapult/Trebuchet: check range
+        if (unit->range > 0) {
+            if (HexGrid::distance(unit->pos, wallHex) > unit->range) return false;
+            if (unit->shotsLeft <= 0) return false;
+            --unit->shotsLeft;
+        } else {
+            if (HexGrid::distance(unit->pos, wallHex) > 1) return false;
+        }
+    } else {
+        // Normal unit melee-attacking a wall
+        if (HexGrid::distance(unit->pos, wallHex) > 1) return false;
+        dmg = std::max(1, (unit->attack * unit->count) / 4);
+    }
+
+    bool breached = m_grid.damageWall(wallHex, dmg);
+    addLog(unit->name + " attacked wall for " + std::to_string(dmg) + " dmg"
+           + (breached ? " — BREACHED!" : ""));
+
+    unit->hasActed = true;
+    advanceTurn();
+    return true;
 }

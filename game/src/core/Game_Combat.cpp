@@ -49,6 +49,10 @@ void Game::updateCombat(float dt)
                         act.targetUnitId = tgt->id;
                         act.target       = clicked;
                         m_combat.submitAction(act);
+                    } else if (!tgt && m_combat.isSiege() &&
+                               m_combat.grid().isWallTile(clicked)) {
+                        // Siege: attack the wall / gate
+                        m_combat.attackWall(clicked);
                     } else if (!tgt) {
                         // Move to empty reachable tile
                         auto reach = m_combat.grid().reachable(
@@ -236,6 +240,20 @@ void Game::renderCombatBoard()
         for (const auto& rh : reach)
             if (rh == h) { fill = IM_COL32(35, 80, 35, 220); break; }
 
+        // Siege: highlight attackable wall tiles for the active unit
+        if (tile && tile->type == CombatTileType::Wall && tile->wallHP > 0
+            && active && active->isPlayer && m_combat.isSiege()) {
+            bool canHit = false;
+            if (active->isSiegeEngine && active->range > 0 && active->shotsLeft > 0) {
+                canHit = (HexGrid::distance(active->pos, h) <= active->range);
+                if (active->gateOnly) canHit = canHit && (h == grid.gateHex());
+            } else {
+                canHit = (HexGrid::distance(active->pos, h) == 1);
+                if (active->gateOnly) canHit = canHit && (h == grid.gateHex());
+            }
+            if (canHit) fill = IM_COL32(160, 80, 30, 255);
+        }
+
         // Active unit tile highlight
         if (active && h == active->pos)
             fill = IM_COL32(80, 70, 20, 255);
@@ -243,6 +261,29 @@ void Game::renderCombatBoard()
         dl->AddConvexPolyFilled(pts, 6, fill);
         dl->AddPolyline(pts, 6, IM_COL32(55, 55, 75, 200),
                         ImDrawFlags_Closed, 1.0f);
+
+        // Wall HP bar — colour-coded by health fraction
+        if (tile && tile->type == CombatTileType::Wall && tile->wallHP > 0) {
+            float wx2, wy2;
+            hg.hexToWorld(h, wx2, wy2);
+            float sx2 = wx2 * scale + m_combatBoardOffX;
+            float sy2 = wy2 * scale + m_combatBoardOffY;
+            float bw  = hg.hexSize() * scale * 0.55f;
+            float by2 = sy2 + hg.hexSize() * scale * 0.45f;
+            // Derive max from original values: walls=40, gate=20
+            bool isGate = (h == grid.gateHex());
+            int  maxHp  = isGate ? 20 : 40;
+            float frac  = static_cast<float>(tile->wallHP) / static_cast<float>(maxHp);
+            frac = std::max(0.0f, std::min(1.0f, frac));
+            ImU32 barCol = frac > 0.5f ? IM_COL32(180, 180, 60, 230)
+                         : frac > 0.25f ? IM_COL32(220, 120, 30, 230)
+                                        : IM_COL32(220, 50,  50, 230);
+            dl->AddRectFilled({sx2 - bw, by2}, {sx2 + bw, by2 + 4}, IM_COL32(30, 30, 30, 200));
+            dl->AddRectFilled({sx2 - bw, by2}, {sx2 - bw + 2.0f * bw * frac, by2 + 4}, barCol);
+            char hpBuf[8]; std::snprintf(hpBuf, sizeof(hpBuf), "%d", tile->wallHP);
+            ImVec2 hts = ImGui::CalcTextSize(hpBuf);
+            dl->AddText({sx2 - hts.x * 0.5f, by2 - 12.0f}, IM_COL32(255, 240, 160, 220), hpBuf);
+        }
     }
 
     // Range ring for active ranged unit
@@ -494,6 +535,7 @@ void Game::renderCombatBoard()
         // Tile-type tooltip for special terrain (shown on empty tiles)
         if (!hovered) {
             const CombatTile* mt = grid.getTile(mh);
+            char wallTipBuf[80] = {};
             const char* tileTip = nullptr;
             if (mt) {
                 switch (mt->type) {
@@ -509,9 +551,14 @@ void Game::renderCombatBoard()
                 case CombatTileType::SpeedPenalty:
                     tileTip = "Hazard Ground\n-5 Morale when a unit enters this tile";
                     break;
-                case CombatTileType::Wall:
-                    tileTip = "Fort Wall\nBlocks movement; destroyed when HP reaches 0";
+                case CombatTileType::Wall: {
+                    bool isGate = (mh == grid.gateHex());
+                    std::snprintf(wallTipBuf, sizeof(wallTipBuf),
+                        "%s  HP: %d\nClick to attack — melee or siege engines",
+                        isGate ? "Gate" : "Fort Wall", mt->wallHP);
+                    tileTip = wallTipBuf;
                     break;
+                }
                 default: break;
                 }
             }
@@ -751,7 +798,44 @@ void Game::enterCombat(Hero& playerHero,
     if (playerHero.recyclerBonus > 0)
         for (auto& u : pUnitsGarr) u.attack += playerHero.recyclerBonus;
 
-    m_combat.startBattle(playerHero, pUnitsGarr, enemyHero, enemyUnits, false);
+    // Siege mode: triggered when attacking a garrisoned town
+    bool isSiege = (m_pendingTownCaptureId != 0);
+    if (isSiege) {
+        // Add default siege engines: Catapult (ranged) + Battering Ram (gate)
+        {
+            CombatUnit cat;
+            cat.name          = "Catapult";
+            cat.attack        = 8;  cat.defense = 4;
+            cat.hp            = cat.maxHp = 30;
+            cat.count         = 1;
+            cat.speed         = 3;
+            cat.range         = 4;
+            cat.shots         = 5;  cat.shotsLeft = 5;
+            cat.alive         = true;
+            cat.isSiegeEngine = true;
+            cat.wallDamage    = 12;
+            cat.isPlayer      = true;
+            cat.stackSlot     = static_cast<int>(pUnitsGarr.size());
+            pUnitsGarr.push_back(cat);
+        }
+        {
+            CombatUnit ram;
+            ram.name          = "Battering Ram";
+            ram.attack        = 14; ram.defense = 6;
+            ram.hp            = ram.maxHp = 50;
+            ram.count         = 1;
+            ram.speed         = 5;
+            ram.alive         = true;
+            ram.isSiegeEngine = true;
+            ram.wallDamage    = 20;
+            ram.gateOnly      = true;
+            ram.isPlayer      = true;
+            ram.stackSlot     = static_cast<int>(pUnitsGarr.size());
+            pUnitsGarr.push_back(ram);
+        }
+    }
+
+    m_combat.startBattle(playerHero, pUnitsGarr, enemyHero, enemyUnits, isSiege);
 
     // Scale enemy AI difficulty with game difficulty and enemy hero level
     {

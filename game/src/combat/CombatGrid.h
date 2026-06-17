@@ -64,6 +64,14 @@ public:
     // Special tile setup
     void setTileType(HexCoord h, CombatTileType type);
     void placeRandomSpecialTiles(int count, uint32_t seed);
+    // Siege: place wall structure at column 5 with gate at center row
+    void placeSiegeWalls(int wallHP, int gateHP);
+    // Damage a wall tile; returns true if wall is now breached
+    bool damageWall(HexCoord h, int damage);
+    // Find the gate hex (center wall tile)
+    HexCoord gateHex() const;
+    // Check if a hex is a wall/gate tile with HP remaining
+    bool isWallTile(HexCoord h) const;
 
 private:
     HexGrid m_hexGrid{ 48.0f };

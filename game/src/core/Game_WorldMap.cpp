@@ -2787,8 +2787,10 @@ void Game::renderUnitExchange()
 
     ImGui::Spacing();
 
-    // Split half
-    if (canAtoB && heroA.army[m_exchangeSelSlotA].count >= 2) {
+    // Split half — recheck slots in case A>>B or B>>A just ran and cleared them
+    if (canAtoB && m_exchangeSelSlotA >= 0
+        && m_exchangeSelSlotA < static_cast<int>(heroA.army.size())
+        && heroA.army[m_exchangeSelSlotA].count >= 2) {
         if (ImGui::Button("A/2>B", {50, 26})) {
             auto& src = heroA.army[m_exchangeSelSlotA];
             int half = src.count / 2;
@@ -2804,7 +2806,9 @@ void Game::renderUnitExchange()
         }
     }
     ImGui::Spacing();
-    if (canBtoA && heroB.army[m_exchangeSelSlotB].count >= 2) {
+    if (canBtoA && m_exchangeSelSlotB >= 0
+        && m_exchangeSelSlotB < static_cast<int>(heroB.army.size())
+        && heroB.army[m_exchangeSelSlotB].count >= 2) {
         if (ImGui::Button("B/2>A", {50, 26})) {
             auto& src = heroB.army[m_exchangeSelSlotB];
             int half = src.count / 2;

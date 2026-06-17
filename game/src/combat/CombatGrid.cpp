@@ -220,6 +220,49 @@ std::vector<HexCoord> CombatGrid::meleePositions(HexCoord target) const
     return result;
 }
 
+void CombatGrid::placeSiegeWalls(int wallHP, int gateHP)
+{
+    // Vertical wall barrier at column 5 (middle of 11-col grid)
+    // Center row (row 4) = gate with lower HP
+    const int wallCol = 5;
+    for (int row = 0; row < ROWS; ++row) {
+        int q = wallCol;
+        int r = row - (q - (q & 1)) / 2;
+        HexCoord h{q, r};
+        auto* tile = getTile(h);
+        if (!tile) continue;
+        tile->type   = CombatTileType::Wall;
+        tile->wallHP = (row == ROWS / 2) ? gateHP : wallHP;
+    }
+}
+
+bool CombatGrid::damageWall(HexCoord h, int damage)
+{
+    auto* tile = getTile(h);
+    if (!tile || tile->type != CombatTileType::Wall) return false;
+    tile->wallHP -= damage;
+    if (tile->wallHP <= 0) {
+        tile->wallHP = 0;
+        tile->type   = CombatTileType::Normal; // breached
+        return true;
+    }
+    return false;
+}
+
+HexCoord CombatGrid::gateHex() const
+{
+    const int wallCol = 5;
+    int q = wallCol;
+    int r = (ROWS / 2) - (q - (q & 1)) / 2;
+    return {q, r};
+}
+
+bool CombatGrid::isWallTile(HexCoord h) const
+{
+    const auto* tile = getTile(h);
+    return tile && tile->type == CombatTileType::Wall && tile->wallHP > 0;
+}
+
 void CombatGrid::setTileType(HexCoord h, CombatTileType type)
 {
     auto* tile = getTile(h);

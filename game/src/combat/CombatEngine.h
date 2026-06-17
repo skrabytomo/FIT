@@ -87,6 +87,10 @@ public:
     CombatUnit*    activeUnit();
     int            round()          const { return m_round; }
     bool           isPlayerTurn()   const { return m_phase == CombatPhase::PlayerTurn; }
+    bool           isSiege()        const { return m_isSiege; }
+
+    // Siege: attack a wall tile with the active unit
+    bool attackWall(HexCoord wallHex);
 
     // Turn order queue (sorted by speed, rebuilt each round)
     const std::vector<uint32_t>& turnOrder() const { return m_turnOrder; }
@@ -154,6 +158,7 @@ private:
 
     CombatGrid  m_grid;
     CombatPhase m_phase     = CombatPhase::Setup;
+    bool        m_isSiege   = false;
     int         m_round     = 1;
     int         m_turnIndex = 0;
     int         m_maxRounds = 60;

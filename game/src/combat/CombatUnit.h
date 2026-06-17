@@ -108,6 +108,13 @@ struct CombatUnit
     bool        adaptationFast    = false; // Adaptation Basic: adapt after 2 hits (not 3)
     bool        adaptationDouble  = false; // Adaptation Advanced: gain +2 stat per adaptation (not +1)
 
+    // Siege engine fields (isSiegeEngine=true units are placed on turn 1, act from turn 2)
+    bool isSiegeEngine   = false;
+    int  wallDamage      = 0;     // damage dealt to wall tiles per attack
+    bool gateOnly        = false; // Battering Ram: can only attack gate hex
+    bool wallBypass      = false; // Siege Drill: placed behind the wall automatically
+    bool transportMode   = false; // Siege Tower: allies standing adjacent can cross walls
+
     // ── Methods ───────────────────────────────────────────────────────────────
     bool canAct()   const { return alive && !hasActed; }
     bool canMove()  const { return alive && !hasMoved; }
