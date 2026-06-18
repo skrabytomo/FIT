@@ -338,6 +338,12 @@ private:
     bool     m_showTreasureChestPopup = false;
     uint32_t m_pendingChestId         = 0;
     void renderTreasureChestPopup();
+    bool     m_showCryptPopup   = false;
+    bool     m_showUtopiaPopup  = false;
+    uint32_t m_pendingCryptId   = 0;
+    uint32_t m_pendingUtopiaId  = 0;
+    void renderCryptPopup();
+    void renderUtopiaPopup();
 
     // ── Pause menu (Escape on world map) ─────────────────────────────────────
     bool m_showPauseMenu = false;

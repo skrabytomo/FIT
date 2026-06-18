@@ -1160,6 +1160,29 @@ void Game::exitCombat(bool playerWon)
             m_lastBanditCampId = 0;
         }
 
+        // Crypt reward popup
+        if (m_pendingCryptId != 0) {
+            for (auto& o : m_worldObjects) {
+                if (o.id == m_pendingCryptId && !o.collected) {
+                    // Pick a random spell as bonus
+                    if (!m_heroes.empty() && !m_heroes[m_activeHeroIdx].knownSpells.empty()) {
+                        o.questState = m_heroes[m_activeHeroIdx].knownSpells[0]; // give first known spell variant
+                    } else {
+                        o.questState = 1 + static_cast<int>(o.value % 8);
+                    }
+                    m_showCryptPopup = true;
+                    break;
+                }
+            }
+            m_pendingCryptId = 0;
+        }
+
+        // Utopia reward popup
+        if (m_pendingUtopiaId != 0) {
+            m_showUtopiaPopup = true;
+            m_pendingUtopiaId = 0;
+        }
+
         // Remove defeated enemy hero from the world
         if (m_lastCombatEnemyId != 0) {
             // Loot the defeated hero — gold scales with enemy army strength
@@ -1332,6 +1355,8 @@ void Game::exitCombat(bool playerWon)
         }
         m_pendingTownCaptureId = 0;
         m_lastBanditCampId = 0;
+        m_pendingCryptId   = 0;
+        m_pendingUtopiaId  = 0;
         m_triggers.fire(TriggerType::BattleLost, ctx);
 
         // Phylactery (Lich): escape one defeat — hero returns at half stats

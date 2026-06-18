@@ -996,6 +996,8 @@ void Game::renderWorldMap()
     if (m_showStatShrinePopup)    renderStatShrinePopup();
     if (m_showQuestPopup)         renderQuestPopup();
     if (m_showTreasureChestPopup) renderTreasureChestPopup();
+    if (m_showCryptPopup)         renderCryptPopup();
+    if (m_showUtopiaPopup)        renderUtopiaPopup();
     if (m_showTownLostPopup)  renderTownLostPopup();
     if (m_showWeekSummary)    renderWeekSummary();
     if (m_showPauseMenu)      renderPauseMenu();
@@ -1453,24 +1455,127 @@ void Game::checkTileEvents()
                 // Don't mark collected yet — the popup choice does that
             }
             break;
+
+        case WorldObjectType::Crypt:
+            if (!obj.collected) {
+                // Build defending army from obj.faction, difficulty = obj.value
+                Hero cryptHero;
+                cryptHero.id      = 0;
+                cryptHero.name    = "Crypt Keeper";
+                cryptHero.faction = static_cast<FactionId>(obj.faction % 9);
+                int diff = std::max(1, obj.value);
+                std::vector<CombatUnit> cryptUnits;
+                {
+                    static const char* kCryptNames[] = {
+                        "Skeleton Warrior","Zombie","Cursed Knight","Wraithling","Bone Golem"
+                    };
+                    // 3 stacks of increasing toughness
+                    for (int si = 0; si < 3; ++si) {
+                        CombatUnit cu;
+                        cu.name    = kCryptNames[(obj.faction + si) % 5];
+                        cu.count   = (4 + si * 2) * diff;
+                        cu.maxHp   = cu.hp = 5 + si * 4;
+                        cu.attack  = 2 + si + diff;
+                        cu.defense = 1 + si + diff / 2;
+                        cu.speed   = 5 - si;
+                        if (si == 2) { cu.range = 3; cu.shots = cu.shotsLeft = 5; } // back row is ranged
+                        cu.isPlayer = false;
+                        cryptUnits.push_back(cu);
+                    }
+                }
+                m_lastCombatEnemyId = 0;
+                m_pendingTownCaptureId = 0;
+                m_lastBanditCampId = 0;
+                m_pendingCryptId = obj.id;
+                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
+                enterCombat(hero, pUnits, cryptHero, cryptUnits);
+                return;
+            }
+            break;
+
+        case WorldObjectType::Utopia:
+            if (!obj.collected) {
+                // Build 4 elite T6-equivalent stacks
+                Hero utopiaHero;
+                utopiaHero.id      = 0;
+                utopiaHero.name    = "Ancient Guardian";
+                utopiaHero.faction = static_cast<FactionId>(obj.faction % 9);
+                static const char* kUtoNames[] = {
+                    "Titan","Dragon","Archon","Behemoth","Leviathan",
+                    "Void Lord","Colossus","Flesh Titan","Eternal"
+                };
+                std::vector<CombatUnit> utoUnits;
+                for (int si = 0; si < 4; ++si) {
+                    CombatUnit cu;
+                    cu.name    = kUtoNames[(obj.faction + si) % 9];
+                    cu.count   = 8 + si * 3;
+                    cu.maxHp   = cu.hp = 40 + si * 10;
+                    cu.attack  = 18 + si * 4;
+                    cu.defense = 14 + si * 3;
+                    cu.speed   = 6 + si;
+                    if (si >= 2) { cu.flying = true; }
+                    if (si == 3) { cu.range = 5; cu.shots = cu.shotsLeft = 4; }
+                    cu.isPlayer = false;
+                    utoUnits.push_back(cu);
+                }
+                m_lastCombatEnemyId = 0;
+                m_pendingTownCaptureId = 0;
+                m_lastBanditCampId = 0;
+                m_pendingUtopiaId = obj.id;
+                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
+                enterCombat(hero, pUnits, utopiaHero, utoUnits);
+                return;
+            }
+            break;
         }
     }
 
-    // Resource node — claim mine (immediate payout + weekly income)
+    // Resource node — claim mine (guards if unbeaten)
     if (tile->resourceId != 0) {
         for (auto& r : m_resources) {
-            if (r.id == tile->resourceId && r.ownedBy != 1) {
-                r.ownedBy = 1;
-                m_playerResources.add(r.type, r.amount); // first-capture payout
-                m_cachedWeeklyIncome.add(r.type, r.amount); // update income display
-                char mineBuf[48];
-                std::snprintf(mineBuf, sizeof(mineBuf), "+%d %s/week",
-                              r.amount, resourceName(r.type));
-                pushPickupEffect(hero.pos, mineBuf, IM_COL32(255, 220, 80, 255));
-                m_audio.playSound("buy");
-                printf("Claimed mine: +%d %s/week\n", r.amount, resourceName(r.type));
-                break;
+            if (r.id != tile->resourceId || r.ownedBy == 1) continue;
+            if (!r.guardBeaten) {
+                // Mine is guarded — fight before capturing
+                Hero guardHero;
+                guardHero.id      = 0;
+                guardHero.name    = "Mine Guardian";
+                guardHero.faction = FactionId::None;
+                std::vector<CombatUnit> guardUnits;
+                {
+                    CombatUnit g1;
+                    g1.name = "Guard"; g1.count = 6 + r.amount;
+                    g1.maxHp = g1.hp = 8; g1.attack = 3; g1.defense = 2;
+                    g1.speed = 4; g1.isPlayer = false;
+                    guardUnits.push_back(g1);
+                    CombatUnit g2;
+                    g2.name = "Sentinel"; g2.count = 3 + r.amount / 2;
+                    g2.maxHp = g2.hp = 12; g2.attack = 4; g2.defense = 4;
+                    g2.speed = 3; g2.isPlayer = false;
+                    guardUnits.push_back(g2);
+                }
+                // Use a dummy worldObject id for the pending mine capture
+                // Encode resource id in lastBanditCampId temporarily
+                m_lastCombatEnemyId = 0;
+                m_pendingTownCaptureId = 0;
+                m_lastBanditCampId = 0;
+                // Mark mine as guardBeaten so if player wins they get it
+                // We use a unique pending mechanism: store resourceId in questState via a sentinel
+                // Simple approach: directly mark beaten after combat
+                r.guardBeaten = true; // mark before combat; if player flees it stays beaten (simpler UX)
+                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
+                enterCombat(hero, pUnits, guardHero, guardUnits);
+                return;
             }
+            // Guards beaten (or already ours) — capture
+            r.ownedBy = 1;
+            m_playerResources.add(r.type, r.amount);
+            m_cachedWeeklyIncome.add(r.type, r.amount);
+            char mineBuf[48];
+            std::snprintf(mineBuf, sizeof(mineBuf), "+%d %s/week", r.amount, resourceName(r.type));
+            pushPickupEffect(hero.pos, mineBuf, IM_COL32(255, 220, 80, 255));
+            m_audio.playSound("buy");
+            printf("Claimed mine: +%d %s/week\n", r.amount, resourceName(r.type));
+            break;
         }
     }
 
@@ -1602,6 +1707,9 @@ void Game::renderWorldOverlay()
         ICO_FOREST_SHRINE = 22, ICO_HIGHLAND_RUIN = 23,
         ICO_HOLY_FOUNTAIN = 24, ICO_OASIS         = 25,
         ICO_CAMPFIRE      = 26, ICO_LAVA_CRYSTAL  = 27, ICO_SWAMP_ALTAR = 28,
+        ICO_CRYPT        = 29,
+        ICO_UTOPIA       = 30,
+        ICO_TREASURE     = 31,
     };
 
     // ── Road network ──────────────────────────────────────────────────────────
@@ -1742,15 +1850,47 @@ void Game::renderWorldOverlay()
         case WorldObjectType::Campfire:      ico = ICO_CAMPFIRE;        break;
         case WorldObjectType::LavaCrystal:   ico = ICO_LAVA_CRYSTAL;    break;
         case WorldObjectType::SwampAltar:    ico = ICO_SWAMP_ALTAR;     break;
-        case WorldObjectType::TreasureChest: ico = ICO_CACHE;            break;
+        case WorldObjectType::TreasureChest: ico = ICO_TREASURE;         break;
+        case WorldObjectType::Crypt:    ico = ICO_CRYPT;  break;
+        case WorldObjectType::Utopia:   ico = ICO_UTOPIA; break;
         default:                             ico = 15;                   break;
         }
-        // Idle glow pulse (each object offset slightly for variety)
+        // Idle glow pulse
         float pulse = 0.5f + 0.5f * sinf(m_mapTime * 2.0f + oi * 1.1f);
         float gR    = 10.0f + pulse * 3.0f;
-        ImU32 glow  = IM_COL32(255, 240, 180, static_cast<int>(pulse * 90 + 40));
-        addIcon(ico, sx, sy, 22.0f);
-        dl->AddCircle({sx, sy}, gR + 8.0f, glow, 0, 1.5f);
+        ImU32 glowC = IM_COL32(255, 240, 180, static_cast<int>(pulse * 90 + 40));
+
+        if (obj.type == WorldObjectType::Crypt) {
+            // Dark stone arch icon: charcoal square with purple glow
+            glowC = IM_COL32(160, 80, 255, static_cast<int>(pulse * 100 + 40));
+            dl->AddCircleFilled({sx, sy}, 14.0f, IM_COL32(25, 15, 35, 220));
+            dl->AddRectFilled({sx-8,sy-10},{sx+8,sy+6}, IM_COL32(80,60,110,240), 2.0f);
+            dl->AddRect({sx-8,sy-10},{sx+8,sy+6}, IM_COL32(160,80,255,200), 2.0f);
+            // Skull-like dots
+            dl->AddCircleFilled({sx-3.5f,sy-5.5f}, 2.0f, IM_COL32(200,180,240,220));
+            dl->AddCircleFilled({sx+3.5f,sy-5.5f}, 2.0f, IM_COL32(200,180,240,220));
+        } else if (obj.type == WorldObjectType::Utopia) {
+            // Golden star/diamond icon
+            glowC = IM_COL32(255, 215, 0, static_cast<int>(pulse * 140 + 60));
+            dl->AddCircleFilled({sx, sy}, 16.0f, IM_COL32(35, 25, 5, 220));
+            // Diamond shape
+            ImVec2 diam[4] = {{sx, sy-13.0f},{sx+9.0f,sy},{sx, sy+13.0f},{sx-9.0f,sy}};
+            dl->AddConvexPolyFilled(diam, 4, IM_COL32(200, 160, 20, 240));
+            dl->AddPolyline(diam, 4, IM_COL32(255, 230, 80, 220), ImDrawFlags_Closed, 1.5f);
+            // Inner gem
+            ImVec2 gem[4] = {{sx, sy-7.0f},{sx+4.5f,sy},{sx, sy+7.0f},{sx-4.5f,sy}};
+            dl->AddConvexPolyFilled(gem, 4, IM_COL32(255, 245, 160, 220));
+        } else if (obj.type == WorldObjectType::TreasureChest) {
+            // Chest icon: brown rectangle with gold latch
+            dl->AddCircleFilled({sx, sy}, 14.0f, IM_COL32(15, 10, 5, 200));
+            dl->AddRectFilled({sx-9,sy-7},{sx+9,sy+7}, IM_COL32(120,80,30,240), 2.0f);
+            dl->AddRectFilled({sx-9,sy-7},{sx+9,sy-2}, IM_COL32(90,55,20,240), 2.0f);
+            dl->AddRect({sx-9,sy-7},{sx+9,sy+7}, IM_COL32(200,170,50,200), 2.0f);
+            dl->AddRectFilled({sx-3,sy-4},{sx+3,sy+1}, IM_COL32(220,190,50,255), 2.0f);
+        } else {
+            addIcon(ico, sx, sy, 22.0f);
+        }
+        dl->AddCircle({sx, sy}, gR + 8.0f, glowC, 0, 1.5f);
     }
 
     // ── Resource nodes (mines) ────────────────────────────────────────────────
@@ -3126,6 +3266,153 @@ void Game::renderQuestPopup()
     if (ImGui::Button("Decline", {100, 28}))
         m_showQuestPopup = false;
 
+    ImGui::End();
+}
+
+void Game::renderCryptPopup()
+{
+    if (!m_showCryptPopup) return;
+    WorldObject* obj = nullptr;
+    for (auto& o : m_worldObjects)
+        if (o.id == m_pendingCryptId) { obj = &o; break; }
+    if (!obj) { m_showCryptPopup = false; return; }
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({360, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.94f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##crypt", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({0.7f, 0.4f, 1.0f, 1.0f}, "Crypt Cleared!");
+    ImGui::Separator();
+    int goldReward = 200 + obj->value * 150;
+    int spellId    = obj->questState; // set when combat wins
+    char msg[128];
+    std::snprintf(msg, sizeof(msg),
+        "The crypt's defenders have fallen. You claim the spoils:\n+%d Gold", goldReward);
+    ImGui::TextWrapped("%s", msg);
+    if (spellId > 0) {
+        const SpellDef* sp = findSpell(spellId);
+        if (sp) {
+            ImGui::TextColored({0.4f,0.8f,1.0f,1.0f}, "Spell: %s", sp->name);
+        }
+    }
+    ImGui::Spacing();
+    float bw = ImGui::GetWindowWidth() - 32.0f;
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.35f, 0.2f, 0.55f, 1.0f));
+    if (ImGui::Button("Claim Reward", ImVec2(bw, 34))) {
+        m_playerResources.add(ResourceType::Gold, goldReward);
+        char buf[32]; std::snprintf(buf, sizeof(buf), "+%d Gold (Crypt)", goldReward);
+        pushPickupEffect(obj->pos, buf, IM_COL32(200, 140, 255, 255));
+        if (spellId > 0 && !m_heroes.empty()) {
+            Hero& h = m_heroes[m_activeHeroIdx];
+            bool known = false;
+            for (int k : h.knownSpells) if (k == spellId) { known = true; break; }
+            if (!known) h.knownSpells.push_back(spellId);
+        }
+        obj->collected = true;
+        m_showCryptPopup = false;
+    }
+    ImGui::PopStyleColor();
+    ImGui::End();
+}
+
+void Game::renderUtopiaPopup()
+{
+    if (!m_showUtopiaPopup) return;
+    WorldObject* obj = nullptr;
+    for (auto& o : m_worldObjects)
+        if (o.id == m_pendingUtopiaId) { obj = &o; break; }
+    if (!obj || obj->collected) { m_showUtopiaPopup = false; return; }
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({380, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##utopia", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({1.0f, 0.85f, 0.1f, 1.0f}, "Utopia Conquered!");
+    ImGui::Separator();
+    ImGui::TextWrapped("Ancient guardians have been vanquished. Choose your reward:");
+    ImGui::Spacing();
+
+    float bw = ImGui::GetWindowWidth() - 32.0f;
+
+    // Option A: Rare artifact (give a known artifact id if any left)
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.35f, 0.05f, 1.0f));
+    if (ImGui::Button("Artifact  (Rare equip from the vault)", ImVec2(bw, 34))) {
+        if (!m_heroes.empty()) {
+            Hero& h = m_heroes[m_activeHeroIdx];
+            // Give a random artifact based on reward seed
+            int artId = 1 + static_cast<int>(obj->value % 8);
+            if (!m_artifactRegistry.getDef(artId)) artId = 1;
+            h.artifactInventory.push_back(artId);
+            char buf[48]; std::snprintf(buf, sizeof(buf), "Artifact acquired! (Utopia)");
+            pushPickupEffect(obj->pos, buf, IM_COL32(255, 200, 50, 255));
+        }
+        obj->collected = true; m_showUtopiaPopup = false;
+    }
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    // Option B: Gold + faction primary resource
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.42f, 0.35f, 0.04f, 1.0f));
+    if (ImGui::Button("2000 Gold  +  10x Faction Resource", ImVec2(bw, 34))) {
+        m_playerResources.add(ResourceType::Gold, 2000);
+        // Give faction-appropriate primary resource
+        static const ResourceType kFacRes[] = {
+            ResourceType::FaithStones, ResourceType::BloodEssence,
+            ResourceType::VerdantSap,  ResourceType::Mercury,
+            ResourceType::BloodEssence,ResourceType::Mercury,
+            ResourceType::Iron,        ResourceType::BloodEssence,
+            ResourceType::FaithStones,
+        };
+        int fac = obj->faction % 9;
+        m_playerResources.add(kFacRes[fac], 10);
+        char buf[56];
+        std::snprintf(buf, sizeof(buf), "+2000 Gold +10 Resource (Utopia)");
+        pushPickupEffect(obj->pos, buf, IM_COL32(255, 215, 0, 255));
+        obj->collected = true; m_showUtopiaPopup = false;
+    }
+    ImGui::PopStyleColor();
+    ImGui::Spacing();
+
+    // Option C: Stack of T5 creatures from the faction
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.38f, 0.15f, 1.0f));
+    if (ImGui::Button("Army  (12x T5 units join your force)", ImVec2(bw, 34))) {
+        if (!m_heroes.empty()) {
+            Hero& h = m_heroes[m_activeHeroIdx];
+            // Find a T5 unit for this faction from registry
+            int t5DefId = 0;
+            for (const auto& ud : m_registry.units()) {
+                if (ud.tier == 5 && static_cast<int>(ud.faction) == (obj->faction % 9)) {
+                    t5DefId = ud.id; break;
+                }
+            }
+            if (t5DefId == 0) {
+                // Fallback: pick any T5 unit
+                for (const auto& ud : m_registry.units())
+                    if (ud.tier == 5) { t5DefId = ud.id; break; }
+            }
+            if (t5DefId > 0) {
+                bool merged = false;
+                for (auto& s : h.army)
+                    if (s.defId == t5DefId) { s.count += 12; merged = true; break; }
+                if (!merged && h.army.size() < 7)
+                    h.army.push_back({t5DefId, 12});
+                char buf[56]; std::snprintf(buf, sizeof(buf), "+12 T5 Units (Utopia)");
+                pushPickupEffect(obj->pos, buf, IM_COL32(100, 220, 100, 255));
+            }
+        }
+        obj->collected = true; m_showUtopiaPopup = false;
+    }
+    ImGui::PopStyleColor();
     ImGui::End();
 }
 

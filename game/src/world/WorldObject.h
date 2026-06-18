@@ -24,6 +24,8 @@ enum class WorldObjectType : uint8_t
     LavaCrystal,    // Volcanic: gives Mercury (value=3, resourceType=Mercury)
     SwampAltar,     // Swamp: teaches a spell (value=spellId)
     TreasureChest,  // Multi-choice reward: value=gold, questState=xp, faction=stat(0=ATK,1=DEF,2=SPD)
+    Crypt,    // faction army (T1-T3) guards it → gold + scroll reward; faction=which faction, value=difficulty(1-3)
+    Utopia,   // 4 T6 stacks guard it → choice of major rewards; faction=which faction, value=reward seed
 };
 
 struct WorldObject

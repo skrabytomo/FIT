@@ -409,6 +409,34 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         }
     }
 
+    // 5 Crypts — faction army guards → gold + spell reward
+    {
+        int numFactions = 9; // NUM_FACTIONS
+        for (int i = 0; i < 5; ++i) {
+            WorldObject obj;
+            obj.id      = nextId++;
+            obj.type    = WorldObjectType::Crypt;
+            obj.value   = 1 + static_cast<int>(lcg(rng) % 3); // difficulty 1-3
+            obj.faction = static_cast<uint8_t>(lcg(rng) % static_cast<uint32_t>(numFactions));
+            if (!tryPlace(obj, 4)) --nextId;
+            else result.worldObjects.push_back(obj);
+        }
+    }
+
+    // 3 Utopias — elite guards → major reward choices
+    {
+        int numFactions = 9;
+        for (int i = 0; i < 3; ++i) {
+            WorldObject obj;
+            obj.id      = nextId++;
+            obj.type    = WorldObjectType::Utopia;
+            obj.value   = static_cast<int>(lcg(rng)); // reward seed
+            obj.faction = static_cast<uint8_t>(lcg(rng) % static_cast<uint32_t>(numFactions));
+            if (!tryPlace(obj, 7)) --nextId;
+            else result.worldObjects.push_back(obj);
+        }
+    }
+
     // 2 Observatories (value=5 radius, far from towns)
     for (int i = 0; i < 2; ++i) {
         WorldObject obj;

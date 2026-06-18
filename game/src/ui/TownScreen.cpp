@@ -292,7 +292,23 @@ void TownScreen::draw(UIRenderer& rdr)
     drawRecruitPanel(rdr);
     drawIncomePanel(rdr);
     m_closeBtn.draw(rdr);
-    m_tooltip.draw(rdr);
+    // Draw tooltip via ImGui foreground draw list so it appears above all ImGui windows
+    if (m_tooltip.visible && !m_tooltip.text.empty()) {
+        ImDrawList* fdl = ImGui::GetForegroundDrawList();
+        float tx = m_tooltip.bounds.x + 4.0f;
+        float ty = m_tooltip.bounds.y - 4.0f;
+        ImVec2 tsz = ImGui::CalcTextSize(m_tooltip.text.c_str(), nullptr, false, 320.0f);
+        float pad = 6.0f;
+        fdl->AddRectFilled({tx - pad, ty - pad},
+                           {tx + tsz.x + pad, ty + tsz.y + pad},
+                           IM_COL32(18, 14, 8, 228), 4.0f);
+        fdl->AddRect({tx - pad, ty - pad},
+                     {tx + tsz.x + pad, ty + tsz.y + pad},
+                     IM_COL32(180, 145, 55, 200), 4.0f);
+        fdl->AddText(ImGui::GetFont(), ImGui::GetFontSize(), {tx, ty},
+                     IM_COL32(240, 225, 175, 255),
+                     m_tooltip.text.c_str(), nullptr, 320.0f);
+    }
 }
 
 void TownScreen::drawBuildingTree(UIRenderer& rdr)
