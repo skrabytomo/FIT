@@ -265,26 +265,26 @@ void TownScreen::draw(UIRenderer& rdr)
     rdr.drawRect({0,0,(float)m_screenW,(float)m_screenH},
                  UIColor::rgba(0,0,0,0.6f));
 
-    // Faction artwork in the income panel area — prominent, full-color portrait
+    // Faction artwork — fills the entire right column (recruit + income panels)
     if (m_townBannerTex) {
-        float ix = m_incomePanel.bounds.x;
-        float iy = m_incomePanel.bounds.y;
-        float iw = m_incomePanel.bounds.w;
-        float ih = m_incomePanel.bounds.h;
+        float rx  = m_recruitPanel.bounds.x;
+        float ry  = m_recruitPanel.bounds.y;
+        float rw  = m_recruitPanel.bounds.w;
+        // Span from top of recruit panel to bottom of income panel
+        float rh  = (m_incomePanel.bounds.y + m_incomePanel.bounds.h) - ry;
+
         ImDrawList* dl = ImGui::GetBackgroundDrawList();
-        // Full portrait fills income panel
-        dl->AddImageRounded(m_townBannerTex, {ix + 2, iy + 2}, {ix + iw - 2, iy + ih - 2},
-                            {0,0}, {1,1}, IM_COL32(255,255,255,220), 6.0f);
-        // Dark gradient at bottom so income text remains readable
+        dl->AddImageRounded(m_townBannerTex, {rx + 2, ry + 2}, {rx + rw - 2, ry + rh - 2},
+                            {0,0}, {1,1}, IM_COL32(255, 255, 255, 215), 6.0f);
+        // Dark gradient over the bottom 40% so income text stays readable
+        float gradStart = ry + rh * 0.60f;
         dl->AddRectFilledMultiColor(
-            {ix + 2, iy + ih * 0.55f}, {ix + iw - 2, iy + ih - 2},
+            {rx + 2, gradStart}, {rx + rw - 2, ry + rh - 2},
             IM_COL32(0,0,0,0), IM_COL32(0,0,0,0),
-            IM_COL32(0,0,0,180), IM_COL32(0,0,0,180));
-        // Subtle ghost tint over recruit panel for cohesion
-        dl->AddImageRounded(m_townBannerTex, {m_recruitPanel.bounds.x, m_recruitPanel.bounds.y},
-                            {m_recruitPanel.bounds.x + m_recruitPanel.bounds.w,
-                             m_recruitPanel.bounds.y + m_recruitPanel.bounds.h},
-                            {0,0}, {1,1}, IM_COL32(255,255,255,30), 4.0f);
+            IM_COL32(0,0,0,190), IM_COL32(0,0,0,190));
+        // Semi-transparent panel header stripe at top so "Recruit" title reads
+        dl->AddRectFilled({rx + 2, ry + 2}, {rx + rw - 2, ry + 24},
+                          IM_COL32(0, 0, 0, 120));
     }
 
     m_mainPanel.draw(rdr);

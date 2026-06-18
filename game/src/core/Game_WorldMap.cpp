@@ -2796,11 +2796,27 @@ void Game::renderCombatResultPopup()
                 }
             }
             if (!drewSprite) {
-                // Fallback: tier badge
-                char tb[4]; std::snprintf(tb, sizeof(tb), "T%d", std::max(1, u.tier));
-                ImVec2 tsz = ImGui::CalcTextSize(tb);
-                dl->AddText({p.x + (CW - tsz.x) * 0.5f, p.y + (CH - 20.0f - tsz.y) * 0.5f},
-                            IM_COL32(130, 140, 170, 200), tb);
+                // Fallback: colored card with abbreviated unit name
+                // Hash name for a unique-per-unit-type color
+                uint32_t nh = 0;
+                for (unsigned char c : u.name) nh = nh * 31u + c;
+                ImU32 bgShade = IM_COL32(
+                    35 + (int)(nh & 0x45u),
+                    35 + (int)((nh >> 6) & 0x35u),
+                    55 + (int)((nh >> 12) & 0x55u), 200);
+                dl->AddRectFilled({p.x + 2, p.y + 2}, {p.x + CW - 2, sprY2}, bgShade, 3.0f);
+                // First word of name (or first 5 chars)
+                std::string abbr = u.name;
+                {
+                    size_t sp = abbr.find(' ');
+                    if (sp != std::string::npos && sp <= 7) abbr = abbr.substr(0, sp);
+                    else if (abbr.size() > 6) abbr = abbr.substr(0, 6);
+                }
+                ImVec2 nsz = ImGui::CalcTextSize(abbr.c_str());
+                float nx = p.x + (CW - nsz.x) * 0.5f;
+                float ny = p.y + (sprY2 - p.y - nsz.y) * 0.5f + 2.0f;
+                dl->AddText({nx + 1, ny + 1}, IM_COL32(0, 0, 0, 180), abbr.c_str());
+                dl->AddText({nx, ny},         IM_COL32(215, 220, 255, 255), abbr.c_str());
             }
 
             // Count badge at bottom
