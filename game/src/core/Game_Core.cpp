@@ -131,6 +131,18 @@ bool Game::init(const std::string& title, int width, int height)
         m_townTex[i].load(m_basePath + rel, false, false);
     }
 
+    // Load combat board terrain backgrounds (assets/terrain/combat/NAME.png)
+    static const char* kTerrainBgName[NUM_TERRAIN_TYPES] = {
+        "plains", "forest", "highland", "corrupted", "toxic",
+        "sacred", "industrial", "rocky", "swamp", "plains",
+        "volcanic", "barren", "wasteland", "corrupted_forest", "flesh_zone",
+    };
+    for (int i = 0; i < NUM_TERRAIN_TYPES; ++i) {
+        char rel[96];
+        std::snprintf(rel, sizeof(rel), "assets/terrain/combat/%s.png", kTerrainBgName[i]);
+        m_combatBgTex[i].load(m_basePath + rel, false, false);
+    }
+
     // Wire WorldMapHUD callbacks
     m_worldHUD.init(width, height);
     if (m_iconTex.ok())

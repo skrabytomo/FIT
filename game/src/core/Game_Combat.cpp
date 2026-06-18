@@ -206,27 +206,36 @@ void Game::renderCombatBoard()
     if (active && active->isPlayer && !active->hasMoved)
         reach = grid.reachable(active->pos, active->speed, active->flying);
 
-    // Terrain-derived colour palette for this battle
-    ImU32 bgCol, tileBase, obstCol;
-    switch (m_combatTerrain) {
-        case Terrain::Forest:
-        case Terrain::CorruptedForest: bgCol=IM_COL32(8,18,8,255);   tileBase=IM_COL32(18,38,18,255); obstCol=IM_COL32(28,60,20,255); break;
-        case Terrain::Highland:        bgCol=IM_COL32(22,18,12,255);  tileBase=IM_COL32(50,42,30,255); obstCol=IM_COL32(75,65,45,255); break;
-        case Terrain::Rocky:           bgCol=IM_COL32(20,18,16,255);  tileBase=IM_COL32(55,50,45,255); obstCol=IM_COL32(80,72,62,255); break;
-        case Terrain::Volcanic:        bgCol=IM_COL32(20,8,4,255);    tileBase=IM_COL32(48,22,12,255); obstCol=IM_COL32(80,35,10,255); break;
-        case Terrain::Swamp:           bgCol=IM_COL32(10,14,8,255);   tileBase=IM_COL32(28,40,18,255); obstCol=IM_COL32(38,55,22,255); break;
-        case Terrain::Corrupted:       bgCol=IM_COL32(14,8,18,255);   tileBase=IM_COL32(38,22,50,255); obstCol=IM_COL32(60,30,75,255); break;
-        case Terrain::FleshZone:       bgCol=IM_COL32(22,10,10,255);  tileBase=IM_COL32(55,28,22,255); obstCol=IM_COL32(75,38,30,255); break;
-        case Terrain::Toxic:           bgCol=IM_COL32(10,16,6,255);   tileBase=IM_COL32(28,50,14,255); obstCol=IM_COL32(50,75,18,255); break;
-        case Terrain::Industrial:      bgCol=IM_COL32(16,16,18,255);  tileBase=IM_COL32(40,40,48,255); obstCol=IM_COL32(65,65,72,255); break;
-        case Terrain::Wasteland:       bgCol=IM_COL32(18,14,10,255);  tileBase=IM_COL32(48,38,26,255); obstCol=IM_COL32(68,55,38,255); break;
-        case Terrain::Barren:          bgCol=IM_COL32(16,14,10,255);  tileBase=IM_COL32(42,36,24,255); obstCol=IM_COL32(62,52,35,255); break;
-        case Terrain::Sacred:          bgCol=IM_COL32(8,10,20,255);   tileBase=IM_COL32(22,26,55,255); obstCol=IM_COL32(35,40,80,255); break;
-        default:                       bgCol=IM_COL32(14,18,10,255);  tileBase=IM_COL32(32,42,22,255); obstCol=IM_COL32(50,55,35,255); break; // Plains
+    // Draw background — terrain image if loaded, else dark colour fallback
+    int terrIdx = static_cast<int>(m_combatTerrain);
+    if (terrIdx < 0 || terrIdx >= NUM_TERRAIN_TYPES) terrIdx = 0;
+    if (m_combatBgTex[terrIdx].ok()) {
+        ImTextureID bgTex = (ImTextureID)(uintptr_t)m_combatBgTex[terrIdx].id();
+        dl->AddImage(bgTex, {areaX, areaY}, {areaX + areaW, areaY + areaH});
+    } else {
+        // Solid colour fallback per terrain
+        ImU32 bgCol;
+        switch (m_combatTerrain) {
+            case Terrain::Forest:
+            case Terrain::CorruptedForest: bgCol=IM_COL32(8,18,8,255);  break;
+            case Terrain::Highland:        bgCol=IM_COL32(22,18,12,255); break;
+            case Terrain::Rocky:           bgCol=IM_COL32(20,18,16,255); break;
+            case Terrain::Volcanic:        bgCol=IM_COL32(20,8,4,255);   break;
+            case Terrain::Swamp:           bgCol=IM_COL32(10,14,8,255);  break;
+            case Terrain::Corrupted:       bgCol=IM_COL32(14,8,18,255);  break;
+            case Terrain::FleshZone:       bgCol=IM_COL32(22,10,10,255); break;
+            case Terrain::Toxic:           bgCol=IM_COL32(10,16,6,255);  break;
+            case Terrain::Industrial:      bgCol=IM_COL32(16,16,18,255); break;
+            case Terrain::Sacred:          bgCol=IM_COL32(8,10,20,255);  break;
+            default:                       bgCol=IM_COL32(14,18,10,255); break;
+        }
+        dl->AddRectFilled({areaX, areaY}, {areaX + areaW, areaY + areaH}, bgCol);
     }
 
-    // Draw background
-    dl->AddRectFilled({areaX, areaY}, {areaX + areaW, areaY + areaH}, bgCol);
+    // Semi-transparent tile overlay colours (background shows through)
+    // Normal tiles: very slight dark tint so grid lines are visible
+    ImU32 tileBase = IM_COL32(0,   0,   0,  40);
+    ImU32 obstCol  = IM_COL32(10,  10,  10, 170);
 
     // Draw tiles
     for (const auto& h : coords) {
@@ -243,18 +252,18 @@ void Game::renderCombatBoard()
         ImU32 fill = tileBase;
         if (tile) {
             switch (tile->type) {
-                case CombatTileType::Attack:       fill = IM_COL32(70, 20, 20, 255); break;
-                case CombatTileType::Defense:      fill = IM_COL32(20, 20, 70, 255); break;
-                case CombatTileType::Speed:        fill = IM_COL32(20, 60, 20, 255); break;
-                case CombatTileType::SpeedPenalty: fill = IM_COL32(55, 40, 10, 255); break;
+                case CombatTileType::Attack:       fill = IM_COL32(140, 30,  30,  130); break;
+                case CombatTileType::Defense:      fill = IM_COL32(30,  30,  160, 130); break;
+                case CombatTileType::Speed:        fill = IM_COL32(30,  130, 30,  120); break;
+                case CombatTileType::SpeedPenalty: fill = IM_COL32(120, 80,  10,  120); break;
                 case CombatTileType::Obstacle:     fill = obstCol; break;
-                case CombatTileType::Wall:         fill = IM_COL32(90, 90, 90, 255); break;
+                case CombatTileType::Wall:         fill = IM_COL32(90,  90,  90,  210); break;
                 default: break;
             }
         }
-        // Reachable highlight overrides terrain
+        // Reachable highlight
         for (const auto& rh : reach)
-            if (rh == h) { fill = IM_COL32(35, 80, 35, 220); break; }
+            if (rh == h) { fill = IM_COL32(40, 180, 60, 130); break; }
 
         // Siege: highlight attackable wall tiles for the active unit
         if (tile && tile->type == CombatTileType::Wall && tile->wallHP > 0
@@ -267,12 +276,12 @@ void Game::renderCombatBoard()
                 canHit = (HexGrid::distance(active->pos, h) == 1);
                 if (active->gateOnly) canHit = canHit && (h == grid.gateHex());
             }
-            if (canHit) fill = IM_COL32(160, 80, 30, 255);
+            if (canHit) fill = IM_COL32(200, 100, 20, 200);
         }
 
         // Active unit tile highlight
         if (active && h == active->pos)
-            fill = IM_COL32(80, 70, 20, 255);
+            fill = IM_COL32(220, 190, 20, 140);
 
         // Expand fill 0.8px outward from centroid to close sub-pixel seams
         float pcx = 0, pcy = 0;
@@ -286,8 +295,8 @@ void Game::renderCombatBoard()
             fillPts[i] = {pts[i].x + dx*e, pts[i].y + dy*e};
         }
         dl->AddConvexPolyFilled(fillPts, 6, fill);
-        dl->AddPolyline(pts, 6, IM_COL32(55, 55, 75, 200),
-                        ImDrawFlags_Closed, 1.0f);
+        dl->AddPolyline(pts, 6, IM_COL32(80, 85, 110, 210),
+                        ImDrawFlags_Closed, 1.2f);
 
         // Wall HP bar — colour-coded by health fraction
         if (tile && tile->type == CombatTileType::Wall && tile->wallHP > 0) {

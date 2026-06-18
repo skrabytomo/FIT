@@ -233,6 +233,11 @@ private:
     Texture           m_unitTex[NUM_FACTIONS][NUM_UNIT_TIERS];
     Texture           m_portraitTex[NUM_FACTIONS];
 
+    // ── Combat board terrain backgrounds: one per Terrain enum value ──────────
+    // File: assets/terrain/combat/TERRAIN_NAME.png
+    static constexpr int NUM_TERRAIN_TYPES = 15;
+    Texture           m_combatBgTex[NUM_TERRAIN_TYPES];
+
     // ── Faction town art (world map + town screen banner) ─────────────────────
     // File: assets/towns/faction_N.png  (N=0-8)
     Texture           m_townTex[NUM_FACTIONS];
