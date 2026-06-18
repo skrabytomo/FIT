@@ -2740,35 +2740,115 @@ void Game::renderCombatResultPopup()
     ImGui::OpenPopup(title);
     ImVec2 centre = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(centre, ImGuiCond_Always, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(300, 0), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(560, 0), ImGuiCond_Always);
 
-    if (ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-        if (m_combatResultWon) {
-            ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Victory!");
-        } else {
-            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Defeat");
-        }
-        ImGui::Separator();
-        ImGui::Spacing();
+    if (!ImGui::BeginPopupModal(title, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) return;
 
-        if (m_combatResultKills > 0)
-            ImGui::Text("Enemies defeated:  %d", m_combatResultKills);
-        if (m_combatResultLost > 0)
-            ImGui::Text("Units lost:        %d", m_combatResultLost);
+    // ── Header ────────────────────────────────────────────────────────────────
+    if (m_combatResultWon)
+        ImGui::TextColored({0.3f, 1.0f, 0.4f, 1.0f}, "VICTORY!");
+    else
+        ImGui::TextColored({1.0f, 0.25f, 0.25f, 1.0f}, "DEFEAT");
+    ImGui::SameLine(0, 16);
+    ImGui::TextDisabled("Day %d  Week %d", m_turns.day(), m_turns.week());
+    ImGui::Separator();
+
+    // ── XP / Gold row ─────────────────────────────────────────────────────────
+    if (m_combatResultXp > 0 || m_combatResultGold > 0) {
         if (m_combatResultXp > 0)
-            ImGui::TextColored(ImVec4(0.6f, 1.0f, 0.6f, 1.0f), "XP gained:         +%d", m_combatResultXp);
+            ImGui::TextColored({0.55f, 0.95f, 0.55f, 1.0f}, " XP  +%d", m_combatResultXp);
+        if (m_combatResultXp > 0 && m_combatResultGold > 0) ImGui::SameLine(0, 20);
         if (m_combatResultGold > 0)
-            ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.15f, 1.0f), "Gold looted:       +%d", m_combatResultGold);
-
+            ImGui::TextColored({1.0f, 0.82f, 0.12f, 1.0f}, " Gold  +%d", m_combatResultGold);
         ImGui::Spacing();
         ImGui::Separator();
-        ImGui::Spacing();
-        if (ImGui::Button("Continue", ImVec2(-1, 28))) {
-            m_showCombatResult = false;
-            ImGui::CloseCurrentPopup();
-        }
-        ImGui::EndPopup();
     }
+
+    // ── Unit card helper: draws a row of unit cards ───────────────────────────
+    constexpr float CW = 56.0f, CH = 78.0f, CGAP = 4.0f;
+    auto drawUnitRow = [&](const std::vector<BattleUnitRecord>& units,
+                           ImU32 borderCol, const char* emptyMsg)
+    {
+        if (units.empty()) {
+            ImGui::TextDisabled("  %s", emptyMsg);
+            return;
+        }
+        ImDrawList* dl = ImGui::GetWindowDrawList();
+        int idx = 0;
+        for (const auto& u : units) {
+            if (idx > 0) ImGui::SameLine(0, CGAP);
+            ImVec2 p = ImGui::GetCursorScreenPos();
+
+            // Card background + border
+            dl->AddRectFilled(p, {p.x + CW, p.y + CH}, IM_COL32(18, 20, 32, 235), 4.0f);
+            dl->AddRect(p, {p.x + CW, p.y + CH}, borderCol, 4.0f, 0, 1.8f);
+
+            // Sprite (first frame: uv 0..0.125, 0..1)
+            float sprY2 = p.y + CH - 20.0f;
+            bool drewSprite = false;
+            if (u.faction >= 0 && u.faction < NUM_FACTIONS) {
+                int ti = std::clamp(u.tier - 1, 0, NUM_UNIT_TIERS - 1);
+                if (m_unitTex[u.faction][ti].ok()) {
+                    ImTextureID tid = (ImTextureID)(uintptr_t)m_unitTex[u.faction][ti].id();
+                    dl->AddImage(tid, {p.x + 2, p.y + 2}, {p.x + CW - 2, sprY2},
+                                 {0.0f, 0.0f}, {0.125f, 1.0f});
+                    drewSprite = true;
+                }
+            }
+            if (!drewSprite) {
+                // Fallback: tier badge
+                char tb[4]; std::snprintf(tb, sizeof(tb), "T%d", std::max(1, u.tier));
+                ImVec2 tsz = ImGui::CalcTextSize(tb);
+                dl->AddText({p.x + (CW - tsz.x) * 0.5f, p.y + (CH - 20.0f - tsz.y) * 0.5f},
+                            IM_COL32(130, 140, 170, 200), tb);
+            }
+
+            // Count badge at bottom
+            char cnt[12]; std::snprintf(cnt, sizeof(cnt), "x%d", u.count);
+            ImVec2 csz = ImGui::CalcTextSize(cnt);
+            float cx = p.x + (CW - csz.x) * 0.5f;
+            float cy = p.y + CH - 16.0f;
+            dl->AddRectFilled({p.x + 2, cy - 2}, {p.x + CW - 2, p.y + CH - 2},
+                              IM_COL32(0, 0, 0, 160), 2.0f);
+            dl->AddText({cx + 1, cy + 1}, IM_COL32(0, 0, 0, 200), cnt);
+            dl->AddText({cx, cy},         IM_COL32(230, 230, 255, 255), cnt);
+
+            // Invisible button for hover/tooltip
+            char bid[24]; std::snprintf(bid, sizeof(bid), "##cr_%d", idx);
+            ImGui::InvisibleButton(bid, {CW, CH});
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text("%s", u.name.c_str());
+                ImGui::TextDisabled("x%d  killed/lost", u.count);
+                ImGui::EndTooltip();
+            }
+            ++idx;
+        }
+    };
+
+    // ── Enemies defeated ──────────────────────────────────────────────────────
+    ImGui::Spacing();
+    ImGui::TextColored({0.85f, 0.55f, 0.2f, 1.0f}, "ENEMIES SLAIN");
+    ImGui::Spacing();
+    drawUnitRow(m_combatEnemiesDefeated, IM_COL32(180, 60, 40, 220), "none");
+
+    // ── Player losses ─────────────────────────────────────────────────────────
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    ImGui::TextColored({0.6f, 0.65f, 0.85f, 1.0f}, "YOUR LOSSES");
+    ImGui::Spacing();
+    drawUnitRow(m_combatUnitsLost, IM_COL32(50, 80, 200, 220), "No losses!");
+
+    // ── Continue button ───────────────────────────────────────────────────────
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    if (ImGui::Button("Continue", ImVec2(-1, 32))) {
+        m_showCombatResult = false;
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 // ── Victory modal ─────────────────────────────────────────────────────────────

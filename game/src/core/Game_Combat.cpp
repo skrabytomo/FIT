@@ -794,6 +794,21 @@ void Game::enterCombat(Hero& playerHero,
     // Snapshot hero army for FIRST_AID post-combat calculation
     m_battleStartArmy = playerHero.army;
 
+    // Snapshot enemy units for battle result display
+    m_combatEnemiesDefeated.clear();
+    for (const auto& cu : enemyUnits) {
+        if (cu.count <= 0) continue;
+        BattleUnitRecord rec;
+        rec.name  = cu.name;
+        rec.defId = cu.defId;
+        rec.count = cu.count;
+        if (cu.defId != 0) {
+            const UnitDef* ud = m_registry.getUnitDef(cu.defId);
+            if (ud) { rec.faction = static_cast<int>(ud->faction); rec.tier = ud->tier; }
+        }
+        m_combatEnemiesDefeated.push_back(rec);
+    }
+
     // Set per-battle specialty flags from class registry
     playerHero.feastSpecialty        = false;
     playerHero.witherSpecialty       = false;
@@ -1063,6 +1078,24 @@ void Game::exitCombat(bool playerWon)
         const Hero& ch = m_combat.playerHero();
         hero.heroHp  = std::clamp(ch.heroHp,  1, hero.heroMaxHp);
         hero.mana    = std::clamp(ch.mana,     0, hero.maxMana);
+
+        // Compute per-stack player losses for battle result display (before FIRST_AID inflates counts)
+        m_combatUnitsLost.clear();
+        for (const auto& startStack : m_battleStartArmy) {
+            int survived = 0;
+            for (const auto& s : hero.army)
+                if (s.defId == startStack.defId) { survived = s.count; break; }
+            int lost = startStack.count - survived;
+            if (lost > 0) {
+                BattleUnitRecord rec;
+                rec.defId = startStack.defId;
+                rec.count = lost;
+                const UnitDef* ud = m_registry.getUnitDef(startStack.defId);
+                if (ud) { rec.name = ud->name; rec.faction = static_cast<int>(ud->faction); rec.tier = ud->tier; }
+                else    { rec.name = "Unknown"; }
+                m_combatUnitsLost.push_back(rec);
+            }
+        }
 
         // Apply FIRST_AID: restore % of casualties from each stack
         if (playerWon) {

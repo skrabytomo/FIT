@@ -298,6 +298,16 @@ private:
     int         m_combatResultKills = 0;
     int         m_combatResultLost  = 0;
 
+    struct BattleUnitRecord {
+        std::string name;
+        int defId   = 0;
+        int faction = -1;
+        int tier    = 1;
+        int count   = 0;
+    };
+    std::vector<BattleUnitRecord> m_combatUnitsLost;
+    std::vector<BattleUnitRecord> m_combatEnemiesDefeated;
+
     // ── Garrison management overlay (in town) ─────────────────────────────────
     bool        m_showGarrisonPanel   = false;
     int         m_garrisonSelSlot     = -1;
