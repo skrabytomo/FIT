@@ -832,7 +832,14 @@ void Game::enterTown(Town* town)
 {
     if (!town) return;
     m_state = GameState::Town;
-    Hero* hero = m_heroes.empty() ? nullptr : &m_heroes[m_activeHeroIdx];
+    // Only treat the hero as "in town" if they are physically on or adjacent to the town tile.
+    // Remote access (via HUD panel) still opens the screen but routes recruits to the garrison.
+    Hero* hero = nullptr;
+    if (!m_heroes.empty()) {
+        Hero& h = m_heroes[m_activeHeroIdx];
+        if (h.pos == town->pos || HexGrid::distance(h.pos, town->pos) <= 1)
+            hero = &h;
+    }
     // Entering a player-owned town restores hero HP fully
     if (hero && town->ownerId == 1 && hero->heroHp < hero->heroMaxHp) {
         hero->heroHp = hero->heroMaxHp;

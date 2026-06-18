@@ -370,6 +370,9 @@ private:
     // ── Right-click combat unit stat popup ────────────────────────────────────
     uint32_t m_combatRightClickUnitId = 0;
 
+    // ── Hero click tracking (world map — single click centers, double shows inspect) ──
+    int m_heroClickTarget = -1;
+
     // ── Pause menu (Escape on world map) ─────────────────────────────────────
     bool m_showPauseMenu = false;
     void renderPauseMenu();

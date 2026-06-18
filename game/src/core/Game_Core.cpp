@@ -328,7 +328,7 @@ void Game::update(float dt)
 void Game::render()
 {
     glViewport(0, 0, m_width, m_height);
-    glClearColor(0.05f, 0.14f, 0.36f, 1.0f);  // ocean blue — fills gaps at map edges
+    glClearColor(0.04f, 0.03f, 0.03f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     switch (m_state) {

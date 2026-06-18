@@ -246,6 +246,36 @@ void Game::updateWorldMap(float dt)
         bool uiHandled = m_worldHUD.onMouseDown(
             static_cast<float>(mouse.x), static_cast<float>(mouse.y));
 
+        // Screen-space hero click: reliable regardless of hex-coordinate rounding
+        // First click → center camera + select hero; second click on same hero → inspect
+        if (!uiHandled) {
+            bool heroClickHandled = false;
+            for (int hi = 0; hi < static_cast<int>(m_heroes.size()); ++hi) {
+                const Hero& h = m_heroes[hi];
+                float wx, wy;
+                m_hexRenderer.grid().hexToWorld(h.pos, wx, wy);
+                float sx, sy;
+                m_camera.worldToScreen(wx, wy, sx, sy);
+                float dx = static_cast<float>(mouse.x) - sx;
+                float dy = static_cast<float>(mouse.y) - sy;
+                if (dx * dx + dy * dy < 20.0f * 20.0f) {
+                    if (m_heroClickTarget == hi) {
+                        m_showHeroInspect = true;
+                        m_heroClickTarget = -1;
+                    } else {
+                        m_heroClickTarget = hi;
+                        m_activeHeroIdx   = hi;
+                        m_camera.setPosition(wx, wy);
+                        clampCamera();
+                    }
+                    heroClickHandled = true;
+                    uiHandled = true;
+                    break;
+                }
+            }
+            if (!heroClickHandled) m_heroClickTarget = -1;
+        }
+
         // Minimap click: pan camera to clicked map position
         if (!uiHandled && m_map.radius() > 0) {
             constexpr float MINI_W = 150.0f, MINI_H = 150.0f, PAD = 10.0f;
@@ -1171,6 +1201,10 @@ void Game::doEndTurn()
 // ── World map render ──────────────────────────────────────────────────────────
 void Game::renderWorldMap()
 {
+    // Ocean blue fills gaps at the circular map boundary (corners of screen have no hexes)
+    glClearColor(0.04f, 0.12f, 0.30f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
     m_hexRenderer.render(m_map, m_camera, m_hovered, m_selected, m_fogDisabled);
 
     float proj[16];
@@ -1227,14 +1261,6 @@ void Game::onTileClicked(HexCoord h)
     if (!tile) return;
 
     if (m_heroes.empty()) return;
-
-    // Clicking the active hero's own tile centers the camera on them
-    if (h == m_heroes[m_activeHeroIdx].pos) {
-        float hx, hy;
-        m_hexRenderer.grid().hexToWorld(h, hx, hy);
-        m_camera.setPosition(hx, hy);
-        return;
-    }
 
     // Left-click on a player-owned town: open if hero is on/adjacent, else path there
     if (tile->townId != 0) {
@@ -1664,6 +1690,11 @@ void Game::checkTileEvents()
             break;
         case WorldObjectType::TreasureChest:
             if (!obj.collected) {
+                // Floor bad values from old saves or editor-placed chests
+                if (obj.value < 100)
+                    obj.value = 500 + hero.level * 50;
+                if (obj.questState < 50)
+                    obj.questState = 300 + hero.level * 30;
                 m_pendingChestId          = obj.id;
                 m_showTreasureChestPopup  = true;
                 // Don't mark collected yet — the popup choice does that

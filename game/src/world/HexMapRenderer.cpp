@@ -280,7 +280,15 @@ void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
         const HexTile* tile = map.getTile(coord);
         if (!tile) continue;
         bool isWater = (tile->terrain == Terrain::Water);
-        if (!fogDisabled && !tile->explored && !isWater) continue;
+        if (!fogDisabled && !tile->explored && !isWater) {
+            // Render a dark fog hex so the clear color never shows through
+            float cx2, cy2;
+            m_grid.hexToWorld(coord, cx2, cy2);
+            m_shader.setInt("uTerrain", -1);
+            m_shader.setInt("uUseTexture", 0);
+            drawHex(cx2, cy2, 0.06f, 0.06f, 0.09f, 0.95f, 1.005f);
+            continue;
+        }
 
         float cx, cy;
         m_grid.hexToWorld(coord, cx, cy);
