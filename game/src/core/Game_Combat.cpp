@@ -1376,6 +1376,17 @@ void Game::exitCombat(bool playerWon)
             }
         }
         if (!phylacteryEscape) {
+            // Remove the defeated hero from the world map and make them hireable in the tavern
+            if (!m_heroes.empty()) {
+                Hero& defeated = m_heroes[m_activeHeroIdx];
+                defeated.army.clear(); // no army after defeat
+                m_map.forEach([&](HexTile& t){
+                    if (t.heroId == defeated.id) t.heroId = 0;
+                });
+                m_defeatedHeroPool.push_back(defeated);
+                m_heroes.erase(m_heroes.begin() + m_activeHeroIdx);
+                m_activeHeroIdx = m_heroes.empty() ? 0 : std::min(m_activeHeroIdx, (int)m_heroes.size() - 1);
+            }
             // Show defeat combat result summary
             m_combatResultWon   = false;
             m_combatResultXp    = 0;

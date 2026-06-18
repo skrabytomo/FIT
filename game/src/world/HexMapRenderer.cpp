@@ -320,7 +320,7 @@ void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
         }
 
         m_shader.setInt("uTerrain", ti);
-        drawHex(cx, cy, r, g, b, a, 1.0f);
+        drawHex(cx, cy, r, g, b, a, 1.005f); // slight overlap eliminates sub-pixel gaps
     }
 
     glBindVertexArray(0);

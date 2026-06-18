@@ -21,6 +21,8 @@ namespace BID {
     constexpr int WAREHOUSE_T3  = 8;  // +6 Iron/wk
     constexpr int MAGE_GUILD_T3 = 9;  // T3: all 4 spells at 30% discount
     constexpr int MAGE_GUILD_T4 = 10; // T4: all 4 spells at 50% discount (magic factions)
+    constexpr int TOWN_HALL     = 11; // +1500 Gold/wk; requires Market
+    constexpr int CITY_HALL     = 12; // +3500 Gold/wk; requires Town Hall, unlocks at week 3
 
     // Holy Order
     constexpr int HO_HALL         = 100; // Town Hall (base income)

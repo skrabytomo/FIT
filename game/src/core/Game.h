@@ -184,6 +184,7 @@ private:
     // ── Heroes ────────────────────────────────────────────────────────────────
     std::vector<Hero> m_heroes;
     std::vector<Hero> m_enemyHeroes;
+    std::vector<Hero> m_defeatedHeroPool; // heroes removed from map after defeat/retreat; hireable in tavern
     int               m_activeHeroIdx = 0;
 
     HexCoord       m_hovered  {-999, -999};

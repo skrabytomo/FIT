@@ -67,6 +67,27 @@ void BuildingRegistry::init()
     }
     {
         BuildingDef b;
+        b.id = BID::TOWN_HALL; b.name = "Town Hall";
+        b.description = "Organized governance - +1500 Gold weekly";
+        b.category = BuildingCategory::Economy;
+        b.cost = gold(2500);
+        b.weeklyIncome = gold(1500);
+        b.prerequisites = {BID::MARKET};
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::CITY_HALL; b.name = "City Hall";
+        b.description = "Thriving metropolis - +3500 Gold weekly";
+        b.category = BuildingCategory::Economy;
+        b.cost = gold(7000);
+        b.weeklyIncome = gold(3500);
+        b.minWeek = 3;
+        b.prerequisites = {BID::TOWN_HALL};
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
         b.id = BID::MAGE_GUILD; b.name = "Mage Guild";
         b.description = "Teaches 2 faction spells. Upgrade for more spells and discounts.";
         b.category = BuildingCategory::MageGuild;

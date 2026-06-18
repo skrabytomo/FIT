@@ -556,6 +556,55 @@ void Game::renderTavern()
         return h;
     };
 
+    static constexpr int REHIRE_COST = 1000; // cheaper to rehire a defeated hero
+
+    auto spawnHero = [&](Hero& h) {
+        HexCoord spawnPos = town->pos;
+        for (auto& nb : HexGrid::neighbors(town->pos)) {
+            const HexTile* t2 = m_map.getTile(nb);
+            if (t2 && t2->terrain != Terrain::Water && t2->heroId == 0) {
+                spawnPos = nb; break;
+            }
+        }
+        h.pos      = spawnPos;
+        h.movePool = h.maxMove;
+        m_heroes.push_back(h);
+        if (HexTile* ht = m_map.getTile(spawnPos)) ht->heroId = h.id;
+        FogOfWar::updateVision(m_map, h);
+    };
+
+    // ── Defeated heroes first (cheaper rehire) ────────────────────────────────
+    if (!m_defeatedHeroPool.empty()) {
+        ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.3f, 1.0f),
+                           "Defeated Heroes  (%dg to rehire):", REHIRE_COST);
+        bool canRehire = m_playerResources.get(ResourceType::Gold) >= REHIRE_COST;
+        for (int i = 0; i < (int)m_defeatedHeroPool.size(); ++i) {
+            Hero& dh = m_defeatedHeroPool[i];
+            ImGui::PushID(1000 + i);
+            ImGui::Separator();
+            const HeroClassDef* cls = m_classRegistry.getClass(dh.classId);
+            char hdr[64];
+            std::snprintf(hdr, sizeof(hdr), "%s  L%d  [%s]",
+                          dh.name.c_str(), dh.level, cls ? cls->name : "?");
+            ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.4f, 1.0f), "%s", hdr);
+            ImGui::TextDisabled("  XP: %d  ATK: %d  DEF: %d",
+                                dh.xp, dh.attack, dh.defense);
+            if (!canRehire) ImGui::BeginDisabled();
+            char btn[48];
+            std::snprintf(btn, sizeof(btn), "Rehire %s", dh.name.c_str());
+            if (ImGui::Button(btn, ImVec2(-1, 0))) {
+                m_playerResources.add(ResourceType::Gold, -REHIRE_COST);
+                spawnHero(dh);
+                printf("Rehired defeated hero: %s\n", dh.name.c_str());
+                m_defeatedHeroPool.erase(m_defeatedHeroPool.begin() + i);
+            }
+            if (!canRehire) ImGui::EndDisabled();
+            ImGui::PopID();
+        }
+        ImGui::Separator();
+    }
+
+    // ── Fresh candidates ──────────────────────────────────────────────────────
     ImGui::TextDisabled("Choose a hero to hire  (%dg each):", HIRE_COST);
     bool canAfford = m_playerResources.get(ResourceType::Gold) >= HIRE_COST;
 
@@ -595,20 +644,8 @@ void Game::renderTavern()
         std::snprintf(btnLabel, sizeof(btnLabel), "Hire %s", cand.name.c_str());
         if (ImGui::Button(btnLabel, ImVec2(-1, 0))) {
             m_playerResources.add(ResourceType::Gold, -HIRE_COST);
-
-            // Find spawn tile
-            HexCoord spawnPos = town->pos;
-            for (auto& nb : HexGrid::neighbors(town->pos)) {
-                const HexTile* t2 = m_map.getTile(nb);
-                if (t2 && t2->terrain != Terrain::Water && t2->heroId == 0) {
-                    spawnPos = nb; break;
-                }
-            }
-            cand.id     = 200u + static_cast<uint32_t>(m_heroes.size());
-            cand.pos    = spawnPos;
-            m_heroes.push_back(cand);
-            if (HexTile* ht = m_map.getTile(spawnPos)) ht->heroId = cand.id;
-            FogOfWar::updateVision(m_map, cand);
+            cand.id  = 200u + static_cast<uint32_t>(m_heroes.size());
+            spawnHero(cand);
             printf("Hired hero: %s (%s)\n", cand.name.c_str(), cls ? cls->name : "?");
         }
         if (!canAfford) ImGui::EndDisabled();

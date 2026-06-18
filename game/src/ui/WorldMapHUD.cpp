@@ -231,13 +231,28 @@ void WorldMapHUD::drawTownPanel(UIRenderer& rdr, const std::vector<Town>& towns)
     float x = m_townPanel.bounds.x + 4.0f;
     float w = m_townPanel.bounds.w - 8.0f;
 
+    auto* dl = ImGui::GetBackgroundDrawList();
+    const float icoSz = 20.0f;
     for (int i = 0; i < m_townCount; ++i) {
         const Town* t = playerTowns[i];
         Rect btn{x, y, w, rowH};
         rdr.drawRect(btn,
             UIColor::hex(UITheme::BG_PANEL_DARK),
             UIColor::hex(UITheme::GOLD), 1.0f);
-        rdr.drawText(t->name, x + 4.0f, y + 6.0f,
+
+        // Castle icon from atlas (ICO_TOWN_PLAYER = 2: col 2, row 0 in 8×6 grid)
+        float iy = y + (rowH - icoSz) * 0.5f;
+        if (m_iconTex) {
+            ImVec2 uv0 = { 2.0f / 8.0f, 0.0f / 6.0f };
+            ImVec2 uv1 = { 3.0f / 8.0f, 1.0f / 6.0f };
+            dl->AddImage(m_iconTex, {x + 2.0f, iy}, {x + 2.0f + icoSz, iy + icoSz}, uv0, uv1);
+        } else {
+            // Fallback procedural castle dot
+            dl->AddRectFilled({x + 3.0f, iy + 3.0f}, {x + 3.0f + 14.0f, iy + 14.0f},
+                              IM_COL32(120, 180, 255, 200), 2.0f);
+        }
+
+        rdr.drawText(t->name, x + icoSz + 6.0f, y + 6.0f,
                      UIColor::hex(UITheme::TEXT_PRIMARY), 11.0f);
         y += rowH + 4.0f;
     }
