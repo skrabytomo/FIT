@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <unordered_set>
+#include <functional>
 #include <imgui.h>
 
 #include "GameState.h"
@@ -386,6 +387,14 @@ private:
     Resources   m_weekSummaryIncome;
     std::string m_weeklyEventHeadline;   // empty = no event this week
     std::string m_weeklyEventBody;
+
+    // Choice events -- when non-empty the week summary shows option buttons
+    struct WeekChoiceOption {
+        std::string label;
+        std::string effectText;
+        std::function<void()> onSelect;
+    };
+    std::vector<WeekChoiceOption> m_weekChoiceOptions;
 
     // ── Audio ─────────────────────────────────────────────────────────────────
     AudioManager m_audio;

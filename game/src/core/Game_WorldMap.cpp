@@ -758,8 +758,9 @@ void Game::doEndTurn()
             // ── Weekly random event ────────────────────────────────────────────
             m_weeklyEventHeadline.clear();
             m_weeklyEventBody.clear();
+            m_weekChoiceOptions.clear();
             // Use week number + a pseudo-hash for varied but deterministic events
-            int evtRoll = ((m_turns.week() * 2654435761u) >> 8) % 20;
+            int evtRoll = ((m_turns.week() * 2654435761u) >> 8) % 24;
             switch (evtRoll) {
                 case 0: { // no event
                     break;
@@ -981,6 +982,133 @@ void Game::doEndTurn()
                         m_weeklyEventHeadline = "Titan's Favour";
                         m_weeklyEventBody = "A titan spirit blesses your hero's endurance. Max HP permanently increased by 15.";
                     }
+                    break;
+                }
+                case 20: { // Merchant's Offer — choice: buy/pass
+                    m_weeklyEventHeadline = "Travelling Merchant";
+                    m_weeklyEventBody = "A well-stocked merchant arrives at your camp offering rare supplies. He wants gold for his wares.";
+                    m_weekChoiceOptions.clear();
+                    m_weekChoiceOptions.push_back({"Buy supplies (-800 Gold)", "+4 Iron, +3 faction resource", [this](){
+                        if (m_playerResources.get(ResourceType::Gold) >= 800) {
+                            m_playerResources.add(ResourceType::Gold, -800);
+                            m_playerResources.add(ResourceType::Iron, 4);
+                            if (!m_heroes.empty()) {
+                                FactionId f = m_heroes[m_activeHeroIdx].faction;
+                                ResourceType fRes = ResourceType::Gold;
+                                switch (f) {
+                                    case FactionId::HolyOrder:
+                                    case FactionId::CrimsonWardens:  fRes = ResourceType::FaithStones;  break;
+                                    case FactionId::Thornkin:
+                                    case FactionId::Voidkin:         fRes = ResourceType::VerdantSap;   break;
+                                    case FactionId::EternalEmpire:   fRes = ResourceType::Mercury;      break;
+                                    case FactionId::Bloodsworn:
+                                    case FactionId::Amalgamate:      fRes = ResourceType::BloodEssence; break;
+                                    default: break;
+                                }
+                                if (fRes != ResourceType::Gold) m_playerResources.add(fRes, 3);
+                            }
+                        }
+                    }});
+                    m_weekChoiceOptions.push_back({"Sell surplus (+500 Gold)", "+500 Gold from your excess supplies", [this](){
+                        m_playerResources.add(ResourceType::Gold, 500);
+                    }});
+                    m_weekChoiceOptions.push_back({"Send him away", "Nothing happens.", [](){}});
+                    break;
+                }
+                case 21: { // Mercenary Company — choice: hire/partial/decline
+                    m_weeklyEventHeadline = "Mercenary Company";
+                    m_weeklyEventBody = "A veteran mercenary company approaches, offering their swords for coin. They have seen many battles.";
+                    m_weekChoiceOptions.clear();
+                    m_weekChoiceOptions.push_back({"Hire them (-1200 Gold)", "+15 fighters join your largest stack", [this](){
+                        if (!m_heroes.empty() && m_playerResources.get(ResourceType::Gold) >= 1200) {
+                            m_playerResources.add(ResourceType::Gold, -1200);
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            int best = 0, bestIdx = -1;
+                            for (int i = 0; i < (int)h.army.size(); ++i)
+                                if (h.army[i].count > best) { best = h.army[i].count; bestIdx = i; }
+                            if (bestIdx >= 0) h.army[bestIdx].count += 15;
+                        }
+                    }});
+                    m_weekChoiceOptions.push_back({"Partial hire (-500 Gold)", "+6 fighters join your largest stack", [this](){
+                        if (!m_heroes.empty() && m_playerResources.get(ResourceType::Gold) >= 500) {
+                            m_playerResources.add(ResourceType::Gold, -500);
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            int best = 0, bestIdx = -1;
+                            for (int i = 0; i < (int)h.army.size(); ++i)
+                                if (h.army[i].count > best) { best = h.army[i].count; bestIdx = i; }
+                            if (bestIdx >= 0) h.army[bestIdx].count += 6;
+                        }
+                    }});
+                    m_weekChoiceOptions.push_back({"Decline", "The mercenaries move on.", [](){}});
+                    break;
+                }
+                case 22: { // Rogue Scholar — choice: buy spell/buy stat/ignore
+                    m_weeklyEventHeadline = "Rogue Scholar";
+                    m_weeklyEventBody = "An exiled mage-scholar approaches your camp. He offers his forbidden knowledge for coin.";
+                    m_weekChoiceOptions.clear();
+                    m_weekChoiceOptions.push_back({"Buy a spell (-1500 Gold)", "Learn a new spell you don't know yet", [this](){
+                        if (!m_heroes.empty() && m_playerResources.get(ResourceType::Gold) >= 1500) {
+                            m_playerResources.add(ResourceType::Gold, -1500);
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            for (int i = 0; i < SPELL_COUNT; ++i) {
+                                int sid = ALL_SPELLS[i].id;
+                                bool known = false;
+                                for (int s : h.knownSpells) if (s == sid) { known = true; break; }
+                                if (!known) { h.knownSpells.push_back(sid); break; }
+                            }
+                        }
+                    }});
+                    m_weekChoiceOptions.push_back({"Buy tactical insight (-800 Gold)", "+2 to hero Attack and Defense", [this](){
+                        if (!m_heroes.empty() && m_playerResources.get(ResourceType::Gold) >= 800) {
+                            m_playerResources.add(ResourceType::Gold, -800);
+                            m_heroes[m_activeHeroIdx].attack  += 2;
+                            m_heroes[m_activeHeroIdx].defense += 2;
+                        }
+                    }});
+                    m_weekChoiceOptions.push_back({"Chase him off", "You don't trust outlaws.", [](){}});
+                    break;
+                }
+                case 23: { // Ancient Oracle — choice: pay for info/free lesser boon
+                    m_weeklyEventHeadline = "Ancient Oracle";
+                    m_weeklyEventBody = "An ancient seer emerges from the mist, offering visions of the near future -- for a price.";
+                    m_weekChoiceOptions.clear();
+                    m_weekChoiceOptions.push_back({"Pay the Oracle (-600 Gold)", "+250 XP and hero mana fully restored", [this](){
+                        if (!m_heroes.empty() && m_playerResources.get(ResourceType::Gold) >= 600) {
+                            m_playerResources.add(ResourceType::Gold, -600);
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            h.mana = h.maxMana;
+                            int oldLvl = h.level;
+                            if (h.addXp(250) && h.level > oldLvl) {
+                                const HeroClassDef* cls = m_classRegistry.getClass(h.classId);
+                                if (cls) {
+                                    std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                                    m_levelUpOffers = LevelUpSystem::generateOffers(*cls, h.skills, h.level, allSkills, h.faction);
+                                }
+                                if (m_levelUpOffers.empty())
+                                    m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
+                                m_pendingLevelUps = h.level - oldLvl;
+                                m_showLevelUpModal = true;
+                            }
+                        }
+                    }});
+                    m_weekChoiceOptions.push_back({"Accept a free omen", "+100 XP, the seer warns of coming danger", [this](){
+                        if (!m_heroes.empty()) {
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            int oldLvl = h.level;
+                            if (h.addXp(100) && h.level > oldLvl) {
+                                const HeroClassDef* cls = m_classRegistry.getClass(h.classId);
+                                if (cls) {
+                                    std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                                    m_levelUpOffers = LevelUpSystem::generateOffers(*cls, h.skills, h.level, allSkills, h.faction);
+                                }
+                                if (m_levelUpOffers.empty())
+                                    m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
+                                m_pendingLevelUps = h.level - oldLvl;
+                                m_showLevelUpModal = true;
+                            }
+                        }
+                    }});
+                    m_weekChoiceOptions.push_back({"Walk away", "You have no time for riddles.", [](){}});
                     break;
                 }
             }

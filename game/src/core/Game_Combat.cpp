@@ -771,6 +771,7 @@ void Game::renderSpellPanel()
             act.type         = ActionType::UseAbility;
             act.spellId      = sid;
             act.targetUnitId = m_spellTargetId;
+            m_audio.playSound("spell");
             m_combat.submitAction(act);
             m_showSpellPanel = false;
         }
@@ -1039,6 +1040,7 @@ void Game::enterCombat(Hero& playerHero,
 
     m_combatDmgEffects.clear();
     m_combat.setDamageCallback([this](uint32_t targetId, int dmg, HexCoord pos) {
+        m_audio.playSound("hit");
         if (!m_settingsShowDmgNums) { (void)targetId; return; }
         // Convert hex pos to board pixel pos for floating text
         float wx, wy;

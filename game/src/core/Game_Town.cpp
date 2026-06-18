@@ -799,9 +799,29 @@ void Game::renderWeekSummary()
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
-        if (ImGui::Button("Continue", ImVec2(-1, 30))) {
-            m_showWeekSummary = false;
-            ImGui::CloseCurrentPopup();
+
+        if (!m_weekChoiceOptions.empty()) {
+            ImGui::TextColored(ImVec4(1.0f, 0.80f, 0.20f, 1.0f), "Make your choice:");
+            ImGui::Spacing();
+            float cbw = ImGui::GetWindowWidth() - 32.0f;
+            for (int ci = 0; ci < (int)m_weekChoiceOptions.size(); ++ci) {
+                const auto& opt = m_weekChoiceOptions[ci];
+                char lbl[128];
+                std::snprintf(lbl, sizeof(lbl), "%s##wc%d", opt.label.c_str(), ci);
+                if (ImGui::Button(lbl, ImVec2(cbw, 30))) {
+                    opt.onSelect();
+                    m_weekChoiceOptions.clear();
+                    m_showWeekSummary = false;
+                    ImGui::CloseCurrentPopup();
+                }
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("%s", opt.effectText.c_str());
+            }
+        } else {
+            if (ImGui::Button("Continue", ImVec2(-1, 30))) {
+                m_showWeekSummary = false;
+                ImGui::CloseCurrentPopup();
+            }
         }
         ImGui::EndPopup();
     }
