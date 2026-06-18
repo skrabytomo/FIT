@@ -274,7 +274,18 @@ void Game::renderCombatBoard()
         if (active && h == active->pos)
             fill = IM_COL32(80, 70, 20, 255);
 
-        dl->AddConvexPolyFilled(pts, 6, fill);
+        // Expand fill 0.8px outward from centroid to close sub-pixel seams
+        float pcx = 0, pcy = 0;
+        for (int i = 0; i < 6; i++) { pcx += pts[i].x; pcy += pts[i].y; }
+        pcx /= 6.0f; pcy /= 6.0f;
+        ImVec2 fillPts[6];
+        for (int i = 0; i < 6; i++) {
+            float dx = pts[i].x - pcx, dy = pts[i].y - pcy;
+            float len = sqrtf(dx*dx + dy*dy);
+            float e = (len > 0.5f) ? 0.8f / len : 0.0f;
+            fillPts[i] = {pts[i].x + dx*e, pts[i].y + dy*e};
+        }
+        dl->AddConvexPolyFilled(fillPts, 6, fill);
         dl->AddPolyline(pts, 6, IM_COL32(55, 55, 75, 200),
                         ImDrawFlags_Closed, 1.0f);
 
@@ -313,24 +324,34 @@ void Game::renderCombatBoard()
         dl->AddCircle({asx, asy}, rangeR, IM_COL32(180, 200, 255, 80), 48, 1.5f);
     }
 
-    // Draw units (sprite or circle fallback)
+    // Unit rendering
     float hexR = hg.hexSize() * scale * 0.38f;
-    float sprW = hexR * 1.8f;    // half-width of sprite quad
-    float sprH = hexR * 2.8f;    // full height of sprite quad
+    float sprW = hexR * 1.8f;
+    float sprH = hexR * 2.8f;
 
-    // Draw dead units first (behind living ones)
+    static const ImU32 kFacFill[] = {
+        IM_COL32(210, 175, 55,  235),
+        IM_COL32(175, 28,  28,  235),
+        IM_COL32(35,  120, 35,  235),
+        IM_COL32(95,  45,  155, 235),
+        IM_COL32(155, 35,  35,  235),
+        IM_COL32(75,  35,  175, 235),
+        IM_COL32(70,  120, 175, 235),
+        IM_COL32(155, 75,  35,  235),
+        IM_COL32(35,  75,  155, 235),
+    };
+
+    // Dead units first (behind living)
     for (const auto& u : grid.units()) {
         if (u.alive) continue;
         float wx, wy;
         hg.hexToWorld(u.pos, wx, wy);
         float sx = wx * scale + m_combatBoardOffX;
         float sy = wy * scale + m_combatBoardOffY;
-
         auto it = m_combatAnimators.find(u.id);
         if (it != m_combatAnimators.end()) {
-            const SpriteAnimator& anim = it->second;
-            int fi   = anim.faction;
-            int tidx = std::max(0, std::min(NUM_UNIT_TIERS - 1, anim.tier - 1));
+            int fi   = it->second.faction;
+            int tidx = std::max(0, std::min(NUM_UNIT_TIERS - 1, it->second.tier - 1));
             if (fi >= 0 && fi < NUM_FACTIONS && m_unitTex[fi][tidx].ok()) {
                 float u0, v0, u1, v1;
                 it->second.getUV(u0, v0, u1, v1);
@@ -346,7 +367,7 @@ void Game::renderCombatBoard()
     // CoordinatedStrike marked target ID
     uint32_t csTarget = m_combat.coordinatedStrikeTarget();
 
-    // Draw alive units
+    // Alive units
     for (const auto& u : grid.units()) {
         if (!u.alive) continue;
         float wx, wy;
@@ -359,17 +380,20 @@ void Game::renderCombatBoard()
         ImU32 rimCol   = isActive ? IM_COL32(255, 205, 50, 255)
                                   : IM_COL32(210, 210, 210, 160);
 
+        // Reset per-unit sprW/sprH (overridden below if sprite not available)
+        sprW = hexR * 1.8f;
+        sprH = hexR * 2.8f;
+
         auto it = m_combatAnimators.find(u.id);
         bool drewSprite = false;
         if (it != m_combatAnimators.end()) {
-            const SpriteAnimator& anim = it->second;
-            int fi   = anim.faction;
-            int tidx = std::max(0, std::min(NUM_UNIT_TIERS - 1, anim.tier - 1));
+            int fi   = it->second.faction;
+            int tidx = std::max(0, std::min(NUM_UNIT_TIERS - 1, it->second.tier - 1));
             if (fi >= 0 && fi < NUM_FACTIONS && m_unitTex[fi][tidx].ok()) {
                 float u0, v0, u1, v1;
-                anim.getUV(u0, v0, u1, v1);
+                it->second.getUV(u0, v0, u1, v1);
                 ImTextureID tid = (ImTextureID)(uintptr_t)m_unitTex[fi][tidx].id();
-                ImU32 tint = isGhost ? IM_COL32(200, 230, 255, 110) : IM_COL32(255, 255, 255, 255);
+                ImU32 tint = isGhost ? IM_COL32(200,230,255,110) : IM_COL32(255,255,255,255);
                 dl->AddImage(tid,
                     {sx - sprW, sy - sprH * 0.85f},
                     {sx + sprW, sy + sprH * 0.15f},
@@ -378,51 +402,33 @@ void Game::renderCombatBoard()
             }
         }
         if (!drewSprite) {
-            // Hex-token fallback — faction-coloured shield anchored to the grid cell
-            static const ImU32 kFacFill[] = {
-                IM_COL32(210, 175, 55,  235), // 0 HolyOrder    gold
-                IM_COL32(175, 28,  28,  235), // 1 Bloodsworn   blood red
-                IM_COL32(35,  120, 35,  235), // 2 Thornkin     forest green
-                IM_COL32(95,  45,  155, 235), // 3 EternalEmpire purple
-                IM_COL32(155, 35,  35,  235), // 4 CrimsonWardens deep red
-                IM_COL32(75,  35,  175, 235), // 5 Voidkin      void purple
-                IM_COL32(70,  120, 175, 235), // 6 IronAssembly  steel blue
-                IM_COL32(155, 75,  35,  235), // 7 Amalgamate    flesh orange
-                IM_COL32(35,  75,  155, 235), // 8+
-            };
-            auto it2 = m_combatAnimators.find(u.id);
-            int facIdx = (it2 != m_combatAnimators.end())
-                         ? std::max(0, std::min(8, it2->second.faction))
+            int facIdx = (it != m_combatAnimators.end())
+                         ? std::max(0, std::min(8, it->second.faction))
                          : (u.isPlayer ? 0 : 1);
-            uint8_t alpha = isGhost ? 100 : 230;
             ImU32 fillCol = kFacFill[facIdx];
-            if (isGhost) fillCol = (fillCol & 0x00FFFFFF) | (uint32_t(alpha) << 24);
+            if (isGhost) fillCol = (fillCol & 0x00FFFFFF) | 0x60000000u;
 
-            // Flat-top hex token at 76% of cell radius, centred on cell
-            float tr = hexR * 0.76f;
+            float tr = hexR * 0.82f;
             ImVec2 tkPts[6];
             for (int vi = 0; vi < 6; vi++) {
-                float ang = (vi * 60.0f) * 3.14159265f / 180.0f; // flat-top: 0° points right
+                float ang = (vi * 60.0f) * 3.14159265f / 180.0f;
                 tkPts[vi] = {sx + tr * cosf(ang), sy + tr * sinf(ang)};
             }
             dl->AddConvexPolyFilled(tkPts, 6, fillCol);
-            ImU32 edgeCol = isActive ? IM_COL32(255, 220, 80, 240) : IM_COL32(200, 200, 200, 180);
-            dl->AddPolyline(tkPts, 6, edgeCol, ImDrawFlags_Closed, isActive ? 2.5f : 1.5f);
+            ImU32 edgeCol = isActive ? IM_COL32(255,220,80,240)
+                          : u.isPlayer ? IM_COL32(100,180,255,220)
+                                       : IM_COL32(255,80,80,220);
+            dl->AddPolyline(tkPts, 6, edgeCol, ImDrawFlags_Closed, isActive ? 3.0f : 2.0f);
 
-            // Unit-name abbreviation centred inside the token (up to 3 chars)
-            const char* abbrev = u.name.c_str();
             char abbrevBuf[4] = {0};
             int nc = 0;
-            for (const char* p = abbrev; *p && nc < 3; p++) {
+            for (const char* p = u.name.c_str(); *p && nc < 3; p++)
                 if (*p >= 32 && *p < 127) abbrevBuf[nc++] = *p;
-            }
             ImVec2 ats = ImGui::CalcTextSize(abbrevBuf);
-            dl->AddText({sx - ats.x * 0.5f + 1, sy - ats.y * 0.5f + 1},
-                        IM_COL32(0, 0, 0, 160), abbrevBuf);
-            dl->AddText({sx - ats.x * 0.5f, sy - ats.y * 0.5f},
-                        IM_COL32(255, 255, 255, 230), abbrevBuf);
+            dl->AddText({sx - ats.x*0.5f + 1, sy - ats.y*0.5f + 1}, IM_COL32(0,0,0,160), abbrevBuf);
+            dl->AddText({sx - ats.x*0.5f,     sy - ats.y*0.5f    }, IM_COL32(255,255,255,230), abbrevBuf);
 
-            sprW = tr * 0.9f;  // override sprW/H so HP bar sits below the token
+            sprW = tr * 0.9f;
             sprH = tr * 1.0f;
         }
 

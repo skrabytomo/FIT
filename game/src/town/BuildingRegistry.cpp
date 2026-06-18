@@ -103,6 +103,117 @@ void BuildingRegistry::init()
         b.prerequisites = {BID::MAGE_GUILD};
         m_buildings.push_back(b);
     }
+    // ── FACTION CAPITOLS (unique tier-4 economy, require City Hall + faction hall) ─
+    {
+        BuildingDef b;
+        b.id = BID::HO_SANCTUM; b.name = "Sacred Sanctum";
+        b.description = "Holy Order capitol — +6000 Gold/wk, +5 Faith Stones/wk, hero gains +3 Light Power on visit";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::FaithStones, 10);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::FaithStones, 5);
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::HO_HALL};
+        b.faction = FactionId::HolyOrder;
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::CW_NECROPOLIS; b.name = "Grand Necropolis";
+        b.description = "Crimson Wardens capitol — +6000 Gold/wk, +5 Blood Essence/wk, raises fallen units as undead";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::BloodEssence, 10);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::BloodEssence, 5);
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::CW_HALL};
+        b.faction = FactionId::CrimsonWardens;
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::TK_HEARTWOOD; b.name = "Ancient Heartwood";
+        b.description = "Thornkin capitol — +6000 Gold/wk, +5 Verdant Sap/wk, all unit growth +3/wk";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::VerdantSap, 10);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::VerdantSap, 5);
+        b.growthBonus = 3;
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::TK_GROVE_HEART};
+        b.faction = FactionId::Thornkin;
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::EE_CITADEL; b.name = "Eternal Citadel";
+        b.description = "Eternal Empire capitol — +6000 Gold/wk, +5 Mercury/wk, garrison gets +4 defense";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::Mercury, 10);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::Mercury, 5);
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::EE_THRONE};
+        b.faction = FactionId::EternalEmpire;
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::BS_BLOODSPIRE; b.name = "Bloodspire Fortress";
+        b.description = "Bloodsworn capitol — +6000 Gold/wk, +5 Faith Stones/wk, Blood Pool fills 2x faster";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::FaithStones, 10);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::FaithStones, 5);
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::BS_WAR_HALL};
+        b.faction = FactionId::Bloodsworn;
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::VK_VOIDCORE; b.name = "Void Core Nexus";
+        b.description = "Voidkin capitol — +6000 Gold/wk, +5 Mercury/wk, Void abilities cost -2 mana";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::Mercury, 10);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::Mercury, 5);
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::VK_NEXUS};
+        b.faction = FactionId::Voidkin;
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::IA_MEGAFORGE; b.name = "Grand Megaforge";
+        b.description = "Iron Assembly capitol — +6000 Gold/wk, +8 Iron/wk, all Constructs gain +2 ATK";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::Iron, 15);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::Iron, 8);
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::IA_FORGE_HALL};
+        b.faction = FactionId::IronAssembly;
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::AM_FLESHPIT; b.name = "Grand Fleshpit";
+        b.description = "Amalgamate capitol — +6000 Gold/wk, +5 Blood Essence/wk, grafted units regenerate +5 HP/round";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::BloodEssence, 10);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::BloodEssence, 5);
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::AM_GRAFTING_HALL};
+        b.faction = FactionId::Amalgamate;
+        m_buildings.push_back(b);
+    }
+    {
+        BuildingDef b;
+        b.id = BID::CV_NEXUS; b.name = "Synthesis Nexus";
+        b.description = "Convergence capitol — +6000 Gold/wk, +5 Verdant Sap/wk, mirrored abilities persist 1 extra round";
+        b.category = BuildingCategory::Economy;
+        b.cost = goldAndRes(12000, ResourceType::VerdantSap, 10);
+        b.weeklyIncome = goldAndRes(6000, ResourceType::VerdantSap, 5);
+        b.minWeek = 5;
+        b.prerequisites = {BID::CITY_HALL, BID::CV_SYNTHESIS_HUB};
+        b.faction = FactionId::Convergence;
+        m_buildings.push_back(b);
+    }
+
     {
         BuildingDef b;
         b.id = BID::MAGE_GUILD_T3; b.name = "Mage Guild (Tier 3)";

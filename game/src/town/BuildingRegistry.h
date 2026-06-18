@@ -23,6 +23,16 @@ namespace BID {
     constexpr int MAGE_GUILD_T4 = 10; // T4: all 4 spells at 50% discount (magic factions)
     constexpr int TOWN_HALL     = 11; // +1500 Gold/wk; requires Market
     constexpr int CITY_HALL     = 12; // +3500 Gold/wk; requires Town Hall, unlocks at week 3
+    // Faction Capitols — unique tier-4 economy, requires City Hall + faction hall, week 5
+    constexpr int HO_SANCTUM    = 13; // Holy Order: Sacred Sanctum
+    constexpr int CW_NECROPOLIS = 14; // Crimson Wardens: Grand Necropolis
+    constexpr int TK_HEARTWOOD  = 15; // Thornkin: Ancient Heartwood
+    constexpr int EE_CITADEL    = 16; // Eternal Empire: Eternal Citadel
+    constexpr int BS_BLOODSPIRE = 17; // Bloodsworn: Bloodspire Fortress
+    constexpr int VK_VOIDCORE   = 18; // Voidkin: Void Core Nexus
+    constexpr int IA_MEGAFORGE  = 19; // Iron Assembly: Grand Megaforge
+    constexpr int AM_FLESHPIT   = 20; // Amalgamate: Grand Fleshpit
+    constexpr int CV_NEXUS      = 21; // Convergence: Synthesis Nexus
 
     // Holy Order
     constexpr int HO_HALL         = 100; // Town Hall (base income)
