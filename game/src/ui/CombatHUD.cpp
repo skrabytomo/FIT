@@ -269,37 +269,74 @@ void CombatHUD::drawHeroInfo(UIRenderer& rdr, const CombatEngine& engine)
 void CombatHUD::drawTurnOrder(UIRenderer& rdr, const CombatEngine& engine)
 {
     rdr.drawRect(m_turnOrderBar,
-        UIColor::hex(UITheme::BG_PANEL_DARK, 0.90f),
+        UIColor::hex(UITheme::BG_PANEL_DARK, 0.92f),
         UIColor::hex(UITheme::BORDER), 1.0f);
 
     auto& order = engine.turnOrder();
-    float x = 8.0f;
-    float y = 4.0f;
-    float slotW = 36.0f, slotH = 36.0f;
+    float x     = 6.0f;
+    float y     = 3.0f;
+    float slotW = 52.0f;
+    float slotH = 38.0f;
+    float barH  = 4.0f;  // HP bar height at bottom of slot
 
-    for (int i = 0; i < static_cast<int>(order.size()) && x + slotW < m_screenW - 200; ++i) {
-        const CombatUnit* u = engine.grid().getUnit(order[i]);  // const cast needed
+    // "QUEUE" label
+    rdr.drawText("QUEUE", 6.0f, y + 13.0f,
+                 UIColor::hex(UITheme::TEXT_SECONDARY, 0.6f), 9.0f);
+    x = 58.0f;
+
+    for (int i = 0; i < static_cast<int>(order.size()); ++i) {
+        if (x + slotW > static_cast<float>(m_screenW) - 200.0f) break;
+
+        const CombatUnit* u = engine.grid().getUnit(order[i]);
         if (!u || !u->alive) continue;
 
         bool isActive = (i == engine.turnIndex());
-        UIColor bg  = u->isPlayer ?
-            UIColor::hex(UITheme::NATURE_GREEN, isActive ? 0.9f : 0.4f) :
-            UIColor::hex(UITheme::BLOOD_RED,    isActive ? 0.9f : 0.4f);
-        UIColor brd = isActive ? UIColor::hex(UITheme::GOLD) :
-                                 UIColor::hex(UITheme::BORDER);
+        UIColor bg  = u->isPlayer
+            ? UIColor::hex(UITheme::NATURE_GREEN, isActive ? 0.85f : 0.35f)
+            : UIColor::hex(UITheme::BLOOD_RED,    isActive ? 0.85f : 0.35f);
+        UIColor brd = isActive
+            ? UIColor::hex(UITheme::GOLD)
+            : UIColor::hex(UITheme::BORDER, 0.7f);
 
         rdr.drawRect({x, y, slotW, slotH}, bg, brd, isActive ? 2.0f : 1.0f);
 
-        // Speed number
-        rdr.drawText(std::to_string(u->speed),
-                     x + 12.0f, y + 12.0f,
-                     UIColor::hex(UITheme::TEXT_PRIMARY), 11.0f);
-        x += slotW + 2.0f;
+        // Unit name — first 6 chars to fit
+        std::string abbr = u->name.substr(0, 6);
+        rdr.drawText(abbr, x + 2.0f, y + 2.0f,
+                     UIColor::hex(UITheme::TEXT_PRIMARY, isActive ? 1.0f : 0.85f), 9.0f);
+
+        // Count and speed on second row
+        char info[20];
+        std::snprintf(info, sizeof(info), "x%d S%d", u->count, u->speed);
+        rdr.drawText(info, x + 2.0f, y + 14.0f,
+                     UIColor::hex(UITheme::TEXT_SECONDARY), 9.0f);
+
+        // HP bar across the bottom of the slot
+        float hpFrac = (u->maxHp > 0)
+            ? static_cast<float>(u->totalHp()) / static_cast<float>(u->count * u->maxHp)
+            : 0.0f;
+        hpFrac = std::max(0.0f, std::min(1.0f, hpFrac));
+        float barY = y + slotH - barH - 1.0f;
+        rdr.drawRect({x + 1.0f, barY, slotW - 2.0f, barH},
+                     UIColor::rgba(0.2f, 0.2f, 0.2f, 0.8f),
+                     UIColor::rgba(0,0,0,0), 0.0f);
+        if (hpFrac > 0.0f)
+            rdr.drawRect({x + 1.0f, barY, (slotW - 2.0f) * hpFrac, barH},
+                         UIColor::rgba(0.2f, 0.85f, 0.3f, 0.9f),
+                         UIColor::rgba(0,0,0,0), 0.0f);
+
+        // Active arrow indicator above slot
+        if (isActive)
+            rdr.drawText("v", x + slotW * 0.5f - 3.0f, y - 2.0f,
+                         UIColor::hex(UITheme::GOLD), 10.0f);
+
+        x += slotW + 3.0f;
     }
 
     // Round counter — right side
-    std::string rnd = "Round " + std::to_string(engine.round());
-    rdr.drawText(rnd, m_screenW - 100.0f, 14.0f,
+    char rndBuf[24];
+    std::snprintf(rndBuf, sizeof(rndBuf), "Round %d", engine.round());
+    rdr.drawText(rndBuf, static_cast<float>(m_screenW) - 96.0f, 14.0f,
                  UIColor::hex(UITheme::TEXT_SECONDARY), 12.0f);
 }
 

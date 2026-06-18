@@ -18,7 +18,9 @@ static std::pair<int,int> unitFactionTier(const CombatUnit& u,
             if (d.id == u.defId)
                 return { static_cast<int>(d.faction), d.tier };
     }
-    return { 0, 1 };   // fallback: HolyOrder T1
+    if (u.factionHint >= 0 && u.factionHint < 9)
+        return { u.factionHint, 1 };
+    return { -1, 1 };  // truly unknown — no sprite lookup
 }
 
 // ── Combat update ─────────────────────────────────────────────────────────────
@@ -71,6 +73,21 @@ void Game::updateCombat(float dt)
             }
         }
     }
+    // Right-click on a unit hex — show stat popup
+    if (mouse.rightDown && !ImGui::GetIO().WantCaptureMouse) {
+        float wx2 = (mx - m_combatBoardOffX) / m_combatBoardScale;
+        float wy2 = (my - m_combatBoardOffY) / m_combatBoardScale;
+        HexCoord rc = m_combat.grid().hexGrid().worldToHex(wx2, wy2);
+        m_combatRightClickUnitId = 0;
+        if (m_combat.grid().inBounds(rc)) {
+            const CombatUnit* u = m_combat.grid().getUnitAt(rc);
+            if (u && u->alive) {
+                m_combatRightClickUnitId = u->id;
+                ImGui::OpenPopup("##CombatUnitStats");
+            }
+        }
+    }
+
     m_combatHUD.onMouseMove(mx, my);
 
     // Advance sprite animators
@@ -152,6 +169,58 @@ void Game::renderCombat()
             exitCombat(false);
 
         ImGui::End();
+    }
+
+    // Right-click unit stat popup
+    if (m_combatRightClickUnitId != 0) {
+        const CombatUnit* u = m_combat.grid().getUnit(m_combatRightClickUnitId);
+        if (!u || !u->alive) {
+            m_combatRightClickUnitId = 0;
+        } else if (ImGui::BeginPopup("##CombatUnitStats")) {
+            ImGui::TextUnformatted(u->name.c_str());
+            char cntBuf[32]; std::snprintf(cntBuf, sizeof(cntBuf), "Count: %d", u->count);
+            ImGui::TextUnformatted(cntBuf);
+            ImGui::Separator();
+            char hpBuf[48]; std::snprintf(hpBuf, sizeof(hpBuf),
+                "HP: %d/%d  (Total: %d)", u->hp, u->maxHp, u->totalHp());
+            ImGui::TextUnformatted(hpBuf);
+            char stBuf[64]; std::snprintf(stBuf, sizeof(stBuf),
+                "ATK:%d  DEF:%d  SPD:%d", u->attack, u->defense, u->speed);
+            ImGui::TextUnformatted(stBuf);
+            char dmBuf[32]; std::snprintf(dmBuf, sizeof(dmBuf),
+                "Damage: %d-%d", u->damageMin, u->damageMax);
+            ImGui::TextUnformatted(dmBuf);
+            if (u->range > 0) {
+                char rBuf[32]; std::snprintf(rBuf, sizeof(rBuf),
+                    "Range:%d  Shots:%d/%d", u->range, u->shotsLeft, u->shots);
+                ImGui::TextUnformatted(rBuf);
+            }
+            if (u->morale != 50) {
+                char mBuf[24]; std::snprintf(mBuf, sizeof(mBuf), "Morale: %d", u->morale);
+                ImGui::TextUnformatted(mBuf);
+            }
+            if (u->luck > 0) {
+                char lBuf[20]; std::snprintf(lBuf, sizeof(lBuf), "Luck: %d", u->luck);
+                ImGui::TextUnformatted(lBuf);
+            }
+            if (u->poisonRounds > 0) {
+                char pBuf[40]; std::snprintf(pBuf, sizeof(pBuf),
+                    "Poison: %d dmg x%d rnd", u->poisonDamage, u->poisonRounds);
+                ImGui::TextUnformatted(pBuf);
+            }
+            if (u->burnRounds > 0) {
+                char bBuf[40]; std::snprintf(bBuf, sizeof(bBuf),
+                    "Burn: %d dmg x%d rnd", u->burnDamage, u->burnRounds);
+                ImGui::TextUnformatted(bBuf);
+            }
+            ImGui::Separator();
+            if (u->flying)    ImGui::TextUnformatted("Flying");
+            if (u->vampiric)  ImGui::TextUnformatted("Vampiric");
+            if (u->regenerates) ImGui::TextUnformatted("Regenerates");
+            if (u->hasSecondLife) ImGui::TextUnformatted("Second Life");
+            if (u->moraleImmune) ImGui::TextUnformatted("Morale Immune");
+            ImGui::EndPopup();
+        }
     }
 
     endImGuiFrame();
@@ -815,6 +884,8 @@ void Game::enterCombat(Hero& playerHero,
         if (cu.defId != 0) {
             const UnitDef* ud = m_registry.getUnitDef(cu.defId);
             if (ud) { rec.faction = static_cast<int>(ud->faction); rec.tier = ud->tier; }
+        } else if (cu.factionHint >= 0) {
+            rec.faction = cu.factionHint;
         }
         m_combatEnemiesDefeated.push_back(rec);
     }

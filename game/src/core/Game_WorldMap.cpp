@@ -80,35 +80,44 @@ static std::vector<CombatUnit> makeMineGuardUnits(const ResourceNode& r)
         return lo + (int)(xr() % (unsigned)(hi - lo + 1));
     };
 
+    // Map resource type → faction hint for sprite display
+    // Gold=any(6=IronAssembly), Iron=IronAssembly, FaithStones=HolyOrder,
+    // BloodEssence=Bloodsworn, VerdantSap=Thornkin, Mercury=EternalEmpire
+    static const int kFactionHint[6] = { 6, 6, 0, 4, 2, 3 }; // indexed by ResourceType
+    int rtype = std::clamp((int)r.type, 0, 5);
+    int faction = kFactionHint[rtype];
+
     struct GN { const char* light; const char* heavy; };
     static const GN gNames[6] = {
-        {"Mercenary",    "Hired Guard"},
-        {"Iron Guard",   "Forge Sentinel"},
-        {"Temple Guard", "Holy Warden"},
-        {"Blood Hunter", "Crimson Reaver"},
-        {"Grove Warden", "Thornborn"},
-        {"Shade Guard",  "Wraith Sentinel"},
+        {"Iron Mercenary",  "Iron Sentinel"},    // Gold / Iron → IronAssembly look
+        {"Iron Custodian",  "Forge Warden"},     // Iron → IronAssembly
+        {"Temple Guard",    "Holy Warden"},      // FaithStones → HolyOrder
+        {"Blood Hunter",    "Crimson Reaver"},   // BloodEssence → Bloodsworn
+        {"Grove Warden",    "Thornborn"},        // VerdantSap → Thornkin
+        {"Spectral Keeper", "Wraith Sentinel"},  // Mercury → EternalEmpire
     };
-    int ni   = std::clamp((int)r.type, 0, 5);
-    int tier = std::clamp(r.amount,    1, 5);
+    int ni   = rtype;
+    int tier = std::clamp(r.amount, 1, 5);
 
     CombatUnit g1;
-    g1.name    = gNames[ni].light;
-    g1.count   = rnd(3 + tier * 2, 6 + tier * 3);
-    g1.maxHp   = g1.hp = 5 + tier * 2;
-    g1.attack  = 2 + tier;
-    g1.defense = 1 + tier;
-    g1.speed   = 4;
-    g1.isPlayer = false;
+    g1.name        = gNames[ni].light;
+    g1.factionHint = faction;
+    g1.count       = rnd(3 + tier * 2, 6 + tier * 3);
+    g1.maxHp       = g1.hp = 5 + tier * 2;
+    g1.attack      = 2 + tier;
+    g1.defense     = 1 + tier;
+    g1.speed       = 4;
+    g1.isPlayer    = false;
 
     CombatUnit g2;
-    g2.name    = gNames[ni].heavy;
-    g2.count   = rnd(2 + tier, 4 + tier * 2);
-    g2.maxHp   = g2.hp = 8 + tier * 3;
-    g2.attack  = 3 + tier;
-    g2.defense = 2 + tier;
-    g2.speed   = 3;
-    g2.isPlayer = false;
+    g2.name        = gNames[ni].heavy;
+    g2.factionHint = faction;
+    g2.count       = rnd(2 + tier, 4 + tier * 2);
+    g2.maxHp       = g2.hp = 8 + tier * 3;
+    g2.attack      = 3 + tier;
+    g2.defense     = 2 + tier;
+    g2.speed       = 3;
+    g2.isPlayer    = false;
 
     return {g1, g2};
 }
@@ -184,10 +193,12 @@ void Game::updateWorldMap(float dt)
         m_camera.pan(-static_cast<float>(mouse.dx), -static_cast<float>(mouse.dy));
 
     const float PAN = 200.0f * dt;
-    if (m_input.keyHeld(SDLK_LEFT))  m_camera.pan(-PAN, 0);
-    if (m_input.keyHeld(SDLK_RIGHT)) m_camera.pan( PAN, 0);
-    if (m_input.keyHeld(SDLK_UP))    m_camera.pan(0, -PAN);
-    if (m_input.keyHeld(SDLK_DOWN))  m_camera.pan(0,  PAN);
+    if (!ImGui::GetIO().WantCaptureKeyboard) {
+        if (m_input.keyHeld(SDLK_LEFT))  m_camera.pan(-PAN, 0);
+        if (m_input.keyHeld(SDLK_RIGHT)) m_camera.pan( PAN, 0);
+        if (m_input.keyHeld(SDLK_UP))    m_camera.pan(0, -PAN);
+        if (m_input.keyHeld(SDLK_DOWN))  m_camera.pan(0,  PAN);
+    }
 
     // Lambda that clamps camera so map edge never scrolls past viewport edge
     auto clampCamera = [this]() {
@@ -1139,6 +1150,12 @@ void Game::doEndTurn()
                 if (obj.type == WorldObjectType::HolyFountain ||
                     obj.type == WorldObjectType::Oasis)
                     obj.collected = false;
+                // Captured NeutralOutpost produces 4 T1 units per week
+                if (obj.type == WorldObjectType::NeutralOutpost && obj.collected)
+                    obj.available += 4;
+                // CursedGround: restore one charge per week (up to original max=5)
+                if (obj.type == WorldObjectType::CursedGround && obj.questState < 5)
+                    obj.questState++;
             }
 
             // Auto-save at week start if enabled
@@ -1210,6 +1227,14 @@ void Game::onTileClicked(HexCoord h)
     if (!tile) return;
 
     if (m_heroes.empty()) return;
+
+    // Clicking the active hero's own tile centers the camera on them
+    if (h == m_heroes[m_activeHeroIdx].pos) {
+        float hx, hy;
+        m_hexRenderer.grid().hexToWorld(h, hx, hy);
+        m_camera.setPosition(hx, hy);
+        return;
+    }
 
     // Left-click on a player-owned town: open if hero is on/adjacent, else path there
     if (tile->townId != 0) {
@@ -1716,6 +1741,115 @@ void Game::checkTileEvents()
                 return;
             }
             break;
+
+        case WorldObjectType::Landmark:
+            if (!obj.collected) {
+                obj.collected = true;
+                // Gain XP from visiting this historically significant site
+                static const char* kLandmarkNames[] = {
+                    "Ancient Monolith","Ruined Temple","Forgotten Citadel",
+                    "Crumbling Observatory","Sunken Shrine"
+                };
+                int nameIdx = (obj.pos.q * 7 + obj.pos.r * 3) % 5;
+                char buf[80];
+                std::snprintf(buf, sizeof(buf), "%s: +%d XP",
+                    kLandmarkNames[nameIdx], obj.value);
+                pushPickupEffect(obj.pos, buf, IM_COL32(220, 200, 120, 255));
+                m_audio.playSound("pickup");
+                int oldLvl = hero.level;
+                if (hero.addXp(obj.value)) {
+                    const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+                    if (cls) {
+                        std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                        m_levelUpOffers = LevelUpSystem::generateOffers(
+                            *cls, hero.skills, hero.level, allSkills, hero.faction);
+                    }
+                    if (m_levelUpOffers.empty())
+                        m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
+                    m_pendingLevelUps = hero.level - oldLvl;
+                    m_showLevelUpModal = true;
+                    m_audio.playSound("levelup");
+                    ScriptContext lvCtx; lvCtx.heroId = hero.id;
+                    m_triggers.fire(TriggerType::HeroLevel, lvCtx);
+                }
+            }
+            break;
+
+        case WorldObjectType::CursedGround:
+            if (obj.questState > 0) {
+                // Each crossing triggers a curse charge
+                obj.questState--;
+                int totalArmy = 0;
+                for (const auto& s : hero.army) totalArmy += s.count;
+                if (totalArmy > 1) {
+                    // Kill units proportional to damage value
+                    int dmg = obj.value;
+                    for (auto& s : hero.army) {
+                        if (s.count > 0 && dmg > 0) {
+                            int kill = std::min(s.count - (totalArmy > s.count ? 0 : 1), dmg / 10);
+                            kill = std::max(0, kill);
+                            s.count -= kill;
+                            dmg -= kill * 10;
+                        }
+                    }
+                }
+                char buf[48];
+                std::snprintf(buf, sizeof(buf), "Cursed! -%d HP (charges: %d)",
+                    obj.value, obj.questState);
+                pushPickupEffect(obj.pos, buf, IM_COL32(160, 40, 200, 255));
+                m_audio.playSound("hit");
+            }
+            break;
+
+        case WorldObjectType::NeutralOutpost:
+            if (!obj.collected) {
+                // Guarded by a small faction garrison — fight to capture
+                Hero outpostHero;
+                outpostHero.id      = 0;
+                outpostHero.name    = "Outpost Guard";
+                outpostHero.faction = static_cast<FactionId>(obj.faction % 9);
+                std::vector<CombatUnit> outUnits;
+                {
+                    CombatUnit ou;
+                    ou.name    = "Outpost Sentry";
+                    ou.count   = 6 + obj.value * 3;
+                    ou.maxHp   = ou.hp = 5 + obj.value * 2;
+                    ou.attack  = 2 + obj.value;
+                    ou.defense = 1 + obj.value;
+                    ou.speed   = 4;
+                    ou.isPlayer = false;
+                    ou.factionHint = obj.faction;
+                    outUnits.push_back(ou);
+                    CombatUnit ou2;
+                    ou2.name   = "Outpost Archer";
+                    ou2.count  = 3 + obj.value * 2;
+                    ou2.maxHp  = ou2.hp = 4;
+                    ou2.attack = 3;
+                    ou2.defense = 1;
+                    ou2.speed  = 5;
+                    ou2.range  = 4;
+                    ou2.shots  = ou2.shotsLeft = 8;
+                    ou2.isPlayer = false;
+                    ou2.factionHint = obj.faction;
+                    outUnits.push_back(ou2);
+                }
+                m_lastCombatEnemyId = 0;
+                m_pendingTownCaptureId = 0;
+                m_lastBanditCampId = 0;
+                m_pendingObjId = obj.id;
+                obj.collected = true; // mark before entering combat; loser gets nothing
+                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
+                enterCombat(hero, pUnits, outpostHero, outUnits);
+                return;
+            } else {
+                // Already captured — produce T1 units weekly (handled via obj.available)
+                if (obj.available > 0) {
+                    pushPickupEffect(obj.pos, "Outpost: recruit available!", IM_COL32(180, 255, 140, 255));
+                    m_pendingObjId = obj.id;
+                    m_showDwellingPopup = true;
+                }
+            }
+            break;
         }
     }
 
@@ -2003,7 +2137,9 @@ void Game::renderWorldOverlay()
     // ── World objects ──────────────────────────────────────────────────────────
     for (int oi = 0; oi < static_cast<int>(m_worldObjects.size()); ++oi) {
         const auto& obj = m_worldObjects[oi];
-        if (obj.collected) continue;
+        // NeutralOutpost stays visible after capture (shows recruit availability)
+        if (obj.collected && obj.type != WorldObjectType::NeutralOutpost) continue;
+        if (obj.type == WorldObjectType::NeutralOutpost && obj.collected && obj.available <= 0) continue;
         const HexTile* otile = m_map.getTile(obj.pos);
         if (!m_fogDisabled && (!otile || !otile->explored)) continue;
         float sx, sy;
@@ -2028,9 +2164,12 @@ void Game::renderWorldOverlay()
         case WorldObjectType::LavaCrystal:   ico = ICO_LAVA_CRYSTAL;    break;
         case WorldObjectType::SwampAltar:    ico = ICO_SWAMP_ALTAR;     break;
         case WorldObjectType::TreasureChest: ico = ICO_TREASURE;         break;
-        case WorldObjectType::Crypt:    ico = ICO_CRYPT;  break;
-        case WorldObjectType::Utopia:   ico = ICO_UTOPIA; break;
-        default:                             ico = 15;                   break;
+        case WorldObjectType::Crypt:         ico = ICO_CRYPT;        break;
+        case WorldObjectType::Utopia:        ico = ICO_UTOPIA;       break;
+        case WorldObjectType::Landmark:      ico = 32;               break; // pillar icon slot
+        case WorldObjectType::CursedGround:  ico = 33;               break; // skull icon slot
+        case WorldObjectType::NeutralOutpost: ico = 34;              break; // flag icon slot
+        default:                             ico = 15;               break;
         }
         // Idle glow pulse
         float pulse = 0.5f + 0.5f * sinf(m_mapTime * 2.0f + oi * 1.1f);
@@ -2064,6 +2203,42 @@ void Game::renderWorldOverlay()
             dl->AddRectFilled({sx-9,sy-7},{sx+9,sy-2}, IM_COL32(90,55,20,240), 2.0f);
             dl->AddRect({sx-9,sy-7},{sx+9,sy+7}, IM_COL32(200,170,50,200), 2.0f);
             dl->AddRectFilled({sx-3,sy-4},{sx+3,sy+1}, IM_COL32(220,190,50,255), 2.0f);
+        } else if (obj.type == WorldObjectType::Landmark) {
+            // Ancient pillar — stone column silhouette, golden glow
+            glowC = IM_COL32(220, 200, 120, static_cast<int>(pulse * 100 + 40));
+            dl->AddCircleFilled({sx, sy}, 14.0f, IM_COL32(20, 18, 10, 210));
+            dl->AddRectFilled({sx-4,sy-11},{sx+4,sy+7}, IM_COL32(160,140,90,240), 2.0f);
+            dl->AddRectFilled({sx-6,sy-11},{sx+6,sy-9}, IM_COL32(180,160,100,240), 2.0f);
+            dl->AddRectFilled({sx-6,sy+5},{sx+6,sy+8}, IM_COL32(180,160,100,240), 2.0f);
+            dl->AddRect({sx-6,sy-11},{sx+6,sy+8}, IM_COL32(220,200,120,180), 1.0f);
+        } else if (obj.type == WorldObjectType::CursedGround) {
+            // Skull icon — dark purple aura
+            glowC = IM_COL32(130, 30, 180, static_cast<int>(pulse * 120 + 50));
+            dl->AddCircleFilled({sx, sy}, 14.0f, IM_COL32(20, 5, 25, 230));
+            dl->AddCircleFilled({sx, sy-2.0f}, 8.0f, IM_COL32(180, 120, 200, 220));
+            dl->AddRectFilled({sx-5,sy+4},{sx+5,sy+8}, IM_COL32(180,120,200,200), 1.0f);
+            // Eye sockets
+            dl->AddCircleFilled({sx-2.5f,sy-3.5f}, 1.8f, IM_COL32(20,5,25,255));
+            dl->AddCircleFilled({sx+2.5f,sy-3.5f}, 1.8f, IM_COL32(20,5,25,255));
+            // Charge counter
+            if (obj.questState > 0) {
+                char chBuf[12]; std::snprintf(chBuf, sizeof(chBuf), "%d", obj.questState);
+                dl->AddText(ImGui::GetFont(), 9.0f, {sx+6,sy-12}, IM_COL32(220,180,255,255), chBuf);
+            }
+        } else if (obj.type == WorldObjectType::NeutralOutpost) {
+            // Flag + tower icon
+            glowC = obj.collected
+                ? IM_COL32(120, 200, 255, static_cast<int>(pulse * 100 + 40))
+                : IM_COL32(200, 200, 100, static_cast<int>(pulse * 80 + 40));
+            dl->AddCircleFilled({sx, sy}, 14.0f, IM_COL32(15, 15, 10, 210));
+            dl->AddRectFilled({sx-8,sy-4},{sx+8,sy+8}, IM_COL32(100,90,70,240), 2.0f);
+            dl->AddLine({sx-3,sy-10},{sx-3,sy-4}, IM_COL32(160,140,100,255), 1.5f);
+            ImU32 flagC = obj.collected ? IM_COL32(80,160,255,255) : IM_COL32(200,180,60,255);
+            dl->AddTriangleFilled({sx-3,sy-10},{sx+5,sy-7},{sx-3,sy-4}, flagC);
+            if (obj.collected && obj.available > 0) {
+                char aBuf[12]; std::snprintf(aBuf, sizeof(aBuf), "%d", obj.available);
+                dl->AddText(ImGui::GetFont(), 9.0f, {sx+6,sy-12}, IM_COL32(120,220,255,255), aBuf);
+            }
         } else {
             addIcon(ico, sx, sy, 22.0f);
         }

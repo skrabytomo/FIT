@@ -31,6 +31,7 @@ struct CombatUnit
     uint32_t    id          = 0;
     std::string name;
     int         defId       = 0;    // UnitDef id
+    int         factionHint = -1;   // display faction when defId==0 (-1=use fallback)
 
     // Stack state
     int         count       = 1;    // units in stack

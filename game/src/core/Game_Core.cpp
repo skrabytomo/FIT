@@ -328,7 +328,7 @@ void Game::update(float dt)
 void Game::render()
 {
     glViewport(0, 0, m_width, m_height);
-    glClearColor(0.04f, 0.03f, 0.03f, 1.0f);
+    glClearColor(0.05f, 0.14f, 0.36f, 1.0f);  // ocean blue — fills gaps at map edges
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     switch (m_state) {
@@ -791,7 +791,7 @@ void Game::startNewGame()
             ResourceType rtype = ResourceType::Gold;
             HexCoord p = pickTile(6, 10);
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ResourceCache, p,
-                300 + static_cast<int>(lcg() % 300), rtype, false});
+                500 + static_cast<int>(lcg() % 1500), rtype, false});
         }
 
         // Guarantee 2 resource mines visible from the start (within 5-9 hexes)
@@ -885,7 +885,7 @@ void Game::startNewGame()
         for (int x = 0; x < 3 * scale; ++x) {
             HexCoord p = pickTile();
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::XPShrine, p,
-                50 + static_cast<int>(lcg() % 80), ResourceType::Gold, false});
+                200 + static_cast<int>(lcg() % 400), ResourceType::Gold, false});
         }
         for (int rc = 0; rc < 4 * scale; ++rc) {
             HexCoord p = pickTile();
@@ -895,9 +895,44 @@ void Game::startNewGame()
                 ResourceType::VerdantSap, ResourceType::Mercury
             };
             ResourceType rtype = kRTypes[lcg() % 6];
-            int rval = (rtype == ResourceType::Gold) ? 300 + static_cast<int>(lcg() % 500)
-                                                     : 3   + static_cast<int>(lcg() % 8);
+            int rval = (rtype == ResourceType::Gold) ? 500 + static_cast<int>(lcg() % 2000)
+                                                     : 5   + static_cast<int>(lcg() % 10);
             m_worldObjects.push_back({m_nextObjId++, WorldObjectType::ResourceCache, p, rval, rtype, false});
+        }
+
+        // Landmarks — named historical sites; permanent XP on first visit
+        for (int lm = 0; lm < 3 * scale; ++lm) {
+            HexCoord p = pickTile();
+            WorldObject wo;
+            wo.id    = m_nextObjId++;
+            wo.type  = WorldObjectType::Landmark;
+            wo.pos   = p;
+            wo.value = 300 + static_cast<int>(lcg() % 500); // XP amount
+            m_worldObjects.push_back(wo);
+        }
+
+        // Cursed Ground — damages army each crossing; questState = charges (3-5)
+        for (int cg = 0; cg < 2 * scale; ++cg) {
+            HexCoord p = pickTile();
+            WorldObject wo;
+            wo.id         = m_nextObjId++;
+            wo.type       = WorldObjectType::CursedGround;
+            wo.pos        = p;
+            wo.value      = 10 + static_cast<int>(lcg() % 20); // dmg per trigger
+            wo.questState = 3 + static_cast<int>(lcg() % 3);   // charges
+            m_worldObjects.push_back(wo);
+        }
+
+        // Neutral Outposts — guarded; capture gives weekly T1 production
+        for (int no = 0; no < 2 * scale; ++no) {
+            HexCoord p = pickTile();
+            WorldObject wo;
+            wo.id      = m_nextObjId++;
+            wo.type    = WorldObjectType::NeutralOutpost;
+            wo.pos     = p;
+            wo.faction = static_cast<uint8_t>(lcg() % 9);
+            wo.value   = 1; // T1 dwellings
+            m_worldObjects.push_back(wo);
         }
     }
 

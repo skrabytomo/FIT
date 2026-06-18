@@ -367,6 +367,9 @@ private:
     uint32_t m_mineInfoId        = 0;
     void renderMineInfoPopup();
 
+    // ── Right-click combat unit stat popup ────────────────────────────────────
+    uint32_t m_combatRightClickUnitId = 0;
+
     // ── Pause menu (Escape on world map) ─────────────────────────────────────
     bool m_showPauseMenu = false;
     void renderPauseMenu();

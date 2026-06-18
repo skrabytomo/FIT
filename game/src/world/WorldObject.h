@@ -26,6 +26,9 @@ enum class WorldObjectType : uint8_t
     TreasureChest,  // Multi-choice reward: value=gold, questState=xp, faction=stat(0=ATK,1=DEF,2=SPD)
     Crypt,    // faction army (T1-T3) guards it → gold + scroll reward; faction=which faction, value=difficulty(1-3)
     Utopia,   // 4 T6 stacks guard it → choice of major rewards; faction=which faction, value=reward seed
+    Landmark,       // historical site: permanent XP+lore on first visit; value=xpAmt
+    CursedGround,   // damages hero army on entry each pass; questState=charges remaining; value=dmgPerCharge
+    NeutralOutpost, // guarded; capture gives weekly T1 production; faction=garrison faction; value=tier
 };
 
 struct WorldObject
