@@ -346,6 +346,11 @@ private:
     void renderCryptPopup();
     void renderUtopiaPopup();
 
+    // ── Mine inspection popup (right-click on mine) ───────────────────────────
+    bool     m_showMineInfoPopup = false;
+    uint32_t m_mineInfoId        = 0;
+    void renderMineInfoPopup();
+
     // ── Pause menu (Escape on world map) ─────────────────────────────────────
     bool m_showPauseMenu = false;
     void renderPauseMenu();

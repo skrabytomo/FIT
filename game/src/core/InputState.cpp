@@ -9,6 +9,7 @@ void InputState::beginFrame()
     m_mouse.wheelY  = 0.0f;
     m_mouse.leftDown  = false;
     m_mouse.leftUp    = false;
+    m_mouse.rightDown = false;
 }
 
 void InputState::handleEvent(const SDL_Event& e)
@@ -32,7 +33,7 @@ void InputState::handleEvent(const SDL_Event& e)
         break;
     case SDL_MOUSEBUTTONDOWN:
         if (e.button.button == SDL_BUTTON_LEFT)  { m_mouse.left   = true;  m_mouse.leftDown  = true; }
-        if (e.button.button == SDL_BUTTON_RIGHT)   m_mouse.right  = true;
+        if (e.button.button == SDL_BUTTON_RIGHT) { m_mouse.right = true; m_mouse.rightDown = true; }
         if (e.button.button == SDL_BUTTON_MIDDLE)  m_mouse.middle = true;
         break;
     case SDL_MOUSEBUTTONUP:

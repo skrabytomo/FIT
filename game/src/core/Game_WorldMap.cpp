@@ -67,6 +67,52 @@ static std::vector<CombatUnit> makeFactionUnits(FactionId faction, bool isPlayer
     return out;
 }
 
+// Generate mine guard units deterministically from mine position + resource type
+static std::vector<CombatUnit> makeMineGuardUnits(const ResourceNode& r)
+{
+    uint32_t seed = (uint32_t)(r.pos.q * 73856093u)
+                  ^ (uint32_t)(r.pos.r * 19349663u)
+                  ^ (uint32_t)((int)r.type * 83492791u);
+    auto xr = [&]() -> uint32_t {
+        seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return seed;
+    };
+    auto rnd = [&](int lo, int hi) -> int {
+        return lo + (int)(xr() % (unsigned)(hi - lo + 1));
+    };
+
+    struct GN { const char* light; const char* heavy; };
+    static const GN gNames[6] = {
+        {"Mercenary",    "Hired Guard"},
+        {"Iron Guard",   "Forge Sentinel"},
+        {"Temple Guard", "Holy Warden"},
+        {"Blood Hunter", "Crimson Reaver"},
+        {"Grove Warden", "Thornborn"},
+        {"Shade Guard",  "Wraith Sentinel"},
+    };
+    int ni   = std::clamp((int)r.type, 0, 5);
+    int tier = std::clamp(r.amount,    1, 5);
+
+    CombatUnit g1;
+    g1.name    = gNames[ni].light;
+    g1.count   = rnd(3 + tier * 2, 6 + tier * 3);
+    g1.maxHp   = g1.hp = 5 + tier * 2;
+    g1.attack  = 2 + tier;
+    g1.defense = 1 + tier;
+    g1.speed   = 4;
+    g1.isPlayer = false;
+
+    CombatUnit g2;
+    g2.name    = gNames[ni].heavy;
+    g2.count   = rnd(2 + tier, 4 + tier * 2);
+    g2.maxHp   = g2.hp = 8 + tier * 3;
+    g2.attack  = 3 + tier;
+    g2.defense = 2 + tier;
+    g2.speed   = 3;
+    g2.isPlayer = false;
+
+    return {g1, g2};
+}
+
 // Build CombatUnits from hero's actual army; falls back to faction template if army empty
 static std::vector<CombatUnit> makeHeroUnits(const Hero& hero,
     const std::vector<UnitDef>& defs, bool isPlayer)
@@ -216,6 +262,18 @@ void Game::updateWorldMap(float dt)
             onTileClicked(m_hovered);
         else if (!uiHandled)
             m_selected = {-999,-999};
+    }
+
+    // Right-click on a mine tile — show guard/income info popup
+    if (mouse.rightDown && !ImGui::GetIO().WantCaptureMouse) {
+        m_showMineInfoPopup = false;
+        if (m_map.inBounds(m_hovered)) {
+            const HexTile* ht = m_map.getTile(m_hovered);
+            if (ht && ht->resourceId != 0) {
+                m_mineInfoId        = ht->resourceId;
+                m_showMineInfoPopup = true;
+            }
+        }
     }
 
     if (mouse.leftUp)
@@ -998,6 +1056,7 @@ void Game::renderWorldMap()
     if (m_showTreasureChestPopup) renderTreasureChestPopup();
     if (m_showCryptPopup)         renderCryptPopup();
     if (m_showUtopiaPopup)        renderUtopiaPopup();
+    if (m_showMineInfoPopup)      renderMineInfoPopup();
     if (m_showTownLostPopup)  renderTownLostPopup();
     if (m_showWeekSummary)    renderWeekSummary();
     if (m_showPauseMenu)      renderPauseMenu();
@@ -1022,8 +1081,10 @@ void Game::onTileClicked(HexCoord h)
     const HexTile* tile = m_map.getTile(h);
     if (!tile) return;
 
+    if (m_heroes.empty()) return;
+
     // Left-click on a player-owned town: open if hero is on/adjacent, else path there
-    if (tile->townId != 0 && !m_heroes.empty()) {
+    if (tile->townId != 0) {
         Hero& clickHero = m_heroes[m_activeHeroIdx];
         for (auto& t : m_towns) {
             if (t.id != tile->townId || t.ownerId != 1) continue;
@@ -1540,19 +1601,7 @@ void Game::checkTileEvents()
                 guardHero.id      = 0;
                 guardHero.name    = "Mine Guardian";
                 guardHero.faction = FactionId::None;
-                std::vector<CombatUnit> guardUnits;
-                {
-                    CombatUnit g1;
-                    g1.name = "Guard"; g1.count = 6 + r.amount;
-                    g1.maxHp = g1.hp = 8; g1.attack = 3; g1.defense = 2;
-                    g1.speed = 4; g1.isPlayer = false;
-                    guardUnits.push_back(g1);
-                    CombatUnit g2;
-                    g2.name = "Sentinel"; g2.count = 3 + r.amount / 2;
-                    g2.maxHp = g2.hp = 12; g2.attack = 4; g2.defense = 4;
-                    g2.speed = 3; g2.isPlayer = false;
-                    guardUnits.push_back(g2);
-                }
+                std::vector<CombatUnit> guardUnits = makeMineGuardUnits(r);
                 // Use a dummy worldObject id for the pending mine capture
                 // Encode resource id in lastBanditCampId temporarily
                 m_lastCombatEnemyId = 0;
@@ -3413,6 +3462,78 @@ void Game::renderUtopiaPopup()
         obj->collected = true; m_showUtopiaPopup = false;
     }
     ImGui::PopStyleColor();
+    ImGui::End();
+}
+
+// ── Mine info popup (right-click on mine) ────────────────────────────────────
+void Game::renderMineInfoPopup()
+{
+    if (!m_showMineInfoPopup) return;
+    const ResourceNode* r = nullptr;
+    for (const auto& rn : m_resources)
+        if (rn.id == m_mineInfoId) { r = &rn; break; }
+    if (!r) { m_showMineInfoPopup = false; return; }
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({360, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.93f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##mine_info", nullptr, wf)) { ImGui::End(); return; }
+
+    const char* status = r->ownedBy == 1 ? " [Owned]"
+                       : r->guardBeaten  ? " [Captured]"
+                       : " [Guarded]";
+    ImGui::TextColored({0.9f, 0.75f, 0.2f, 1.0f}, "%s Mine%s  +%d/wk",
+                       resourceName(r->type), status, r->amount);
+    ImGui::Separator();
+
+    if (r->guardBeaten || r->ownedBy == 1) {
+        ImGui::TextDisabled("No defenders — mine is unguarded.");
+    } else {
+        ImGui::TextColored({0.95f, 0.45f, 0.45f, 1.0f}, "Defenders:");
+        auto guards = makeMineGuardUnits(*r);
+        int guardPower = 0;
+        for (const auto& g : guards) {
+            ImGui::Text("  %-20s x%-4d  ATK %d  DEF %d  HP %d  SPD %d",
+                        g.name.c_str(), g.count, g.attack, g.defense, g.maxHp, g.speed);
+            guardPower += g.count * g.maxHp * (g.attack + g.defense / 2);
+        }
+
+        int playerPower = 0;
+        if (!m_heroes.empty()) {
+            const Hero& h = m_heroes[m_activeHeroIdx];
+            for (const auto& stack : h.army) {
+                const UnitDef* ud = m_registry.getUnitDef(stack.defId);
+                if (ud) playerPower += stack.count * ud->hp * (ud->attack + ud->defense / 2);
+            }
+        }
+
+        ImGui::Separator();
+        if (playerPower > 0) {
+            float ratio = static_cast<float>(guardPower) / static_cast<float>(playerPower);
+            const char* rating;
+            ImVec4 col;
+            if      (ratio < 0.30f) { rating = "Trivial";      col = {0.5f, 1.0f, 0.5f, 1.0f}; }
+            else if (ratio < 0.60f) { rating = "Weak";         col = {0.7f, 1.0f, 0.5f, 1.0f}; }
+            else if (ratio < 0.90f) { rating = "Moderate";     col = {1.0f, 0.9f, 0.4f, 1.0f}; }
+            else if (ratio < 1.10f) { rating = "Even Match";   col = {1.0f, 0.7f, 0.2f, 1.0f}; }
+            else if (ratio < 1.50f) { rating = "Strong";       col = {1.0f, 0.4f, 0.3f, 1.0f}; }
+            else                    { rating = "Overwhelming"; col = {0.9f, 0.1f, 0.1f, 1.0f}; }
+            ImGui::Text("Threat vs your army: ");
+            ImGui::SameLine(0, 0);
+            ImGui::TextColored(col, " %s", rating);
+        } else {
+            ImGui::TextDisabled("(no hero selected to compare)");
+        }
+    }
+
+    ImGui::Spacing();
+    ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 80.0f) * 0.5f);
+    if (ImGui::Button("Close", {80, 0}))
+        m_showMineInfoPopup = false;
     ImGui::End();
 }
 

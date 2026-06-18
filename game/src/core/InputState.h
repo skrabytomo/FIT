@@ -11,6 +11,7 @@ struct MouseState
     bool  middle  = false;
     bool  leftDown  = false;   // pressed this frame
     bool  leftUp    = false;   // released this frame
+    bool  rightDown = false;   // pressed this frame
     float wheelY  = 0.0f;
 };
 
