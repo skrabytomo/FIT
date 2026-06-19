@@ -131,6 +131,9 @@ Hero ArmyBuilder::buildHero(FactionId faction, int weeks)
         if (level >= 7) h.skills.upgrade(SkillID::FORGE_MAGIC);
         break;
     case FactionId::Amalgamate:
+        h.skills.learn(SkillID::ADAPTATION);       // Basic: adapt after 2 hits
+        if (level >= 5) h.skills.upgrade(SkillID::ADAPTATION);  // Advanced: +2 stat per adapt
+        if (level >= 7) h.skills.upgrade(SkillID::ADAPTATION);  // Master: every hit
         h.skills.learn(SkillID::FLESH_MAGIC);
         if (level >= 5) h.skills.upgrade(SkillID::FLESH_MAGIC);
         if (level >= 7) h.skills.upgrade(SkillID::FLESH_MAGIC);

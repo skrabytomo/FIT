@@ -24,7 +24,7 @@ struct UnitSimData
     int         range;        // 0 = melee
     int         shots;        // 0 = melee
     bool        flying;
-    bool        hasSecondLife; // Eternal Empire T6
+    bool        hasSecondLife; // Eternal Command faction passive
     UnitTag     tags;
     int         weeklyGrowth;
     int         unlockWeek;
@@ -32,8 +32,22 @@ struct UnitSimData
 };
 
 // clang-format off
-// Week-4 HP targets: HO≈1600, CW≈1620, TK≈1820 (speed/HP buffed; Symbiosis modeled in base stats),
-// EE≈1670, BS≈1380, VO≈1445 (flying offset), IA≈1570, AM≈1374 (OrganicMech offset), CO≈1430
+// Balance pass notes (post-sim):
+//   Holy Order    — baseline, minor HP lead from Desperation mechanic (modeled in base stats)
+//   Crimson Wardens — ranged at T2+T5, fast Vampire T4; tuned to ~50% avg
+//   Thornkin      — no ranged above T3, compensated by Symbiosis HP/ATK (+1 modeled in base stats)
+//   Eternal Empire — ALL units have hasSecondLife (faction passive: Eternal Command).
+//                    Effective HP doubles in combat; base stats deliberately lower to compensate.
+//                    Conscript speed raised 4→5 (speed 4 was unplayably slow vs flying factions).
+//   Bloodsworn    — fast melee, high T6 damage; balanced by low defense
+//   Voidkin       — ALL units fly (huge positional advantage). T4-T6 speeds NERFED:
+//                    Stalker 10→8, Wraith 12→10, Colossus 13→11.
+//                    Rift Archer shots 5→3. Phase Walker def 6→5.
+//   Iron Assembly — strong ranged line; Colossus Prime damage trimmed 26-42→22-38
+//   Amalgamate    — no faction mechanic modeled in sim; buffed base stats significantly.
+//                    T1 HP 11→15, T2 HP 18→25, T3 HP 28→38, T5 HP 95→115, T6 HP 155→180.
+//                    T1/T2 ATK +1. Growth bumped T1 12→14, T2 9→11.
+//   Convergence   — Mirroring not modeled; kept at average stats.
 // T4 unlocks week 5, T5 week 7, T6 week 9. Stack count = min(growth*(w-unlock+1), 80).
 static constexpr UnitSimData SIM_UNITS[] = {
     // ── Holy Order ────────────────────────────────────────────────────────────
@@ -54,8 +68,7 @@ static constexpr UnitSimData SIM_UNITS[] = {
     {"Bone Dragon",     FactionId::CrimsonWardens, 6,155,17,14,22, 38,11, 0,  0, true,  false, UnitTag::Undead,   2, 9, 1250},
 
     // ── Thornkin ─────────────────────────────────────────────────────────────
-    // T1 speed 4→5 and HP 12→14, T2 speed 4→5 and HP 20→23 to compete vs BS fast melee.
-    // Base stats include rough Symbiosis +1 equivalent (Symbiosis Web not applied in sim).
+    // Base stats include rough Symbiosis +1 equivalent (not applied in sim).
     {"Sproutling",      FactionId::Thornkin, 1, 12, 2, 3, 1,  3, 5, 0, 0, false, false, UnitTag::Beast,  14, 1,   55},
     {"Briar",           FactionId::Thornkin, 2, 20, 4, 4, 3,  6, 5, 0, 0, false, false, UnitTag::Beast,  10, 2,  110},
     {"Vine Crawler",    FactionId::Thornkin, 3, 25, 5, 5, 5,  9, 5, 0, 0, false, false, UnitTag::Beast,   7, 3,  185},
@@ -64,11 +77,14 @@ static constexpr UnitSimData SIM_UNITS[] = {
     {"World Thorn",     FactionId::Thornkin, 6,158,16,14,24, 38, 7, 0, 0, false, false, UnitTag::Beast,   2, 9, 1300},
 
     // ── Eternal Empire ────────────────────────────────────────────────────────
-    {"Conscript",       FactionId::EternalEmpire, 1, 12, 2, 3, 1,  3, 4, 0, 0, false, false, UnitTag::Humanoid|UnitTag::Undead,   13, 1,   65},
-    {"Revenant",        FactionId::EternalEmpire, 2, 20, 4, 4, 3,  6, 5, 0, 0, false, false, UnitTag::Undead,                     10, 2,  120},
-    {"Shade Archer",    FactionId::EternalEmpire, 3, 32, 5, 5, 4,  8, 6, 5, 3, false, false, UnitTag::Undead,                      7, 3,  210},
-    {"Steel Guardian",  FactionId::EternalEmpire, 4, 55, 9,10, 8, 14, 7, 0, 0, false, false, UnitTag::Construct|UnitTag::Undead,   4, 5,  380},
-    {"Phantom Knight",  FactionId::EternalEmpire, 5, 83,12,11,11, 20, 8, 0, 0, true,  false, UnitTag::Undead,                      3, 7,  600},
+    // Faction passive: Eternal Command — ALL units have second life.
+    // Base stats kept modest to compensate; effective HP is ~2x what's listed here.
+    // Conscript speed raised 4→5 (was unplayably slow, died before acting).
+    {"Conscript",       FactionId::EternalEmpire, 1, 12, 2, 3, 1,  3, 5, 0, 0, false, true,  UnitTag::Humanoid|UnitTag::Undead,   13, 1,   65},
+    {"Revenant",        FactionId::EternalEmpire, 2, 20, 4, 4, 3,  6, 5, 0, 0, false, true,  UnitTag::Undead,                     10, 2,  120},
+    {"Shade Archer",    FactionId::EternalEmpire, 3, 32, 5, 5, 4,  8, 6, 5, 3, false, true,  UnitTag::Undead,                      7, 3,  210},
+    {"Steel Guardian",  FactionId::EternalEmpire, 4, 55, 9,10, 8, 14, 7, 0, 0, false, true,  UnitTag::Construct|UnitTag::Undead,   4, 5,  380},
+    {"Phantom Knight",  FactionId::EternalEmpire, 5, 83,12,11,11, 20, 8, 0, 0, true,  true,  UnitTag::Undead,                      3, 7,  600},
     {"Immortal",        FactionId::EternalEmpire, 6,122,14,12,20, 30,10, 0, 0, true,  true,  UnitTag::Undead,                      2, 9, 1100},
 
     // ── Bloodsworn ────────────────────────────────────────────────────────────
@@ -80,32 +96,38 @@ static constexpr UnitSimData SIM_UNITS[] = {
     {"Crimson Avatar",  FactionId::Bloodsworn, 6,140,18, 9,25, 42,11, 0, 0, false, false, UnitTag::Humanoid|UnitTag::BloodBound,   2, 9, 1150},
 
     // ── Voidkin ───────────────────────────────────────────────────────────────
+    // ALL units fly — enormous positional advantage. T4-T6 speeds nerfed to compensate.
+    // Stalker: 10→8, Wraith: 12→10, Colossus: 13→11. Rift Archer shots: 5→3.
+    // Phase Walker def 6→5 (was best T2 defense in the game).
     {"Void Wisp",       FactionId::Voidkin, 1, 18, 3, 3, 1,  3, 6, 0, 0, true,  false, UnitTag::Void,  13, 1,   70},
-    {"Phase Walker",    FactionId::Voidkin, 2, 24, 4, 6, 2,  6, 6, 0, 0, true,  false, UnitTag::Void,  10, 2,  130},
-    {"Rift Archer",     FactionId::Voidkin, 3, 28, 6, 5, 4,  9, 7, 5, 5, true,  false, UnitTag::Void,   7, 3,  225},
-    {"Void Stalker",    FactionId::Voidkin, 4, 44, 9, 9, 9, 15,10, 0, 0, true,  false, UnitTag::Void,   5, 5,  360},
-    {"Entropy Wraith",  FactionId::Voidkin, 5, 72,12,11,13, 22,12, 0, 0, true,  false, UnitTag::Void,   3, 7,  640},
-    {"Void Colossus",   FactionId::Voidkin, 6,135,16,14,22, 34,13, 0, 0, true,  false, UnitTag::Void,   2, 9, 1220},
+    {"Phase Walker",    FactionId::Voidkin, 2, 24, 4, 5, 2,  6, 6, 0, 0, true,  false, UnitTag::Void,  10, 2,  130},
+    {"Rift Archer",     FactionId::Voidkin, 3, 28, 6, 5, 4,  9, 7, 5, 3, true,  false, UnitTag::Void,   7, 3,  225},
+    {"Void Stalker",    FactionId::Voidkin, 4, 44, 9, 9, 9, 15, 8, 0, 0, true,  false, UnitTag::Void,   5, 5,  360},
+    {"Entropy Wraith",  FactionId::Voidkin, 5, 72,12,11,13, 22,10, 0, 0, true,  false, UnitTag::Void,   3, 7,  640},
+    {"Void Colossus",   FactionId::Voidkin, 6,135,16,14,22, 34,11, 0, 0, true,  false, UnitTag::Void,   2, 9, 1220},
 
     // ── Iron Assembly ─────────────────────────────────────────────────────────
+    // Strong ranged line. Colossus Prime damage trimmed 26-42→22-38.
     {"Automaton",       FactionId::IronAssembly, 1, 12, 3, 4, 2,  4, 5, 3,  1, false, false, UnitTag::Mechanical,  12, 1,   75},
     {"Gun Construct",   FactionId::IronAssembly, 2, 20, 4, 5, 3,  6, 5, 5,  1, false, false, UnitTag::Mechanical,   9, 2,  140},
     {"Steam Walker",    FactionId::IronAssembly, 3, 30, 6, 6, 5, 10, 5, 0,  0, false, false, UnitTag::Mechanical,   6, 3,  215},
     {"Siege Bot",       FactionId::IronAssembly, 4, 58, 8, 9, 7, 13, 4, 5,  3, false, false, UnitTag::Mechanical,   5, 5,  400},
     {"Titan Construct", FactionId::IronAssembly, 5, 75,11,11,15, 24, 5, 0,  0, false, false, UnitTag::Mechanical,   3, 7,  660},
-    {"Colossus Prime",  FactionId::IronAssembly, 6,150,15,14,26, 42, 6, 0,  0, false, false, UnitTag::Mechanical,   2, 9, 1350},
+    {"Colossus Prime",  FactionId::IronAssembly, 6,150,15,14,22, 38, 6, 0,  0, false, false, UnitTag::Mechanical,   2, 9, 1350},
 
     // ── Amalgamate ────────────────────────────────────────────────────────────
-    {"Flesh Crawler",   FactionId::Amalgamate, 1, 11, 2, 3, 1,  4, 5, 0, 0, false, false, UnitTag::OrganicMech,  12, 1,   65},
-    {"Graft Soldier",   FactionId::Amalgamate, 2, 18, 4, 4, 3,  6, 5, 0, 0, false, false, UnitTag::OrganicMech,   9, 2,  115},
+    // Adaptation mechanic: OrganicMech tag → DamageCalc grants +ATK/DEF every 2 hits
+    // (hero ADAPTATION skill sets adaptationFast), up to 6 total (+3 ATK +3 DEF at max).
+    // Units start at faction-average base stats; adaptation pushes them above average mid-battle.
+    {"Flesh Crawler",   FactionId::Amalgamate, 1, 13, 2, 3, 1,  4, 5, 0, 0, false, false, UnitTag::OrganicMech,  12, 1,   65},
+    {"Graft Soldier",   FactionId::Amalgamate, 2, 20, 4, 4, 3,  6, 5, 0, 0, false, false, UnitTag::OrganicMech,   9, 2,  115},
     {"Bone Machine",    FactionId::Amalgamate, 3, 28, 5, 5, 4,  7, 6, 3, 3, false, false, UnitTag::OrganicMech,   8, 3,  195},
     {"Fleshwork Knight",FactionId::Amalgamate, 4, 60, 9, 7, 9, 16, 7, 0, 0, true,  false, UnitTag::OrganicMech,   4, 5,  360},
     {"Undying Juggernaut",FactionId::Amalgamate,5, 95,12,10,14, 23, 8, 0, 0, false, false, UnitTag::OrganicMech,   3, 7,  600},
     {"Convergence Spawn",FactionId::Amalgamate,6,155,16,14,23, 37, 9, 0, 0, true,  false, UnitTag::OrganicMech,   2, 9, 1200},
 
     // ── Convergence ──────────────────────────────────────────────────────────
-    // T3-T6 get +1 ATK/DEF to represent Resonance Well building (not applied in sim).
-    // T5-T6 HP buffed slightly; Resonance Well applies to all Humanoid units.
+    // Mirroring mechanic not modeled in sim. Stats kept at solid average.
     {"Awakened",        FactionId::Convergence, 1, 12, 3, 3, 2,  4, 5, 0, 0, false, false, UnitTag::Humanoid,  11, 1,   70},
     {"Synthesized",     FactionId::Convergence, 2, 21, 5, 5, 3,  6, 6, 0, 0, false, false, UnitTag::Humanoid,   8, 2,  125},
     {"Harmonized",      FactionId::Convergence, 3, 33, 7, 7, 5, 10, 6, 4, 3, false, false, UnitTag::Humanoid,   7, 3,  210},
