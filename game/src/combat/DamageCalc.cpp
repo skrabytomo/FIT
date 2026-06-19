@@ -274,7 +274,7 @@ DamageResult DamageCalc::attack(CombatUnit& attacker, CombatUnit& defender,
     // Void energy disrupts the flesh-graft bonding — Void attackers don't trigger adaptation
     if (finalDmg > 0 && defender.alive && hasTag(defender.tags, UnitTag::OrganicMech)
         && !hasTag(attacker.tags, UnitTag::Void)
-        && defender.adaptationsGained < 6) {
+        && defender.adaptationsGained < 2) {
         defender.hitsTaken++;
         int threshold = defender.rapidEvolution ? 1 : (defender.adaptationFast ? 2 : 3);
         if (defender.hitsTaken >= threshold) {

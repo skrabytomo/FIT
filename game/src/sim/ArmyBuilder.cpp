@@ -106,9 +106,10 @@ Hero ArmyBuilder::buildHero(FactionId faction, int weeks)
         if (level >= 7) h.skills.upgrade(SkillID::DEATH_MAGIC);
         break;
     case FactionId::Thornkin:
-        h.skills.learn(SkillID::SYMBIOSIS);
-        if (level >= 5) h.skills.upgrade(SkillID::SYMBIOSIS);
-        if (level >= 7) h.skills.learn(SkillID::NATURE_MAGIC);
+        // SYMBIOSIS removed: base stats already include +1 equivalent (avoids double-count).
+        h.skills.learn(SkillID::NATURE_MAGIC);
+        if (level >= 5) h.skills.upgrade(SkillID::NATURE_MAGIC);
+        if (level >= 7) h.skills.upgrade(SkillID::NATURE_MAGIC);
         break;
     case FactionId::EternalEmpire:
         h.skills.learn(SkillID::ETERNAL_CMD);
@@ -131,9 +132,10 @@ Hero ArmyBuilder::buildHero(FactionId faction, int weeks)
         if (level >= 7) h.skills.upgrade(SkillID::FORGE_MAGIC);
         break;
     case FactionId::Amalgamate:
-        h.skills.learn(SkillID::ADAPTATION);       // Basic: adapt after 2 hits
-        if (level >= 5) h.skills.upgrade(SkillID::ADAPTATION);  // Advanced: +2 stat per adapt
-        if (level >= 7) h.skills.upgrade(SkillID::ADAPTATION);  // Master: every hit
+        // ADAPTATION learned at level 5+ so early game uses default threshold=3.
+        // Faster adaptation at higher levels rewards surviving into mid/late game.
+        if (level >= 5) h.skills.learn(SkillID::ADAPTATION);   // Basic (threshold 2) at level 5
+        if (level >= 7) h.skills.upgrade(SkillID::ADAPTATION); // Master (threshold 1) at level 7
         h.skills.learn(SkillID::FLESH_MAGIC);
         if (level >= 5) h.skills.upgrade(SkillID::FLESH_MAGIC);
         if (level >= 7) h.skills.upgrade(SkillID::FLESH_MAGIC);

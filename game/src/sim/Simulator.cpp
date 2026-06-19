@@ -60,6 +60,17 @@ FactionMatchup Simulator::runMatchup(FactionId f1, FactionId f2,
 
         totalRounds += engine.round();
 
+        // Round cap hit: determine winner by remaining HP (avoids faction-index bias)
+        if (result != CombatPhase::Victory && result != CombatPhase::Defeat) {
+            double hp1 = 0.0, hp2 = 0.0;
+            for (auto& u : engine.grid().units()) {
+                if (!u.alive) continue;
+                if (u.isPlayer) hp1 += u.totalHp();
+                else hp2 += u.totalHp();
+            }
+            result = (hp1 >= hp2) ? CombatPhase::Victory : CombatPhase::Defeat;
+        }
+
         if (result == CombatPhase::Victory) {
             ++wins1;
             // Measure surviving HP fraction for f1

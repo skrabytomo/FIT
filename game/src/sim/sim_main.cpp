@@ -5,21 +5,19 @@
 
 int main(int argc, char* argv[])
 {
-    // Parse optional args: [weeks] [battles] [seed]
-    int  weeks    = (argc > 1) ? std::atoi(argv[1]) : 6;
-    int  battles  = (argc > 2) ? std::atoi(argv[2]) : 500;
-    int  seed     = (argc > 3) ? std::atoi(argv[3]) : 42;
+    // Parse optional args: [battles] [seed]
+    int  battles  = (argc > 1) ? std::atoi(argv[1]) : 500;
+    int  seed     = (argc > 2) ? std::atoi(argv[2]) : 42;
 
     printf("=== Combat Balance Simulator ===\n");
-    printf("Weeks: %d  |  Battles per matchup: %d  |  Seed: %d\n\n", weeks, battles, seed);
+    printf("Battles per matchup: %d  |  Seed: %d\n\n", battles, seed);
 
-    // Run early game (week 4) and the requested week
-    int passes = (weeks != 4) ? 2 : 1;
-    int passWeeks[] = { 4, weeks };
+    // Fixed snapshots: early (week 5), mid (week 10), late (week 20)
+    int passWeeks[] = { 5, 10, 20 };
+    int passes = 3;
 
     for (int p = 0; p < passes; ++p) {
         int w = passWeeks[p];
-        if (p == 1 && w == 4) continue; // skip duplicate
 
         printf("--- Week %d snapshot ---\n", w);
 
