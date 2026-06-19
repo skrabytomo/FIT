@@ -1,6 +1,7 @@
 #include "Game.h"
 #include "../data/SaveLoad.h"
 #include "../hero/HeroClass.h"
+#include "../sim/ArmyBuilder.h"
 #include <imgui.h>
 #include <string>
 #include <cstdio>
@@ -89,6 +90,8 @@ void Game::renderMainMenu()
         if (ImGui::Button("Load Game",  ImVec2(bw, 40))) m_menuMode = 2;
         ImGui::Spacing();
         if (ImGui::Button("Campaign",   ImVec2(bw, 40))) m_menuMode = 4;
+        ImGui::Spacing();
+        if (ImGui::Button("Battle Sim", ImVec2(bw, 40))) m_menuMode = 5;
         ImGui::Spacing();
         if (ImGui::Button("Settings",   ImVec2(bw, 40))) m_menuMode = 3;
         ImGui::Spacing();
@@ -378,6 +381,75 @@ void Game::renderMainMenu()
 
         ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
         if (ImGui::Button("Back##camp", ImVec2(bw, 30))) m_menuMode = 0;
+    }
+    // ── 5: Battle Simulator ───────────────────────────────────────────────────
+    else if (m_menuMode == 5) {
+        header("BATTLE SIMULATOR");
+
+        static const char* kFacNames[] = {
+            "Holy Order","Crimson Wardens","Thornkin","Eternal Empire",
+            "Bloodsworn","Voidkin","Iron Assembly","Amalgamate","Convergence"
+        };
+
+        // Week picker
+        ImGui::Text("Week:");
+        ImGui::SetNextItemWidth(bw);
+        ImGui::SliderInt("##simweek", &m_simWeek, 1, 20, "Week %d");
+
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+        // Faction 1
+        ImGui::TextColored({0.4f, 0.8f, 1.0f, 1.0f}, "Side 1:");
+        for (int i = 0; i < 9; ++i) {
+            if (i % 3 != 0) ImGui::SameLine();
+            bool sel = (m_simFaction1 == i);
+            if (sel) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.4f, 0.6f, 1.f));
+            char lbl[40]; std::snprintf(lbl, sizeof(lbl), "%s##s1f%d", kFacNames[i], i);
+            if (ImGui::Button(lbl, ImVec2((bw - 4) / 3.f, 26))) m_simFaction1 = i;
+            if (sel) ImGui::PopStyleColor();
+        }
+
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+        // Faction 2
+        ImGui::TextColored({1.0f, 0.5f, 0.3f, 1.0f}, "Side 2:");
+        for (int i = 0; i < 9; ++i) {
+            if (i % 3 != 0) ImGui::SameLine();
+            bool sel = (m_simFaction2 == i);
+            if (sel) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.55f, 0.2f, 0.1f, 1.f));
+            char lbl[40]; std::snprintf(lbl, sizeof(lbl), "%s##s2f%d", kFacNames[i], i);
+            if (ImGui::Button(lbl, ImVec2((bw - 4) / 3.f, 26))) m_simFaction2 = i;
+            if (sel) ImGui::PopStyleColor();
+        }
+
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+
+        // Info line
+        ImGui::TextDisabled("Side 1: %s  vs  Side 2: %s  (week %d)",
+            kFacNames[m_simFaction1], kFacNames[m_simFaction2], m_simWeek);
+        ImGui::Spacing();
+
+        // Start button
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.55f, 0.15f, 1.0f));
+        if (ImGui::Button("Start Battle", ImVec2(bw, 42))) {
+            FactionId f1 = static_cast<FactionId>(m_simFaction1);
+            FactionId f2 = static_cast<FactionId>(m_simFaction2);
+            Hero h1 = ArmyBuilder::buildHero(f1, m_simWeek);
+            Hero h2 = ArmyBuilder::buildHero(f2, m_simWeek);
+            h1.name = kFacNames[m_simFaction1];
+            h2.name = kFacNames[m_simFaction2];
+            auto army1 = ArmyBuilder::buildArmy(f1, m_simWeek);
+            auto army2 = ArmyBuilder::buildArmy(f2, m_simWeek);
+            // Tag units with faction hint so combat result display works
+            for (auto& u : army1) { u.isPlayer = true;  u.factionHint = m_simFaction1; }
+            for (auto& u : army2) { u.isPlayer = false; u.factionHint = m_simFaction2; }
+            m_fromBattleSim = true;
+            enterCombat(h1, army1, h2, army2);
+        }
+        ImGui::PopStyleColor();
+
+        ImGui::Spacing(); ImGui::Separator(); ImGui::Spacing();
+        if (ImGui::Button("Back##sim", ImVec2(bw, 30))) m_menuMode = 0;
     }
 
     ImGui::End();

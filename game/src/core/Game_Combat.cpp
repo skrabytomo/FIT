@@ -1545,8 +1545,13 @@ void Game::exitCombat(bool playerWon)
         }
     }
     m_audio.playMusic("worldmap_music");
-    if (m_prevState == GameState::Campaign)
+    if (m_fromBattleSim) {
+        m_fromBattleSim = false;
+        m_state         = GameState::MainMenu;
+        m_menuMode      = 5;
+    } else if (m_prevState == GameState::Campaign) {
         m_state = GameState::Campaign;
-    else
+    } else {
         enterWorldMap();
+    }
 }

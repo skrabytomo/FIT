@@ -430,13 +430,19 @@ private:
     void renderCampaignTutorial();
 
     // ── Main menu sub-state & save slots ─────────────────────────────────────
-    int  m_menuMode            = 0;   // 0=main, 1=newgame, 2=loadgame, 3=settings, 4=campaign
+    int  m_menuMode            = 0;   // 0=main, 1=newgame, 2=loadgame, 3=settings, 4=campaign, 5=battlesim
     int  m_activeSlot          = 0;   // which general save slot (0-4) is in use
     int  m_campaignActiveSlot  = 0;   // which campaign save slot (0-2) is in use
     int  m_newGameMapSize    = 0;   // 0=Small, 1=Medium, 2=Large, 3=XLarge
     int  m_newGameFaction    = 0;   // 0=HolyOrder ... 8=Convergence
     int  m_newGameDifficulty = 1;   // 0=Easy, 1=Normal, 2=Hard
     int  m_newGameClassId    = 0;   // classId of chosen hero class (0=auto)
+
+    // ── Battle Simulator ─────────────────────────────────────────────────────
+    bool m_fromBattleSim  = false;
+    int  m_simWeek        = 5;
+    int  m_simFaction1    = 0;
+    int  m_simFaction2    = 1;
 
     // ── Persisted display / audio settings ───────────────────────────────────
     float m_settingsSfxVol       = 0.7f;
