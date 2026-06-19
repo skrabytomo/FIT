@@ -1704,10 +1704,10 @@ void Game::checkTileEvents()
             break;
         case WorldObjectType::TreasureChest:
             if (!obj.collected) {
-                // Floor bad values from old saves or editor-placed chests
-                if (obj.value < 100)
+                // Floor sub-minimum values (old saves, editor-placed chests)
+                if (obj.value < 500)
                     obj.value = 500 + hero.level * 50;
-                if (obj.questState < 50)
+                if (obj.questState < 300)
                     obj.questState = 300 + hero.level * 30;
                 m_pendingChestId          = obj.id;
                 m_showTreasureChestPopup  = true;

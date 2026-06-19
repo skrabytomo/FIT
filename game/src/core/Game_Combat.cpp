@@ -1134,7 +1134,11 @@ void Game::enterCombat(Hero& playerHero,
         m_combatAnimators[u.id] = anim;
     }
 
-    m_audio.playMusic("combat_music");
+    static int s_combatTrack = 0;
+    s_combatTrack = (s_combatTrack % 4) + 1;
+    char trackKey[20];
+    std::snprintf(trackKey, sizeof(trackKey), "combat_music_%d", s_combatTrack);
+    m_audio.playMusic(trackKey);
     printf("Entered combat\n");
 }
 
