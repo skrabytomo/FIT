@@ -1221,6 +1221,7 @@ void Game::renderWorldMapImGui()
     if (m_showCryptPopup)         renderCryptPopup();
     if (m_showUtopiaPopup)        renderUtopiaPopup();
     if (m_showMineInfoPopup)      renderMineInfoPopup();
+    if (m_showTreeKnowledgePopup) renderTreeOfKnowledgePopup();
     if (m_showTownLostPopup)      renderTownLostPopup();
     if (m_showWeekSummary)        renderWeekSummary();
     if (m_showPauseMenu)          renderPauseMenu();
@@ -1893,6 +1894,47 @@ void Game::checkTileEvents()
                 }
             }
             break;
+
+        case WorldObjectType::WitchHut:
+            {
+                // questState holds the skillId this hut teaches; never permanently collected
+                int skillId = obj.questState;
+                const SkillDef* sd = findSkillDef(skillId);
+                const char* sname = sd ? sd->name.c_str() : "Unknown";
+                if (hero.skills.hasSkill(skillId)) {
+                    char buf[64];
+                    std::snprintf(buf, sizeof(buf), "You know: %s", sname);
+                    pushPickupEffect(obj.pos, buf, IM_COL32(180, 120, 255, 255));
+                } else if (!hero.skills.canLearn(skillId)) {
+                    pushPickupEffect(obj.pos, "Skill slots full", IM_COL32(150, 150, 150, 255));
+                } else {
+                    hero.skills.learn(skillId);
+                    char buf[64];
+                    std::snprintf(buf, sizeof(buf), "Learned: %s!", sname);
+                    pushPickupEffect(obj.pos, buf, IM_COL32(200, 100, 255, 255));
+                    m_audio.playSound("levelup");
+                }
+            }
+            break;
+
+        case WorldObjectType::Stables:
+            if (!obj.collected) {
+                obj.collected = true;
+                hero.maxMove  += obj.value;
+                hero.movePool = std::min(hero.movePool + obj.value, hero.maxMove);
+                char buf[48];
+                std::snprintf(buf, sizeof(buf), "+%d Max Move!", obj.value);
+                pushPickupEffect(obj.pos, buf, IM_COL32(200, 160, 80, 255));
+                m_audio.playSound("pickup");
+            }
+            break;
+
+        case WorldObjectType::TreeOfKnowledge:
+            if (!obj.collected) {
+                m_pendingTreeId          = obj.id;
+                m_showTreeKnowledgePopup = true;
+            }
+            break;
         }
     }
 
@@ -2181,8 +2223,9 @@ void Game::renderWorldOverlay()
     // ── World objects ──────────────────────────────────────────────────────────
     for (int oi = 0; oi < static_cast<int>(m_worldObjects.size()); ++oi) {
         const auto& obj = m_worldObjects[oi];
-        // NeutralOutpost stays visible after capture (shows recruit availability)
-        if (obj.collected && obj.type != WorldObjectType::NeutralOutpost) continue;
+        // NeutralOutpost and WitchHut stay visible after collection
+        if (obj.collected && obj.type != WorldObjectType::NeutralOutpost
+            && obj.type != WorldObjectType::WitchHut) continue;
         if (obj.type == WorldObjectType::NeutralOutpost && obj.collected && obj.available <= 0) continue;
         const HexTile* otile = m_map.getTile(obj.pos);
         if (!m_fogDisabled && (!otile || !otile->explored)) continue;
@@ -2213,6 +2256,9 @@ void Game::renderWorldOverlay()
         case WorldObjectType::Landmark:      ico = 32;               break; // pillar icon slot
         case WorldObjectType::CursedGround:  ico = 33;               break; // skull icon slot
         case WorldObjectType::NeutralOutpost: ico = 34;              break; // flag icon slot
+        case WorldObjectType::WitchHut:       ico = 35;              break; // custom-drawn below
+        case WorldObjectType::Stables:        ico = 36;              break; // custom-drawn below
+        case WorldObjectType::TreeOfKnowledge:ico = 37;              break; // custom-drawn below
         default:                             ico = 15;               break;
         }
         // Idle glow pulse
@@ -2283,10 +2329,71 @@ void Game::renderWorldOverlay()
                 char aBuf[12]; std::snprintf(aBuf, sizeof(aBuf), "%d", obj.available);
                 dl->AddText(ImGui::GetFont(), 9.0f, {sx+6,sy-12}, IM_COL32(120,220,255,255), aBuf);
             }
+        } else if (obj.type == WorldObjectType::WitchHut) {
+            // Purple cauldron-hut: dark circle with a cauldron shape
+            glowC = IM_COL32(180, 80, 255, static_cast<int>(pulse * 110 + 45));
+            dl->AddCircleFilled({sx, sy}, 14.0f, IM_COL32(20, 10, 30, 220));
+            // Hut triangle roof
+            ImVec2 roof[3] = {{sx-9,sy-2},{sx+9,sy-2},{sx,sy-12}};
+            dl->AddTriangleFilled(roof[0], roof[1], roof[2], IM_COL32(100, 50, 150, 240));
+            // Cauldron bowl
+            dl->AddRectFilled({sx-6,sy-2},{sx+6,sy+7}, IM_COL32(60,30,100,240), 2.0f);
+            dl->AddRect({sx-6,sy-2},{sx+6,sy+7}, IM_COL32(200,120,255,200), 1.5f);
+            // Steam dots
+            dl->AddCircleFilled({sx-2,sy-4}, 1.5f, IM_COL32(220,180,255,150));
+            dl->AddCircleFilled({sx+3,sy-5}, 1.5f, IM_COL32(220,180,255,150));
+        } else if (obj.type == WorldObjectType::Stables) {
+            // Brown horseshoe / barn: dark circle with barn silhouette
+            glowC = IM_COL32(200, 150, 60, static_cast<int>(pulse * 100 + 40));
+            dl->AddCircleFilled({sx, sy}, 14.0f, IM_COL32(20, 12, 5, 215));
+            // Barn body
+            dl->AddRectFilled({sx-7,sy-2},{sx+7,sy+7}, IM_COL32(140,90,40,240), 2.0f);
+            // Roof peak
+            ImVec2 broof[3] = {{sx-9,sy-2},{sx+9,sy-2},{sx,sy-10}};
+            dl->AddTriangleFilled(broof[0], broof[1], broof[2], IM_COL32(110,65,25,255));
+            dl->AddTriangle(broof[0], broof[1], broof[2], IM_COL32(200,150,60,200), 1.5f);
+            dl->AddRect({sx-7,sy-2},{sx+7,sy+7}, IM_COL32(200,150,60,200), 1.5f);
+            // Door
+            dl->AddRectFilled({sx-2,sy+2},{sx+2,sy+7}, IM_COL32(60,35,10,255), 1.0f);
+        } else if (obj.type == WorldObjectType::TreeOfKnowledge) {
+            // Ancient oak: deep green with glowing leaves
+            glowC = IM_COL32(60, 200, 80, static_cast<int>(pulse * 120 + 50));
+            dl->AddCircleFilled({sx, sy}, 15.0f, IM_COL32(5, 18, 5, 220));
+            // Trunk
+            dl->AddRectFilled({sx-2.5f,sy+2},{sx+2.5f,sy+9}, IM_COL32(100,65,25,240));
+            // Canopy (three overlapping circles)
+            dl->AddCircleFilled({sx,     sy-5},  8.0f, IM_COL32(30,120,40,240));
+            dl->AddCircleFilled({sx-5.5f,sy-1},  6.5f, IM_COL32(25,100,35,240));
+            dl->AddCircleFilled({sx+5.5f,sy-1},  6.5f, IM_COL32(25,100,35,240));
+            // Highlight
+            dl->AddCircleFilled({sx-2.5f,sy-7},  3.5f, IM_COL32(80,200,90,180));
         } else {
             addIcon(ico, sx, sy, 22.0f);
         }
         dl->AddCircle({sx, sy}, gR + 8.0f, glowC, 0, 1.5f);
+
+        // WitchHut: show skill name label so player knows what it teaches
+        if (obj.type == WorldObjectType::WitchHut) {
+            const SkillDef* sd = findSkillDef(obj.questState);
+            if (sd) {
+                float lw = sd->name.size() * 5.5f;
+                float labelY = sy + gR + 10.0f;
+                if (labelOK(sx - lw - 2, labelY, lw * 2.0f + 4.0f)) {
+                    dl->AddRectFilled({sx-lw-2,labelY},{sx+lw+2,labelY+12}, IM_COL32(20,5,35,180), 3.0f);
+                    dl->AddText({sx-lw,labelY+1}, IM_COL32(200,130,255,255), sd->name.c_str());
+                }
+            }
+        }
+        // TreeOfKnowledge: show "2000g or XP" hint
+        if (obj.type == WorldObjectType::TreeOfKnowledge) {
+            const char* hint = "2000g / free XP";
+            float lw = strlen(hint) * 5.5f;
+            float labelY = sy + gR + 10.0f;
+            if (labelOK(sx - lw - 2, labelY, lw * 2.0f + 4.0f)) {
+                dl->AddRectFilled({sx-lw-2,labelY},{sx+lw+2,labelY+12}, IM_COL32(5,20,5,180), 3.0f);
+                dl->AddText({sx-lw,labelY+1}, IM_COL32(100,220,110,255), hint);
+            }
+        }
     }
 
     // ── Resource nodes (mines) ────────────────────────────────────────────────
@@ -3984,6 +4091,101 @@ void Game::renderMineInfoPopup()
     ImGui::SetCursorPosX((ImGui::GetWindowWidth() - 80.0f) * 0.5f);
     if (ImGui::Button("Close", {80, 0}))
         m_showMineInfoPopup = false;
+    ImGui::End();
+}
+
+// ── Tree of Knowledge popup ───────────────────────────────────────────────────
+void Game::renderTreeOfKnowledgePopup()
+{
+    if (!m_showTreeKnowledgePopup) return;
+    WorldObject* obj = nullptr;
+    for (auto& o : m_worldObjects)
+        if (o.id == m_pendingTreeId) { obj = &o; break; }
+    if (!obj || obj->collected) { m_showTreeKnowledgePopup = false; return; }
+    if (m_heroes.empty()) { m_showTreeKnowledgePopup = false; return; }
+    Hero& hero = m_heroes[m_activeHeroIdx];
+
+    int goldCost  = 2000;
+    int freeXp    = 200 * hero.level;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({360, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.94f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##treknowledge", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({0.3f, 0.9f, 0.4f, 1.0f}, "Tree of Knowledge");
+    ImGui::Separator();
+    ImGui::TextWrapped("An ancient tree pulses with accumulated wisdom. It offers two paths:");
+    ImGui::Spacing();
+
+    ImGui::BulletText("Pay %d Gold -> gain one full level", goldCost);
+    ImGui::BulletText("Accept freely -> gain %d XP", freeXp);
+    ImGui::Spacing();
+    ImGui::Text("Hero: %s  (Level %d)  Gold: %d",
+        hero.name.c_str(), hero.level, m_playerResources.get(ResourceType::Gold));
+    ImGui::Spacing();
+
+    bool canAfford = m_playerResources.get(ResourceType::Gold) >= goldCost;
+
+    if (!canAfford) ImGui::BeginDisabled();
+    if (ImGui::Button("Pay Gold (+1 Level)", {160, 28})) {
+        m_playerResources.add(ResourceType::Gold, -goldCost);
+        obj->collected = true;
+        m_showTreeKnowledgePopup = false;
+        // Force-level: give enough XP to trigger level-up
+        int xpNeeded = hero.xpToNext - hero.xp;
+        int oldLvl = hero.level;
+        hero.addXp(xpNeeded);
+        pushPickupEffect(obj->pos, "Level Up!", IM_COL32(80, 220, 100, 255));
+        const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+        if (cls) {
+            std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+            m_levelUpOffers = LevelUpSystem::generateOffers(
+                *cls, hero.skills, hero.level, allSkills, hero.faction);
+        }
+        if (m_levelUpOffers.empty())
+            m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
+        m_pendingLevelUps = hero.level - oldLvl;
+        m_showLevelUpModal = true;
+        m_audio.playSound("levelup");
+        ScriptContext lvCtx; lvCtx.heroId = hero.id;
+        m_triggers.fire(TriggerType::HeroLevel, lvCtx);
+    }
+    if (!canAfford) ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    if (ImGui::Button("Take XP", {80, 28})) {
+        obj->collected = true;
+        m_showTreeKnowledgePopup = false;
+        int oldLvl = hero.level;
+        char buf[32]; std::snprintf(buf, sizeof(buf), "+%d XP", freeXp);
+        pushPickupEffect(obj->pos, buf, IM_COL32(100, 220, 130, 255));
+        m_audio.playSound("pickup");
+        if (hero.addXp(freeXp)) {
+            const HeroClassDef* cls = m_classRegistry.getClass(hero.classId);
+            if (cls) {
+                std::vector<SkillDef> allSkills(SKILL_DEFS, SKILL_DEFS + SKILL_DEF_COUNT);
+                m_levelUpOffers = LevelUpSystem::generateOffers(
+                    *cls, hero.skills, hero.level, allSkills, hero.faction);
+            }
+            if (m_levelUpOffers.empty())
+                m_levelUpOffers.push_back({SkillID::OFFENSE, false, false, "Learn Offense"});
+            m_pendingLevelUps = hero.level - oldLvl;
+            m_showLevelUpModal = true;
+            m_audio.playSound("levelup");
+            ScriptContext lvCtx; lvCtx.heroId = hero.id;
+            m_triggers.fire(TriggerType::HeroLevel, lvCtx);
+        }
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button("Pass", {60, 28}))
+        m_showTreeKnowledgePopup = false;
+
     ImGui::End();
 }
 

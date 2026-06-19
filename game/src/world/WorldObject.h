@@ -29,6 +29,9 @@ enum class WorldObjectType : uint8_t
     Landmark,       // historical site: permanent XP+lore on first visit; value=xpAmt
     CursedGround,   // damages hero army on entry each pass; questState=charges remaining; value=dmgPerCharge
     NeutralOutpost, // guarded; capture gives weekly T1 production; faction=garrison faction; value=tier
+    WitchHut,       // teaches one random secondary skill; questState=skillId taught; revisitable
+    Stables,        // permanently increases hero maxMove by 3; one-time per playthrough
+    TreeOfKnowledge,// pay 2000 gold to gain +1 level, or free XP; one-time per playthrough
 };
 
 struct WorldObject

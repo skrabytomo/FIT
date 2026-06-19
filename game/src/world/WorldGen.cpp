@@ -465,6 +465,38 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         if (tryPlace(obj, 4)) result.worldObjects.push_back(obj);
     }
 
+    // 4 WitchHuts — each teaches one random generic secondary skill (skillId stored in questState)
+    // SkillIDs 101-110: Offense, Defense, Archery, Leadership, Tactics, Logistics,
+    //                   Scouting, First Aid, Luck, Mysticism
+    static const int kWitchSkills[] = { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110 };
+    for (int i = 0; i < 4; ++i) {
+        WorldObject obj;
+        obj.id         = nextId++;
+        obj.type       = WorldObjectType::WitchHut;
+        obj.questState = kWitchSkills[lcg(rng) % 10];
+        if (!tryPlace(obj, 4)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    // 2 Stables — permanently increase hero maxMove by 3 (value = bonus amount)
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::Stables;
+        obj.value = 3;
+        if (!tryPlace(obj, 6)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    // 2 Trees of Knowledge — hero pays 2000 gold for a full level, or takes free XP
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::TreeOfKnowledge;
+        if (!tryPlace(obj, 6)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
     // UnitDwellings: for factions 0-8, tier 1-3
     for (int faction = 0; faction < 9; ++faction) {
         for (int tier = 1; tier <= 3; ++tier) {

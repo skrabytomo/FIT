@@ -371,6 +371,11 @@ private:
     uint32_t m_mineInfoId        = 0;
     void renderMineInfoPopup();
 
+    // ── Tree of Knowledge choice popup ────────────────────────────────────────
+    bool     m_showTreeKnowledgePopup = false;
+    uint32_t m_pendingTreeId          = 0;
+    void renderTreeOfKnowledgePopup();
+
     // ── Right-click combat unit stat popup ────────────────────────────────────
     uint32_t m_combatRightClickUnitId = 0;
 
