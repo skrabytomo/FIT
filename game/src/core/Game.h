@@ -97,6 +97,7 @@ private:
     void updateHeroMovement(float dt);
     void drawHero(const Hero& hero);
     void renderWorldOverlay();      // ImGui DrawList markers for all map entities
+    void renderWorldMapImGui();     // ImGui-only portion shared with campaign render
     void onTileClicked(HexCoord h);
     void checkTileEvents();
 
@@ -290,6 +291,9 @@ private:
     std::vector<LevelUpOffer>  m_levelUpOffers;
     bool                       m_showLevelUpModal = false;
     int                        m_pendingLevelUps  = 0;  // queued level-ups awaiting skill pick
+
+    // State to return to after visiting a town or combat (handles Campaign → Town → Campaign)
+    GameState m_prevState = GameState::WorldMap;
 
     // ── Victory / defeat ──────────────────────────────────────────────────────
     bool m_showVictory  = false;

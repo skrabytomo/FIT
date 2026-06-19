@@ -863,6 +863,7 @@ void Game::enterCombat(Hero& playerHero,
                        const Hero& enemyHero,
                        const std::vector<CombatUnit>& enemyUnits)
 {
+    m_prevState = m_state;  // remember Campaign vs WorldMap for return after battle
     m_state = GameState::Combat;
 
     // Capture terrain at the combat site
@@ -1259,6 +1260,7 @@ void Game::exitCombat(bool playerWon)
                 ScriptContext townCtx;
                 townCtx.townId = captured->id;
                 m_triggers.fire(TriggerType::TownCaptured, townCtx);
+                m_campaign.onTownCaptured(captured->id);
             }
             m_pendingTownCaptureId = 0;
         }
@@ -1324,13 +1326,15 @@ void Game::exitCombat(bool playerWon)
             // Release all mines owned by the defeated hero
             for (auto& r : m_resources)
                 if (r.ownedBy == m_lastCombatEnemyId) r.ownedBy = 0;
+            uint32_t defeatedId = m_lastCombatEnemyId;
             m_enemyHeroes.erase(
                 std::remove_if(m_enemyHeroes.begin(), m_enemyHeroes.end(),
-                    [&](const Hero& e){ return e.id == m_lastCombatEnemyId; }),
+                    [&](const Hero& e){ return e.id == defeatedId; }),
                 m_enemyHeroes.end());
             m_map.forEach([&](HexTile& t){
-                if (t.heroId == m_lastCombatEnemyId) t.heroId = 0;
+                if (t.heroId == defeatedId) t.heroId = 0;
             });
+            m_campaign.onHeroDefeated(defeatedId);
             m_lastCombatEnemyId = 0;
         }
 
@@ -1521,6 +1525,8 @@ void Game::exitCombat(bool playerWon)
             m_combatResultGold  = 0;
             m_showCombatResult  = true;
             m_showDefeat = true;
+            if (m_state == GameState::Campaign)
+                m_campaign.onHeroDefeated(0); // 0 = player hero (triggers DefeatHero check)
             // Check for unrecoverable defeat: no heroes with armies, no player towns
             {
                 bool anyUnit = false;
@@ -1535,5 +1541,8 @@ void Game::exitCombat(bool playerWon)
         }
     }
     m_audio.playMusic("worldmap_music");
-    enterWorldMap();
+    if (m_prevState == GameState::Campaign)
+        m_state = GameState::Campaign;
+    else
+        enterWorldMap();
 }

@@ -831,6 +831,7 @@ void Game::renderWeekSummary()
 void Game::enterTown(Town* town)
 {
     if (!town) return;
+    m_prevState = m_state;   // remember Campaign vs WorldMap so exitTown() returns correctly
     m_state = GameState::Town;
     // Only treat the hero as "in town" if they are physically on or adjacent to the town tile.
     // Remote access (via HUD panel) still opens the screen but routes recruits to the garrison.
@@ -889,7 +890,10 @@ void Game::exitTown()
     m_garrisonSelSide        = -1;
     m_townScreen.setRecruitTarget(false);
     m_audio.playMusic("worldmap_music");
-    enterWorldMap();
+    if (m_prevState == GameState::Campaign)
+        m_state = GameState::Campaign;
+    else
+        enterWorldMap();
 }
 
 // ── Marketplace — resource exchange ───────────────────────────────────────────

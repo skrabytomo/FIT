@@ -90,7 +90,7 @@ std::vector<CampaignMission> CampaignManager::buildCampaign()
         m.objectives.push_back({4, ObjectiveType::ReachTile,
             "Reach the Void Rift", true, false, 0, 0, ResourceType::Gold, {12, -8}});
         m.objectives.push_back({5, ObjectiveType::DefeatHero,
-            "Drive back the Empire vanguard", true, false, 2});
+            "Drive back the Empire vanguard", true, false, 0}); // 0 = any enemy hero
         m.objectives.push_back({6, ObjectiveType::CollectResources,
             "Carry 10 VerdantSap for Thornkin passage (bonus)", false, false,
             0, 10, ResourceType::VerdantSap});
@@ -265,11 +265,13 @@ void CampaignManager::onTownCaptured(uint32_t townId)
 void CampaignManager::onHeroDefeated(uint32_t heroId)
 {
     if (m_over) return;
+    // heroId == 0 means the PLAYER hero was defeated — don't complete any DefeatHero objective
+    if (heroId == 0) { checkAllObjectives(); return; }
     for (auto& obj : m_missions[m_currentIdx].objectives) {
-        if (obj.type == ObjectiveType::DefeatHero &&
-            obj.targetId == heroId && !obj.completed)
-        {
-            tryCompleteObjective(obj, true);
+        if (obj.type == ObjectiveType::DefeatHero && !obj.completed) {
+            // targetId == 0 means "defeat any enemy hero"; non-zero matches specific hero ID
+            if (obj.targetId == 0 || obj.targetId == heroId)
+                tryCompleteObjective(obj, true);
         }
     }
     checkAllObjectives();

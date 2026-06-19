@@ -119,14 +119,25 @@ void Game::renderCampaignTutorial()
 // ── Campaign render ───────────────────────────────────────────────────────────
 void Game::renderCampaign()
 {
-    // Render world map as backdrop, then campaign overlay
-    m_hexRenderer.render(m_map, m_camera, m_hovered, {-999,-999});
+    // Ocean-blue clear + world map hex grid (same as world map)
+    glClearColor(0.04f, 0.12f, 0.30f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_hexRenderer.render(m_map, m_camera, m_hovered, m_selected, m_fogDisabled);
+
+    // Hero sprites
+    for (auto& hero : m_heroes)
+        drawHero(hero);
+    for (auto& hero : m_enemyHeroes)
+        drawHero(hero);
 
     beginImGuiFrame();
 
     if (!m_campaignTutorialSeen) {
         renderCampaignTutorial();
     } else {
+        // Full world-map HUD (resource bar, hero list, end-turn, all popups)
+        renderWorldMapImGui();
+        // Campaign overlay (objectives, alignment, decision modals) on top
         m_campaignHUD.render(m_campaign, m_lua);
     }
 
@@ -143,6 +154,11 @@ void Game::renderCampaign()
 // ── State transitions ─────────────────────────────────────────────────────────
 void Game::enterCampaign()
 {
+    // Mission 1 plays as Holy Order (index 0); generate a fresh medium map
+    m_newGameFaction  = 0;   // HolyOrder
+    m_newGameMapSize  = 1;   // Medium
+    m_newGameClassId  = 0;   // auto-assign first class for faction
+    startNewGame();
     m_state = GameState::Campaign;
     m_campaign.init();
 

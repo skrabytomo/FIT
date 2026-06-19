@@ -379,7 +379,9 @@ void Game::updateWorldMap(float dt)
         auto costFn2 = [this, &nextHero](HexCoord c) -> int {
             const HexTile* t = m_map.getTile(c);
             if (!t || !nextHero.canEnter(t->terrain)) return 999;
-            return nextHero.moveCost(t->terrain);
+            int base = nextHero.moveCost(t->terrain);
+            if (m_roadHexes.count(c)) base = std::max(1, base / 2);
+            return base;
         };
         m_reachable = Pathfinder::reachable(m_map, nextHero.pos, costFn2, nextHero.movePool);
     }
@@ -502,7 +504,9 @@ void Game::doEndTurn()
                             for (const auto& town : m_towns)
                                 if (town.id == t->townId && town.ownerId == 1) return 999;
                         }
-                        return eHero.moveCost(t->terrain);
+                        int base = eHero.moveCost(t->terrain);
+                        if (m_roadHexes.count(c)) base = std::max(1, base / 2);
+                        return base;
                     };
                     auto path = Pathfinder::find(m_map, eHero.pos, goal, costFn);
                     if (path.empty()) break;
@@ -1199,6 +1203,38 @@ void Game::doEndTurn()
     }
 
 // ── World map render ──────────────────────────────────────────────────────────
+void Game::renderWorldMapImGui()
+{
+    m_ui.beginFrame();
+    m_worldHUD.draw(m_ui, m_playerResources, m_cachedWeeklyIncome,
+                    m_turns, m_heroes, m_activeHeroIdx, m_towns);
+    m_ui.endFrame();
+    m_ui.flushText(ImGui::GetBackgroundDrawList());
+    renderWorldOverlay();
+    // Non-game-state overlays (can coexist with most things)
+    if (m_showHideoutScreen)      renderHideoutScreen();
+    if (m_showArtifactPanel)      renderArtifactPanel();
+    if (m_showHeroInspect)        renderHeroInspect();
+    if (m_showUnitExchange)       renderUnitExchange();
+    if (m_showDwellingPopup)      renderDwellingPopup();
+    if (m_showStatShrinePopup)    renderStatShrinePopup();
+    if (m_showQuestPopup)         renderQuestPopup();
+    if (m_showTreasureChestPopup) renderTreasureChestPopup();
+    if (m_showCryptPopup)         renderCryptPopup();
+    if (m_showUtopiaPopup)        renderUtopiaPopup();
+    if (m_showMineInfoPopup)      renderMineInfoPopup();
+    if (m_showTownLostPopup)      renderTownLostPopup();
+    if (m_showWeekSummary)        renderWeekSummary();
+    if (m_showPauseMenu)          renderPauseMenu();
+    // Modal popups — only one at a time (ImGui popup stack conflict otherwise)
+    // In campaign mode, victory/defeat are handled by the campaign HUD, not these modals.
+    bool inCampaign = (m_state == GameState::Campaign);
+    if (m_showCombatResult)                     renderCombatResultPopup();
+    else if (m_showVictory && !inCampaign)      renderVictoryModal();
+    else if (m_showDefeat  && !inCampaign)      renderDefeatModal();
+    else if (m_showLevelUpModal)                renderLevelUpModal();
+}
+
 void Game::renderWorldMap()
 {
     // Ocean blue fills gaps at the circular map boundary (corners of screen have no hexes)
@@ -1218,32 +1254,7 @@ void Game::renderWorldMap()
         drawHero(hero);
 
     beginImGuiFrame();
-    m_ui.beginFrame();
-    m_worldHUD.draw(m_ui, m_playerResources, m_cachedWeeklyIncome,
-                    m_turns, m_heroes, m_activeHeroIdx, m_towns);
-    m_ui.endFrame();
-    m_ui.flushText(ImGui::GetBackgroundDrawList());
-    renderWorldOverlay();
-    // Non-game-state overlays (can coexist with most things)
-    if (m_showHideoutScreen)  renderHideoutScreen();
-    if (m_showArtifactPanel)  renderArtifactPanel();
-    if (m_showHeroInspect)    renderHeroInspect();
-    if (m_showUnitExchange)   renderUnitExchange();
-    if (m_showDwellingPopup)      renderDwellingPopup();
-    if (m_showStatShrinePopup)    renderStatShrinePopup();
-    if (m_showQuestPopup)         renderQuestPopup();
-    if (m_showTreasureChestPopup) renderTreasureChestPopup();
-    if (m_showCryptPopup)         renderCryptPopup();
-    if (m_showUtopiaPopup)        renderUtopiaPopup();
-    if (m_showMineInfoPopup)      renderMineInfoPopup();
-    if (m_showTownLostPopup)  renderTownLostPopup();
-    if (m_showWeekSummary)    renderWeekSummary();
-    if (m_showPauseMenu)      renderPauseMenu();
-    // Modal popups — only one at a time (ImGui popup stack conflict otherwise)
-    if (m_showCombatResult)        renderCombatResultPopup();
-    else if (m_showVictory)        renderVictoryModal();
-    else if (m_showDefeat)         renderDefeatModal();
-    else if (m_showLevelUpModal)   renderLevelUpModal();
+    renderWorldMapImGui();
     endImGuiFrame();
 }
 
@@ -1282,7 +1293,9 @@ void Game::onTileClicked(HexCoord h)
     auto costFn = [this, &hero](HexCoord c) -> int {
         const HexTile* t = m_map.getTile(c);
         if (!t || !hero.canEnter(t->terrain)) return 999;
-        return hero.moveCost(t->terrain);
+        int base = hero.moveCost(t->terrain);
+        if (m_roadHexes.count(c)) base = std::max(1, base / 2);
+        return base;
     };
 
     auto path = Pathfinder::find(m_map, hero.pos, h, costFn);
@@ -1312,6 +1325,7 @@ void Game::updateHeroMovement(float dt)
         HexCoord next = hero.path[hero.pathStep];
         const HexTile* tile = m_map.getTile(next);
         int cost = tile ? hero.moveCost(tile->terrain) : 999;
+        if (m_roadHexes.count(next)) cost = std::max(1, cost / 2);
 
         if (hero.movePool < cost) {
             hero.path.clear();
@@ -1953,6 +1967,7 @@ void Game::checkTileEvents()
                     tCtx.townId = t.id;
                     m_triggers.fire(TriggerType::TownCaptured, tCtx);
                 }
+                m_campaign.onTownCaptured(t.id);
             }
             enterTown(&t);
             return;
@@ -2479,11 +2494,13 @@ void Game::renderWorldOverlay()
             } else if (isFight) {
                 ImGui::TextColored({1.0f, 0.3f, 0.3f, 1.0f}, "Fight!");
             } else {
-                // Movement cost tooltip
+                // Movement cost tooltip (roads halve terrain cost)
                 auto costFn = [this, &activeHero](HexCoord c) -> int {
                     const HexTile* t = m_map.getTile(c);
                     if (!t || !activeHero.canEnter(t->terrain)) return 999;
-                    return activeHero.moveCost(t->terrain);
+                    int base = activeHero.moveCost(t->terrain);
+                    if (m_roadHexes.count(c)) base = std::max(1, base / 2);
+                    return base;
                 };
                 auto path = Pathfinder::find(m_map, activeHero.pos, m_hovered, costFn);
                 if (!path.empty()) {
