@@ -428,6 +428,8 @@ void Game::renderMainMenu()
         ImGui::TextDisabled("Side 1: %s  vs  Side 2: %s  (week %d)",
             kFacNames[m_simFaction1], kFacNames[m_simFaction2], m_simWeek);
         ImGui::Spacing();
+        ImGui::Checkbox("Auto-play (watch mode — AI controls both sides)", &m_simAutoPlay);
+        ImGui::Spacing();
 
         // Start button
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.55f, 0.15f, 1.0f));

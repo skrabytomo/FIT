@@ -440,6 +440,7 @@ private:
 
     // ── Battle Simulator ─────────────────────────────────────────────────────
     bool m_fromBattleSim  = false;
+    bool m_simAutoPlay    = false;
     int  m_simWeek        = 5;
     int  m_simFaction1    = 0;
     int  m_simFaction2    = 1;

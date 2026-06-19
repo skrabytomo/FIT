@@ -74,6 +74,9 @@ public:
     // Advance AI turn — processes all enemy units
     void processAITurn();
 
+    // Auto-play the player side with AI logic (for watch mode)
+    void processPlayerAITurn();
+
     // Called when current unit clicks Wait
     void wait();
 

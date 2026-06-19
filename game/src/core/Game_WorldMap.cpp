@@ -265,8 +265,6 @@ void Game::updateWorldMap(float dt)
                     } else {
                         m_heroClickTarget = hi;
                         m_activeHeroIdx   = hi;
-                        m_camera.setPosition(wx, wy);
-                        clampCamera();
                     }
                     heroClickHandled = true;
                     uiHandled = true;
@@ -2966,15 +2964,20 @@ void Game::renderHeroInspect()
         }
     }
 
-    if (!hero.knownSpells.empty()) {
+    {
         ImGui::Spacing();
-        ImGui::Text("Spells:");
-        for (int sid : hero.knownSpells) {
-            const SpellDef* sp = findSpell(sid);
-            if (sp) {
-                ImGui::Text("  %s  (%d mana)", sp->name, sp->manaCost);
-                if (ImGui::IsItemHovered())
-                    ImGui::SetTooltip("%s", sp->desc);
+        ImGui::Text("Spellbook:");
+        ImGui::Separator();
+        if (hero.knownSpells.empty()) {
+            ImGui::TextDisabled("  -- no spells known --");
+        } else {
+            for (int sid : hero.knownSpells) {
+                const SpellDef* sp = findSpell(sid);
+                if (sp) {
+                    ImGui::Text("  %s  (%d mana)", sp->name, sp->manaCost);
+                    if (ImGui::IsItemHovered())
+                        ImGui::SetTooltip("%s", sp->desc);
+                }
             }
         }
     }

@@ -111,6 +111,8 @@ void Game::updateCombat(float dt)
 
     if (m_combat.phase() == CombatPhase::EnemyTurn)
         m_combat.processAITurn();
+    if (m_fromBattleSim && m_simAutoPlay && m_combat.phase() == CombatPhase::PlayerTurn)
+        m_combat.processPlayerAITurn();
 
     // Advance floating damage effect timers
     for (auto& ef : m_combatDmgEffects) ef.t -= dt;
