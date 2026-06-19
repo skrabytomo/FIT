@@ -19,7 +19,7 @@ static std::pair<int,int> unitFactionTier(const CombatUnit& u,
                 return { static_cast<int>(d.faction), d.tier };
     }
     if (u.factionHint >= 0 && u.factionHint < 9)
-        return { u.factionHint, 1 };
+        return { u.factionHint, u.stackSlot + 1 };  // stackSlot = tier-1 set by ArmyBuilder
     return { -1, 1 };  // truly unknown — no sprite lookup
 }
 
@@ -109,10 +109,19 @@ void Game::updateCombat(float dt)
         }
     }
 
-    if (m_combat.phase() == CombatPhase::EnemyTurn)
-        m_combat.processAITurn();
-    if (m_fromBattleSim && m_simAutoPlay && m_combat.phase() == CombatPhase::PlayerTurn)
-        m_combat.processPlayerAITurn();
+    if (m_fromBattleSim && m_simAutoPlay) {
+        // Watch mode: fire one unit action per tick at a human-visible pace
+        m_simAutoPlayTimer -= dt;
+        if (m_simAutoPlayTimer <= 0.f) {
+            m_simAutoPlayTimer = 0.4f;
+            auto ph = m_combat.phase();
+            if (ph == CombatPhase::PlayerTurn || ph == CombatPhase::EnemyTurn)
+                m_combat.processOneAIAction();
+        }
+    } else {
+        if (m_combat.phase() == CombatPhase::EnemyTurn)
+            m_combat.processAITurn();
+    }
 
     // Advance floating damage effect timers
     for (auto& ef : m_combatDmgEffects) ef.t -= dt;

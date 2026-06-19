@@ -77,6 +77,9 @@ public:
     // Auto-play the player side with AI logic (for watch mode)
     void processPlayerAITurn();
 
+    // Step exactly one unit with AI logic regardless of side (for timer-driven watch mode)
+    void processOneAIAction();
+
     // Called when current unit clicks Wait
     void wait();
 

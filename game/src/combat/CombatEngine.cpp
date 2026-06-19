@@ -1004,6 +1004,13 @@ void CombatEngine::processPlayerAITurn()
     }
 }
 
+void CombatEngine::processOneAIAction()
+{
+    CombatUnit* unit = activeUnit();
+    if (!unit) return;
+    aiActUnit(*unit);
+}
+
 void CombatEngine::aiActUnit(CombatUnit& unit)
 {
     // Low-morale hesitation: if morale < 20 and not immune, 30% chance to defend
