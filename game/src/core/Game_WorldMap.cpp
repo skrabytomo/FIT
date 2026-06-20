@@ -2332,12 +2332,12 @@ void Game::renderWorldOverlay()
         case WorldObjectType::TreasureChest: ico = ICO_TREASURE;         break;
         case WorldObjectType::Crypt:         ico = ICO_CRYPT;        break;
         case WorldObjectType::Utopia:        ico = ICO_UTOPIA;       break;
-        case WorldObjectType::Landmark:      ico = 32;               break; // pillar icon slot
-        case WorldObjectType::CursedGround:  ico = 33;               break; // skull icon slot
-        case WorldObjectType::NeutralOutpost: ico = 34;              break; // flag icon slot
-        case WorldObjectType::WitchHut:       ico = 35;              break; // custom-drawn below
-        case WorldObjectType::Stables:        ico = 36;              break; // custom-drawn below
-        case WorldObjectType::TreeOfKnowledge:ico = 37;              break; // custom-drawn below
+        case WorldObjectType::Landmark:       ico = 38;              break; // row4 col6
+        case WorldObjectType::CursedGround:  ico = 39;               break; // row4 col7
+        case WorldObjectType::NeutralOutpost: ico = 40;              break; // row5 col0
+        case WorldObjectType::WitchHut:       ico = 41;              break; // row5 col1
+        case WorldObjectType::Stables:        ico = 42;              break; // row5 col2
+        case WorldObjectType::TreeOfKnowledge:ico = 43;              break; // row5 col3
         default:                             ico = 15;               break;
         }
         // Idle glow pulse

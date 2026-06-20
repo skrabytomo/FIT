@@ -91,6 +91,7 @@ bool Game::init(const std::string& title, int width, int height)
     if (!m_hexRenderer.init(40.0f, m_basePath))   { fprintf(stderr, "HexRenderer failed\n"); return false; }
     if (!m_ui.init(width, height))                { fprintf(stderr, "UIRenderer failed\n"); return false; }
     m_iconTex.load(m_basePath + "assets/icons.png", true, false);
+    m_spellIconTex.load(m_basePath + "assets/icons_spells.png", true, false);
 
     // Per-unit sprite sheets (optional — falls back to circles if missing)
     // File: assets/sprites/faction_F_tT.png  (F=faction 0-8, T=tier 1-6)

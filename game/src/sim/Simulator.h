@@ -26,5 +26,5 @@ private:
     static std::string buildReport(const SimResult& result);
 
     static constexpr float IMBALANCE_THRESHOLD = 0.15f;
-    static constexpr int   MAX_ROUNDS          = 200;
+    static constexpr int   MAX_ROUNDS          = 500;
 };

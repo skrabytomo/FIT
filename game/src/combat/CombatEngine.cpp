@@ -1326,6 +1326,58 @@ void CombatEngine::aiActTactical(CombatUnit& unit)
             }
         }
     }
+
+    // ── Fallback stage 1: attack any adjacent enemy ───────────────────────────
+    {
+        CombatUnit* adj = nullptr;
+        for (auto& u : m_grid.units()) {
+            if (!u.alive || u.isPlayer == unit.isPlayer) continue;
+            if (HexGrid::distance(unit.pos, u.pos) == 1) { adj = &u; break; }
+        }
+        if (adj) {
+            HexCoord tpos = adj->pos; uint32_t tid = adj->id;
+            auto result = DamageCalc::attack(unit, *adj, m_grid);
+            std::ostringstream ss;
+            ss << unit.name << " attacks " << adj->name << " for " << result.damage << " dmg";
+            if (result.killed) ss << " (" << result.killed << " killed)";
+            addLog(ss.str());
+            applyWardenMarkSplash(unit, tpos, tid, result.damage);
+            if (!adj->alive) { addLog(adj->name + " destroyed!"); processKillEvents(unit, *adj, result); }
+            if (result.moraleTrigger) {
+                addLog(unit.name + " morale surge — bonus action!");
+                unit.hasActed = false; unit.hasMoved = false; return;
+            }
+            unit.hasActed = true; advanceTurn(); return;
+        }
+    }
+
+    // ── Fallback stage 2: move toward the nearest reachable enemy ─────────────
+    if (!unit.hasMoved) {
+        CombatUnit* nearest = nullptr; int nearDist = 9999;
+        for (auto& u : m_grid.units()) {
+            if (!u.alive || u.isPlayer == unit.isPlayer) continue;
+            int d = HexGrid::distance(unit.pos, u.pos);
+            if (d < nearDist) { nearDist = d; nearest = &u; }
+        }
+        if (nearest) {
+            auto nearMelee = m_grid.meleePositions(nearest->pos);
+            if (nearMelee.empty()) nearMelee.push_back(nearest->pos);
+            HexCoord dest = nearMelee[0];
+            int bestDst = HexGrid::distance(unit.pos, dest);
+            for (auto& h : nearMelee) {
+                int d = HexGrid::distance(unit.pos, h);
+                if (d < bestDst) { bestDst = d; dest = h; }
+            }
+            auto path2 = m_grid.findPath(unit.pos, dest, unit.flying);
+            if (!path2.empty()) {
+                int steps = std::min(unit.speed, static_cast<int>(path2.size()));
+                m_grid.moveUnit(unit.id, path2[steps - 1]);
+                unit.hasMoved = true;
+                applyTileEffect(unit);
+            }
+        }
+    }
+
     unit.hasActed = true; advanceTurn();
 }
 

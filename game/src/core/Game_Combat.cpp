@@ -824,6 +824,15 @@ void Game::renderSpellPanel()
         bool canAfford  = isFree || hero.mana >= spell->manaCost;
         if (!isPlayerTurn || !canAfford) ImGui::BeginDisabled();
 
+        // Spell icon from atlas (5×5 grid, spellId is 1-based)
+        if (m_spellIconTex.ok()) {
+            int   idx = sid - 1;
+            float u0  = (idx % 5) * 0.2f,  v0  = (idx / 5) * 0.2f;
+            ImGui::Image((ImTextureID)(uintptr_t)m_spellIconTex.id(),
+                         ImVec2(24.0f, 24.0f), ImVec2(u0, v0), ImVec2(u0 + 0.2f, v0 + 0.2f));
+            ImGui::SameLine();
+        }
+
         // Color by school
         static constexpr ImVec4 kSchoolCol[] = {
             {1.0f, 0.95f, 0.6f, 1.0f},  // Light — gold
