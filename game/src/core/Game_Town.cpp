@@ -67,10 +67,23 @@ void Game::renderTown()
             }
             ImGui::SameLine();
         }
-        if (town && town->hasBuilding(BID::MARKET)) {
+        // Market: always visible, disabled if no player town has MARKET built
+        {
+            bool anyMarket = false;
+            for (const auto& t : m_towns)
+                if (t.ownerId == 1 && t.hasBuilding(BID::MARKET)) { anyMarket = true; break; }
+            if (!anyMarket) ImGui::BeginDisabled();
             if (ImGui::Button(m_showMarketPanel ? "[Market X]" : "Market"))
                 m_showMarketPanel = !m_showMarketPanel;
+            if (!anyMarket) {
+                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+                    ImGui::SetTooltip("Build a Marketplace in one of your towns first.");
+                ImGui::EndDisabled();
+            }
             ImGui::SameLine();
+        }
+        // Artifact Forge: only when current town has MARKET
+        if (town && town->hasBuilding(BID::MARKET)) {
             if (ImGui::Button(m_showArtifactForgePanel ? "[Forge X]" : "Artifact Forge"))
                 m_showArtifactForgePanel = !m_showArtifactForgePanel;
             ImGui::SameLine();
@@ -935,111 +948,202 @@ void Game::exitTown()
 // ── Marketplace — resource exchange ───────────────────────────────────────────
 void Game::renderMarketplace()
 {
-    const Town* town = m_townScreen.currentTown();
-    if (!town || !town->hasBuilding(BID::MARKET)) return;
+    // Gate: need at least one player town with MARKET
+    bool anyMarket = false;
+    for (const auto& t : m_towns)
+        if (t.ownerId == 1 && t.hasBuilding(BID::MARKET)) { anyMarket = true; break; }
+    if (!anyMarket) { m_showMarketPanel = false; return; }
 
-    ImGui::SetNextWindowPos(ImVec2(350, 32), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(380, 0), ImGuiCond_Always);
-    if (!ImGui::Begin("Market - Resource Exchange", nullptr,
-                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize)) {
-        ImGui::End(); return;
-    }
-
-    // Trade rate: 4:1 standard (HoMM3 style)
-    static const int SELL_RATE = 4;
+    static const int SELL_RATE = 4;  // HoMM3-style 4:1 exchange
     static const int BUY_RATE  = 1;
 
     static const char* kResNames[] = {
         "Gold", "Iron", "Faith Stones", "Blood Essence", "Verdant Sap", "Mercury"
     };
+    static const char* kResShort[] = { "Gold", "Iron", "Faith", "Blood", "Sap", "Mercury" };
+    // icon atlas indices (8x6 atlas, icons 9-14 are the 6 resources)
+    static const int kResIcon[] = { 9, 10, 11, 12, 13, 14 };
 
-    ImGui::TextDisabled("Exchange rate: %d:1  (sell %d, receive 1)", SELL_RATE, SELL_RATE);
-    ImGui::Separator();
+    const float CARD_W = 76.0f, CARD_H = 90.0f, CARD_GAP = 6.0f;
+    const float PANEL_W = RESOURCE_COUNT * (CARD_W + CARD_GAP) + 20.0f;
 
-    // Current resources row
-    ImGui::Text("Your resources:");
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Once, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({PANEL_W, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.97f);
+    if (!ImGui::Begin("Marketplace##market", &m_showMarketPanel,
+                      ImGuiWindowFlags_NoResize | ImGuiWindowFlags_AlwaysAutoResize |
+                      ImGuiWindowFlags_NoMove)) {
+        ImGui::End(); return;
+    }
+
+    ImDrawList* dl  = ImGui::GetWindowDrawList();
+    bool hasIcons   = m_iconTex.ok();
+    ImTextureID tex = hasIcons ? (ImTextureID)(uintptr_t)m_iconTex.id() : nullptr;
+
+    // ── Resource cards row ────────────────────────────────────────────────────
+    ImGui::Text("Your Resources  (left-click = SELL, right-click = BUY):");
+    ImGui::Spacing();
+
+    float rowX = ImGui::GetCursorScreenPos().x;
+    float rowY = ImGui::GetCursorScreenPos().y;
+
     for (int i = 0; i < RESOURCE_COUNT; ++i) {
-        int val = m_playerResources.get(static_cast<ResourceType>(i));
-        ImGui::SameLine();
-        ImGui::Text("%s:%d", kResNames[i], val);
-    }
-    ImGui::Separator();
+        ImVec2 cp = { rowX + i * (CARD_W + CARD_GAP), rowY };
+        int val   = m_playerResources.get(static_cast<ResourceType>(i));
+        bool isSell = (m_marketSellType == i);
+        bool isBuy  = (m_marketBuyType  == i);
 
-    // Sell selector
-    ImGui::Text("Sell:");
-    ImGui::SameLine(60.0f);
-    ImGui::SetNextItemWidth(160.0f);
-    if (ImGui::BeginCombo("##sell", kResNames[m_marketSellType])) {
-        for (int i = 0; i < RESOURCE_COUNT; ++i) {
-            bool sel = (i == m_marketSellType);
-            if (ImGui::Selectable(kResNames[i], sel)) {
-                m_marketSellType = i;
-                if (m_marketBuyType == i)
-                    m_marketBuyType = (i + 1) % RESOURCE_COUNT;
-            }
-            if (sel) ImGui::SetItemDefaultFocus();
+        // Card background
+        ImU32 bg  = isSell ? IM_COL32(70, 35, 10, 235)
+                   : isBuy  ? IM_COL32(10, 40, 70, 235)
+                            : IM_COL32(18, 22, 38, 220);
+        ImU32 brd = isSell ? IM_COL32(255, 150, 30, 255)
+                   : isBuy  ? IM_COL32(40, 150, 255, 255)
+                            : IM_COL32(65, 75, 105, 200);
+        dl->AddRectFilled(cp, {cp.x+CARD_W, cp.y+CARD_H}, bg, 6.0f);
+        dl->AddRect(cp, {cp.x+CARD_W, cp.y+CARD_H}, brd, 6.0f, 0, isSell || isBuy ? 2.5f : 1.5f);
+
+        // Icon
+        if (hasIcons) {
+            int idx   = kResIcon[i];
+            float col = static_cast<float>(idx % 8);
+            float row = static_cast<float>(idx / 8);
+            ImVec2 u0 = { col / 8.0f, row / 6.0f };
+            ImVec2 u1 = { (col+1.0f) / 8.0f, (row+1.0f) / 6.0f };
+            float is  = 40.0f;
+            float ix  = cp.x + (CARD_W - is) * 0.5f;
+            float iy  = cp.y + 6.0f;
+            dl->AddImage(tex, {ix, iy}, {ix+is, iy+is}, u0, u1);
         }
-        ImGui::EndCombo();
-    }
 
-    // Buy selector
-    ImGui::Text("Buy: ");
-    ImGui::SameLine(60.0f);
-    ImGui::SetNextItemWidth(160.0f);
-    if (ImGui::BeginCombo("##buy", kResNames[m_marketBuyType])) {
-        for (int i = 0; i < RESOURCE_COUNT; ++i) {
-            if (i == m_marketSellType) continue;
-            bool sel = (i == m_marketBuyType);
-            if (ImGui::Selectable(kResNames[i], sel))
-                m_marketBuyType = i;
-            if (sel) ImGui::SetItemDefaultFocus();
+        // Amount
+        char numBuf[16]; std::snprintf(numBuf, sizeof(numBuf), "%d", val);
+        ImVec2 ns = ImGui::CalcTextSize(numBuf);
+        ImU32 valCol = val > 0 ? IM_COL32(255, 255, 255, 255) : IM_COL32(160, 70, 70, 255);
+        dl->AddText({cp.x + (CARD_W - ns.x) * 0.5f, cp.y + 52.0f}, valCol, numBuf);
+
+        // Label
+        ImVec2 ls = ImGui::CalcTextSize(kResShort[i]);
+        dl->AddText({cp.x + (CARD_W - ls.x) * 0.5f, cp.y + 70.0f},
+                    IM_COL32(150, 160, 185, 220), kResShort[i]);
+
+        // Click area
+        ImGui::SetCursorScreenPos(cp);
+        ImGui::InvisibleButton(("##mrc" + std::to_string(i)).c_str(), {CARD_W, CARD_H});
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Left) && !isSell) {
+            m_marketSellType = i;
+            if (m_marketBuyType == i) m_marketBuyType = (i + 1) % RESOURCE_COUNT;
         }
-        ImGui::EndCombo();
+        if (ImGui::IsItemClicked(ImGuiMouseButton_Right) && !isBuy) {
+            m_marketBuyType = i;
+            if (m_marketSellType == i) m_marketSellType = (i + 1) % RESOURCE_COUNT;
+        }
+        if (ImGui::IsItemHovered())
+            ImGui::SetTooltip("%s: %d\n[L] Set as Sell  [R] Set as Buy", kResNames[i], val);
+    }
+    ImGui::SetCursorScreenPos({ rowX, rowY + CARD_H + 8.0f });
+
+    // ── Trade direction row ───────────────────────────────────────────────────
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Mini SELL card
+    {
+        ImVec2 sc = ImGui::GetCursorScreenPos();
+        float mw = 60.0f, mh = 60.0f;
+        int si    = m_marketSellType;
+        dl->AddRectFilled(sc, {sc.x+mw, sc.y+mh}, IM_COL32(70,35,10,230), 5.0f);
+        dl->AddRect(sc, {sc.x+mw, sc.y+mh}, IM_COL32(255,150,30,255), 5.0f, 0, 2.0f);
+        if (hasIcons) {
+            int idx = kResIcon[si]; float c = idx%8, r = idx/8;
+            dl->AddImage(tex, {sc.x+4,sc.y+4},{sc.x+38,sc.y+38},
+                         {c/8.0f,r/6.0f}, {(c+1)/8.0f,(r+1)/6.0f});
+        }
+        ImVec2 snl = ImGui::CalcTextSize(kResShort[si]);
+        dl->AddText({sc.x+(mw-snl.x)*0.5f, sc.y+42.0f}, IM_COL32(220,220,220,255), kResShort[si]);
+        ImGui::Dummy({mw, mh});
     }
 
-    ImGui::Separator();
+    ImGui::SameLine(0, 10.0f);
+    // Arrow + rate text
+    {
+        ImVec2 ap = ImGui::GetCursorScreenPos();
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 20.0f);
+        ImGui::Text("x%d  ->  x%d", SELL_RATE, BUY_RATE);
+        ImGui::SetCursorScreenPos({ap.x, ap.y});
+        ImGui::Dummy({90.0f, 60.0f});
+    }
 
-    // Quantity buttons
-    int have = m_playerResources.get(static_cast<ResourceType>(m_marketSellType));
+    ImGui::SameLine(0, 10.0f);
+    // Mini BUY card
+    {
+        ImVec2 bc = ImGui::GetCursorScreenPos();
+        float mw = 60.0f, mh = 60.0f;
+        int bi    = m_marketBuyType;
+        dl->AddRectFilled(bc, {bc.x+mw, bc.y+mh}, IM_COL32(10,40,70,230), 5.0f);
+        dl->AddRect(bc, {bc.x+mw, bc.y+mh}, IM_COL32(40,150,255,255), 5.0f, 0, 2.0f);
+        if (hasIcons) {
+            int idx = kResIcon[bi]; float c = idx%8, r = idx/8;
+            dl->AddImage(tex, {bc.x+4,bc.y+4},{bc.x+38,bc.y+38},
+                         {c/8.0f,r/6.0f}, {(c+1)/8.0f,(r+1)/6.0f});
+        }
+        ImVec2 bnl = ImGui::CalcTextSize(kResShort[bi]);
+        dl->AddText({bc.x+(mw-bnl.x)*0.5f, bc.y+42.0f}, IM_COL32(220,220,220,255), kResShort[bi]);
+        ImGui::Dummy({mw, mh});
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // ── Trade buttons ─────────────────────────────────────────────────────────
+    int have      = m_playerResources.get(static_cast<ResourceType>(m_marketSellType));
     int maxTrades = have / SELL_RATE;
 
-    ImGui::Text("You have: %d %s  (max %d trades)", have, kResNames[m_marketSellType], maxTrades);
+    ImGui::TextColored(ImVec4(0.9f, 0.75f, 0.3f, 1.0f),
+        "You have: %d %s", have, kResNames[m_marketSellType]);
+    ImGui::SameLine();
+    ImGui::TextDisabled("(max %d trades)", maxTrades);
 
     if (maxTrades <= 0) {
-        ImGui::TextDisabled("Not enough %s to trade.", kResNames[m_marketSellType]);
+        ImGui::TextColored(ImVec4(0.9f, 0.4f, 0.4f, 1.0f),
+            "Not enough %s to trade.", kResNames[m_marketSellType]);
         ImGui::End();
         return;
     }
 
-    // Quick-trade buttons: 1x, 5x, 10x, MAX
     auto doTrade = [&](int count) {
         if (count <= 0 || count > maxTrades) return;
         m_playerResources.add(static_cast<ResourceType>(m_marketSellType), -(count * SELL_RATE));
         m_playerResources.add(static_cast<ResourceType>(m_marketBuyType),   count * BUY_RATE);
     };
 
-    ImGui::Text("Trade:");
-    ImGui::SameLine();
-
-    if (maxTrades >= 1) {
-        if (ImGui::Button("x1"))  doTrade(1);
-        ImGui::SameLine();
-    }
+    ImGui::Spacing();
+    float bw = (PANEL_W - 20.0f - 3.0f * 8.0f) / 4.0f;
+    ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.18f, 0.35f, 0.18f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.50f, 0.25f, 1.0f));
+    if (ImGui::Button("Trade x1",  ImVec2(bw, 34))) doTrade(1);
+    ImGui::SameLine(0, 8.0f);
     if (maxTrades >= 5) {
-        if (ImGui::Button("x5"))  doTrade(5);
-        ImGui::SameLine();
+        if (ImGui::Button("Trade x5",  ImVec2(bw, 34))) doTrade(5);
+    } else {
+        ImGui::BeginDisabled(); ImGui::Button("Trade x5",  ImVec2(bw, 34)); ImGui::EndDisabled();
     }
+    ImGui::SameLine(0, 8.0f);
     if (maxTrades >= 10) {
-        if (ImGui::Button("x10")) doTrade(10);
-        ImGui::SameLine();
+        if (ImGui::Button("Trade x10", ImVec2(bw, 34))) doTrade(10);
+    } else {
+        ImGui::BeginDisabled(); ImGui::Button("Trade x10", ImVec2(bw, 34)); ImGui::EndDisabled();
     }
-    char maxBtn[32];
-    std::snprintf(maxBtn, sizeof(maxBtn), "Max (x%d)", maxTrades);
-    if (ImGui::Button(maxBtn)) doTrade(maxTrades);
+    ImGui::SameLine(0, 8.0f);
+    char maxLbl[32]; std::snprintf(maxLbl, sizeof(maxLbl), "Trade MAX (x%d)", maxTrades);
+    if (ImGui::Button(maxLbl, ImVec2(bw, 34))) doTrade(maxTrades);
+    ImGui::PopStyleColor(2);
 
-    // Preview result
-    ImGui::Separator();
-    ImGui::Text("Receive: %d %s per trade", BUY_RATE, kResNames[m_marketBuyType]);
+    ImGui::Spacing();
+    ImGui::TextDisabled("Receive %d %s per trade", BUY_RATE, kResNames[m_marketBuyType]);
 
     ImGui::End();
 }
