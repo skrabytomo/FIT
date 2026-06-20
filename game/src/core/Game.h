@@ -376,6 +376,15 @@ private:
     uint32_t m_pendingTreeId          = 0;
     void renderTreeOfKnowledgePopup();
 
+    // ── Pre-combat encounter prompt (decline / fight choice) ─────────────────
+    bool                    m_showEncounterPrompt   = false;
+    std::string             m_encounterTitle;
+    std::vector<CombatUnit> m_pendingEncounterUnits; // enemy units for the prompt
+    Hero                    m_pendingEncounterHero;  // enemy hero for the prompt
+    std::function<void()>   m_encounterOnAccept;    // called when player clicks Fight
+    std::function<void()>   m_encounterOnDecline;   // called when player clicks Retreat
+    void renderEncounterPrompt();
+
     // ── Right-click combat unit stat popup ────────────────────────────────────
     uint32_t m_combatRightClickUnitId = 0;
 

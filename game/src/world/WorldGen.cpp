@@ -497,6 +497,38 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         else result.worldObjects.push_back(obj);
     }
 
+    // 3 Landmarks — permanent XP + lore on first visit
+    for (int i = 0; i < 3; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::Landmark;
+        obj.value = 100 + i * 50; // 100, 150, 200 XP
+        if (!tryPlace(obj, 5)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    // 2 CursedGrounds — damages hero army on each pass; 5 charges, 3 dmg/charge
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id         = nextId++;
+        obj.type       = WorldObjectType::CursedGround;
+        obj.value      = 3;  // damage per charge
+        obj.questState = 5;  // charges remaining
+        if (!tryPlace(obj, 5)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    // 3 NeutralOutposts — guarded; capture gives weekly T1 production
+    for (int i = 0; i < 3; ++i) {
+        WorldObject obj;
+        obj.id      = nextId++;
+        obj.type    = WorldObjectType::NeutralOutpost;
+        obj.faction = static_cast<uint8_t>(lcg(rng) % 9);
+        obj.value   = 1; // tier of weekly production
+        if (!tryPlace(obj, 5)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
     // UnitDwellings: for factions 0-8, tier 1-3
     for (int faction = 0; faction < 9; ++faction) {
         for (int tier = 1; tier <= 3; ++tier) {

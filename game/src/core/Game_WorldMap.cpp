@@ -68,7 +68,7 @@ static std::vector<CombatUnit> makeFactionUnits(FactionId faction, bool isPlayer
 }
 
 // Generate mine guard units deterministically from mine position + resource type
-static std::vector<CombatUnit> makeMineGuardUnits(const ResourceNode& r)
+static std::vector<CombatUnit> makeMineGuardUnits(const ResourceNode& r, int week = 1)
 {
     uint32_t seed = (uint32_t)(r.pos.q * 73856093u)
                   ^ (uint32_t)(r.pos.r * 19349663u)
@@ -99,10 +99,13 @@ static std::vector<CombatUnit> makeMineGuardUnits(const ResourceNode& r)
     int ni   = rtype;
     int tier = std::clamp(r.amount, 1, 5);
 
+    // Scale guard counts by week: +15% per week, capped at 3× at week 15
+    float weekMult = std::min(3.0f, 1.0f + (week - 1) * 0.15f);
+
     CombatUnit g1;
     g1.name        = gNames[ni].light;
     g1.factionHint = faction;
-    g1.count       = rnd(3 + tier * 2, 6 + tier * 3);
+    g1.count       = static_cast<int>(std::round(rnd(3 + tier * 2, 6 + tier * 3) * weekMult));
     g1.maxHp       = g1.hp = 5 + tier * 2;
     g1.attack      = 2 + tier;
     g1.defense     = 1 + tier;
@@ -112,7 +115,7 @@ static std::vector<CombatUnit> makeMineGuardUnits(const ResourceNode& r)
     CombatUnit g2;
     g2.name        = gNames[ni].heavy;
     g2.factionHint = faction;
-    g2.count       = rnd(2 + tier, 4 + tier * 2);
+    g2.count       = static_cast<int>(std::round(rnd(2 + tier, 4 + tier * 2) * weekMult));
     g2.maxHp       = g2.hp = 8 + tier * 3;
     g2.attack      = 3 + tier;
     g2.defense     = 2 + tier;
@@ -1222,6 +1225,7 @@ void Game::renderWorldMapImGui()
     if (m_showUtopiaPopup)        renderUtopiaPopup();
     if (m_showMineInfoPopup)      renderMineInfoPopup();
     if (m_showTreeKnowledgePopup) renderTreeOfKnowledgePopup();
+    if (m_showEncounterPrompt)    renderEncounterPrompt();
     if (m_showTownLostPopup)      renderTownLostPopup();
     if (m_showWeekSummary)        renderWeekSummary();
     if (m_showPauseMenu)          renderPauseMenu();
@@ -1532,34 +1536,59 @@ void Game::checkTileEvents()
             break;
         case WorldObjectType::BanditCamp:
             if (!obj.collected) {
-                m_lastBanditCampId = obj.id;
-                // Generate bandit army based on difficulty
-                Hero banditHero;
-                banditHero.id     = 0;
-                banditHero.name   = "Bandit Leader";
-                banditHero.faction = FactionId::None;
                 int diff = obj.value;
+                int weekScale = std::max(1, (m_turns.week() + 1) / 2); // doubles every 2 weeks
+                Hero banditHero;
+                banditHero.id      = 0;
+                banditHero.name    = "Bandit Leader";
+                banditHero.faction = FactionId::None;
                 std::vector<CombatUnit> banditUnits;
                 {
                     CombatUnit u;
-                    u.id = 50; u.name = "Bandit"; u.count = 5 * diff;
+                    u.id = 50; u.name = "Bandit"; u.count = 5 * diff * weekScale;
                     u.maxHp = u.hp = 5; u.attack = 2 + diff; u.defense = 1 + diff;
                     u.speed = 5; u.range = 0; u.shotsLeft = 0;
                     u.isPlayer = false;
                     banditUnits.push_back(u);
                     if (diff >= 2) {
                         CombatUnit u2;
-                        u2.id = 51; u2.name = "Bandit Archer"; u2.count = 3 * diff;
+                        u2.id = 51; u2.name = "Bandit Archer"; u2.count = 3 * diff * weekScale;
                         u2.maxHp = u2.hp = 4; u2.attack = 3; u2.defense = 1;
                         u2.speed = 4; u2.range = 4; u2.shotsLeft = u2.shots = 8;
                         u2.isPlayer = false;
                         banditUnits.push_back(u2);
                     }
                 }
-                m_lastCombatEnemyId = 0;
-                m_pendingTownCaptureId = 0;
-                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
-                enterCombat(hero, pUnits, banditHero, banditUnits);
+                // Build encounter description for prompt
+                std::string desc = "Bandits x" + std::to_string(banditUnits[0].count);
+                if (banditUnits.size() > 1)
+                    desc += " + Archers x" + std::to_string(banditUnits[1].count);
+                uint32_t objId = obj.id;
+                m_encounterTitle        = "Bandit Camp (Difficulty " + std::to_string(diff) + ")";
+                m_pendingEncounterHero  = banditHero;
+                m_pendingEncounterUnits = banditUnits;
+                m_encounterOnAccept = [this, objId]() {
+                    for (auto& o : m_worldObjects) {
+                        if (o.id != objId) continue;
+                        o.collected = true;
+                        m_lastBanditCampId     = objId;
+                        m_lastCombatEnemyId    = 0;
+                        m_pendingTownCaptureId = 0;
+                        if (!m_heroes.empty()) {
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                            enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                        }
+                        break;
+                    }
+                };
+                m_encounterOnDecline = [this]() {
+                    if (!m_heroes.empty()) {
+                        auto& h = m_heroes[m_activeHeroIdx];
+                        h.path.clear(); h.pathStep = 0;
+                    }
+                };
+                m_showEncounterPrompt = true;
                 return;
             }
             break;
@@ -1716,44 +1745,55 @@ void Game::checkTileEvents()
 
         case WorldObjectType::Crypt:
             if (!obj.collected) {
-                // Build defending army from obj.faction, difficulty = obj.value
                 Hero cryptHero;
                 cryptHero.id      = 0;
                 cryptHero.name    = "Crypt Keeper";
                 cryptHero.faction = static_cast<FactionId>(obj.faction % 9);
                 int diff = std::max(1, obj.value);
+                float wm = std::min(3.0f, 1.0f + (m_turns.week() - 1) * 0.15f);
                 std::vector<CombatUnit> cryptUnits;
                 {
                     static const char* kCryptNames[] = {
                         "Skeleton Warrior","Zombie","Cursed Knight","Wraithling","Bone Golem"
                     };
-                    // 3 stacks of increasing toughness
                     for (int si = 0; si < 3; ++si) {
                         CombatUnit cu;
                         cu.name    = kCryptNames[(obj.faction + si) % 5];
-                        cu.count   = (4 + si * 2) * diff;
+                        cu.count   = static_cast<int>(std::round((4 + si * 2) * diff * wm));
                         cu.maxHp   = cu.hp = 5 + si * 4;
                         cu.attack  = 2 + si + diff;
                         cu.defense = 1 + si + diff / 2;
                         cu.speed   = 5 - si;
-                        if (si == 2) { cu.range = 3; cu.shots = cu.shotsLeft = 5; } // back row is ranged
+                        if (si == 2) { cu.range = 3; cu.shots = cu.shotsLeft = 5; }
                         cu.isPlayer = false;
                         cryptUnits.push_back(cu);
                     }
                 }
-                m_lastCombatEnemyId = 0;
-                m_pendingTownCaptureId = 0;
-                m_lastBanditCampId = 0;
-                m_pendingCryptId = obj.id;
-                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
-                enterCombat(hero, pUnits, cryptHero, cryptUnits);
+                uint32_t objId = obj.id;
+                m_encounterTitle        = std::string("Crypt (") + cryptHero.name + ")";
+                m_pendingEncounterHero  = cryptHero;
+                m_pendingEncounterUnits = cryptUnits;
+                m_encounterOnAccept = [this, objId]() {
+                    m_pendingCryptId       = objId;
+                    m_lastCombatEnemyId    = 0;
+                    m_pendingTownCaptureId = 0;
+                    m_lastBanditCampId     = 0;
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                        enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                    }
+                };
+                m_encounterOnDecline = [this]() {
+                    if (!m_heroes.empty()) { auto& h = m_heroes[m_activeHeroIdx]; h.path.clear(); h.pathStep = 0; }
+                };
+                m_showEncounterPrompt = true;
                 return;
             }
             break;
 
         case WorldObjectType::Utopia:
             if (!obj.collected) {
-                // Build 4 elite T6-equivalent stacks
                 Hero utopiaHero;
                 utopiaHero.id      = 0;
                 utopiaHero.name    = "Ancient Guardian";
@@ -1762,11 +1802,12 @@ void Game::checkTileEvents()
                     "Titan","Dragon","Archon","Behemoth","Leviathan",
                     "Void Lord","Colossus","Flesh Titan","Eternal"
                 };
+                float wm = std::min(3.0f, 1.0f + (m_turns.week() - 1) * 0.12f);
                 std::vector<CombatUnit> utoUnits;
                 for (int si = 0; si < 4; ++si) {
                     CombatUnit cu;
                     cu.name    = kUtoNames[(obj.faction + si) % 9];
-                    cu.count   = 8 + si * 3;
+                    cu.count   = static_cast<int>(std::round((8 + si * 3) * wm));
                     cu.maxHp   = cu.hp = 40 + si * 10;
                     cu.attack  = 18 + si * 4;
                     cu.defense = 14 + si * 3;
@@ -1776,12 +1817,25 @@ void Game::checkTileEvents()
                     cu.isPlayer = false;
                     utoUnits.push_back(cu);
                 }
-                m_lastCombatEnemyId = 0;
-                m_pendingTownCaptureId = 0;
-                m_lastBanditCampId = 0;
-                m_pendingUtopiaId = obj.id;
-                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
-                enterCombat(hero, pUnits, utopiaHero, utoUnits);
+                uint32_t objId = obj.id;
+                m_encounterTitle        = "Utopia (Ancient Guardian)";
+                m_pendingEncounterHero  = utopiaHero;
+                m_pendingEncounterUnits = utoUnits;
+                m_encounterOnAccept = [this, objId]() {
+                    m_pendingUtopiaId      = objId;
+                    m_lastCombatEnemyId    = 0;
+                    m_pendingTownCaptureId = 0;
+                    m_lastBanditCampId     = 0;
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                        enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                    }
+                };
+                m_encounterOnDecline = [this]() {
+                    if (!m_heroes.empty()) { auto& h = m_heroes[m_activeHeroIdx]; h.path.clear(); h.pathStep = 0; }
+                };
+                m_showEncounterPrompt = true;
                 return;
             }
             break;
@@ -1847,43 +1901,56 @@ void Game::checkTileEvents()
 
         case WorldObjectType::NeutralOutpost:
             if (!obj.collected) {
-                // Guarded by a small faction garrison — fight to capture
                 Hero outpostHero;
                 outpostHero.id      = 0;
                 outpostHero.name    = "Outpost Guard";
                 outpostHero.faction = static_cast<FactionId>(obj.faction % 9);
+                float wm = std::min(2.5f, 1.0f + (m_turns.week() - 1) * 0.12f);
                 std::vector<CombatUnit> outUnits;
                 {
                     CombatUnit ou;
                     ou.name    = "Outpost Sentry";
-                    ou.count   = 6 + obj.value * 3;
+                    ou.count   = static_cast<int>(std::round((6 + obj.value * 3) * wm));
                     ou.maxHp   = ou.hp = 5 + obj.value * 2;
                     ou.attack  = 2 + obj.value;
                     ou.defense = 1 + obj.value;
                     ou.speed   = 4;
-                    ou.isPlayer = false;
-                    ou.factionHint = obj.faction;
+                    ou.isPlayer = false; ou.factionHint = obj.faction;
                     outUnits.push_back(ou);
                     CombatUnit ou2;
                     ou2.name   = "Outpost Archer";
-                    ou2.count  = 3 + obj.value * 2;
+                    ou2.count  = static_cast<int>(std::round((3 + obj.value * 2) * wm));
                     ou2.maxHp  = ou2.hp = 4;
-                    ou2.attack = 3;
-                    ou2.defense = 1;
-                    ou2.speed  = 5;
-                    ou2.range  = 4;
+                    ou2.attack = 3; ou2.defense = 1;
+                    ou2.speed  = 5; ou2.range = 4;
                     ou2.shots  = ou2.shotsLeft = 8;
-                    ou2.isPlayer = false;
-                    ou2.factionHint = obj.faction;
+                    ou2.isPlayer = false; ou2.factionHint = obj.faction;
                     outUnits.push_back(ou2);
                 }
-                m_lastCombatEnemyId = 0;
-                m_pendingTownCaptureId = 0;
-                m_lastBanditCampId = 0;
-                m_pendingObjId = obj.id;
-                obj.collected = true; // mark before entering combat; loser gets nothing
-                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
-                enterCombat(hero, pUnits, outpostHero, outUnits);
+                uint32_t objId = obj.id;
+                m_encounterTitle        = "Neutral Outpost";
+                m_pendingEncounterHero  = outpostHero;
+                m_pendingEncounterUnits = outUnits;
+                m_encounterOnAccept = [this, objId]() {
+                    for (auto& o : m_worldObjects) {
+                        if (o.id != objId) continue;
+                        o.collected            = true;
+                        m_pendingObjId         = objId;
+                        m_lastCombatEnemyId    = 0;
+                        m_pendingTownCaptureId = 0;
+                        m_lastBanditCampId     = 0;
+                        if (!m_heroes.empty()) {
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                            enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                        }
+                        break;
+                    }
+                };
+                m_encounterOnDecline = [this]() {
+                    if (!m_heroes.empty()) { auto& h = m_heroes[m_activeHeroIdx]; h.path.clear(); h.pathStep = 0; }
+                };
+                m_showEncounterPrompt = true;
                 return;
             } else {
                 // Already captured — produce T1 units weekly (handled via obj.available)
@@ -1943,23 +2010,35 @@ void Game::checkTileEvents()
         for (auto& r : m_resources) {
             if (r.id != tile->resourceId || r.ownedBy == 1) continue;
             if (!r.guardBeaten) {
-                // Mine is guarded — fight before capturing
+                // Mine is guarded — show encounter prompt before committing
                 Hero guardHero;
                 guardHero.id      = 0;
                 guardHero.name    = "Mine Guardian";
                 guardHero.faction = FactionId::None;
-                std::vector<CombatUnit> guardUnits = makeMineGuardUnits(r);
-                // Use a dummy worldObject id for the pending mine capture
-                // Encode resource id in lastBanditCampId temporarily
-                m_lastCombatEnemyId = 0;
-                m_pendingTownCaptureId = 0;
-                m_lastBanditCampId = 0;
-                // Mark mine as guardBeaten so if player wins they get it
-                // We use a unique pending mechanism: store resourceId in questState via a sentinel
-                // Simple approach: directly mark beaten after combat
-                r.guardBeaten = true; // mark before combat; if player flees it stays beaten (simpler UX)
-                auto pUnits = makeHeroUnits(hero, m_registry.units(), true);
-                enterCombat(hero, pUnits, guardHero, guardUnits);
+                std::vector<CombatUnit> guardUnits = makeMineGuardUnits(r, m_turns.week());
+                m_encounterTitle        = std::string("Mine Guardian (") + resourceName(r.type) + " Mine)";
+                m_pendingEncounterHero  = guardHero;
+                m_pendingEncounterUnits = guardUnits;
+                uint32_t resId = r.id;
+                m_encounterOnAccept = [this, resId]() {
+                    for (auto& res : m_resources) {
+                        if (res.id != resId) continue;
+                        res.guardBeaten        = true;
+                        m_lastCombatEnemyId    = 0;
+                        m_pendingTownCaptureId = 0;
+                        m_lastBanditCampId     = 0;
+                        if (!m_heroes.empty()) {
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                            enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                        }
+                        break;
+                    }
+                };
+                m_encounterOnDecline = [this]() {
+                    if (!m_heroes.empty()) { auto& h = m_heroes[m_activeHeroIdx]; h.path.clear(); h.pathStep = 0; }
+                };
+                m_showEncounterPrompt = true;
                 return;
             }
             // Guards beaten (or already ours) — capture
@@ -4185,6 +4264,91 @@ void Game::renderTreeOfKnowledgePopup()
     ImGui::SameLine();
     if (ImGui::Button("Pass", {60, 28}))
         m_showTreeKnowledgePopup = false;
+
+    ImGui::End();
+}
+
+// ── Pre-combat encounter prompt ───────────────────────────────────────────────
+void Game::renderEncounterPrompt()
+{
+    if (!m_showEncounterPrompt) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({420, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##encounter_prompt", nullptr, wf)) { ImGui::End(); return; }
+
+    // Title
+    ImGui::TextColored({1.0f, 0.55f, 0.15f, 1.0f}, "%s", m_encounterTitle.c_str());
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Enemy unit list
+    ImGui::TextColored({0.95f, 0.45f, 0.45f, 1.0f}, "Defenders:");
+    int guardPower = 0;
+    for (const auto& u : m_pendingEncounterUnits) {
+        ImGui::Text("  %-22s x%-4d  ATK %d  DEF %d  HP %d",
+                    u.name.c_str(), u.count, u.attack, u.defense, u.maxHp);
+        guardPower += u.count * u.maxHp * (u.attack + u.defense / 2);
+    }
+
+    // Threat rating vs player army
+    ImGui::Spacing();
+    ImGui::Separator();
+    int playerPower = 0;
+    if (!m_heroes.empty()) {
+        const Hero& h = m_heroes[m_activeHeroIdx];
+        for (const auto& stack : h.army) {
+            const UnitDef* ud = m_registry.getUnitDef(stack.defId);
+            if (ud) playerPower += stack.count * ud->hp * (ud->attack + ud->defense / 2);
+        }
+    }
+    if (playerPower > 0 && guardPower > 0) {
+        float ratio = static_cast<float>(guardPower) / static_cast<float>(playerPower);
+        const char* rating;
+        ImVec4 col;
+        if      (ratio < 0.30f) { rating = "Trivial";      col = {0.5f, 1.0f, 0.5f, 1.0f}; }
+        else if (ratio < 0.60f) { rating = "Weak";         col = {0.7f, 1.0f, 0.5f, 1.0f}; }
+        else if (ratio < 0.90f) { rating = "Moderate";     col = {1.0f, 0.9f, 0.4f, 1.0f}; }
+        else if (ratio < 1.10f) { rating = "Even Match";   col = {1.0f, 0.7f, 0.2f, 1.0f}; }
+        else if (ratio < 1.50f) { rating = "Strong";       col = {1.0f, 0.4f, 0.3f, 1.0f}; }
+        else                    { rating = "Overwhelming"; col = {0.9f, 0.1f, 0.1f, 1.0f}; }
+        ImGui::Text("Threat: ");
+        ImGui::SameLine(0, 0);
+        ImGui::TextColored(col, " %s", rating);
+    } else {
+        ImGui::TextDisabled("(no army to compare)");
+    }
+
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    // Fight button (green)
+    ImGui::PushStyleColor(ImGuiCol_Button,        {0.15f, 0.55f, 0.15f, 1.0f});
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.20f, 0.70f, 0.20f, 1.0f});
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  {0.10f, 0.40f, 0.10f, 1.0f});
+    if (ImGui::Button("Fight!", {140, 32})) {
+        m_showEncounterPrompt = false;
+        if (m_encounterOnAccept) m_encounterOnAccept();
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::SameLine(0, 20);
+
+    // Retreat button (dark red)
+    ImGui::PushStyleColor(ImGuiCol_Button,        {0.50f, 0.12f, 0.12f, 1.0f});
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, {0.65f, 0.18f, 0.18f, 1.0f});
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive,  {0.35f, 0.08f, 0.08f, 1.0f});
+    if (ImGui::Button("Retreat", {140, 32})) {
+        m_showEncounterPrompt = false;
+        if (m_encounterOnDecline) m_encounterOnDecline();
+    }
+    ImGui::PopStyleColor(3);
 
     ImGui::End();
 }

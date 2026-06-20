@@ -991,37 +991,104 @@ void Game::enterCombat(Hero& playerHero,
     // Siege mode: triggered when attacking a garrisoned town
     bool isSiege = (m_pendingTownCaptureId != 0);
     if (isSiege) {
-        // Add default siege engines: Catapult (ranged) + Battering Ram (gate)
-        {
-            CombatUnit cat;
-            cat.name          = "Catapult";
-            cat.attack        = 8;  cat.defense = 4;
-            cat.hp            = cat.maxHp = 30;
-            cat.count         = 1;
-            cat.speed         = 3;
-            cat.range         = 4;
-            cat.shots         = 5;  cat.shotsLeft = 5;
-            cat.alive         = true;
-            cat.isSiegeEngine = true;
-            cat.wallDamage    = 12;
-            cat.isPlayer      = true;
-            cat.stackSlot     = static_cast<int>(pUnitsGarr.size());
-            pUnitsGarr.push_back(cat);
-        }
-        {
-            CombatUnit ram;
-            ram.name          = "Battering Ram";
-            ram.attack        = 14; ram.defense = 6;
-            ram.hp            = ram.maxHp = 50;
-            ram.count         = 1;
-            ram.speed         = 5;
-            ram.alive         = true;
-            ram.isSiegeEngine = true;
-            ram.wallDamage    = 20;
-            ram.gateOnly      = true;
-            ram.isPlayer      = true;
-            ram.stackSlot     = static_cast<int>(pUnitsGarr.size());
-            pUnitsGarr.push_back(ram);
+        auto makeSiegeEngines = [&](const Hero& hero) {
+            // Helper to build a siege engine CombatUnit
+            auto mkEng = [&](const char* nm, int atk, int def, int hp, int spd,
+                             int rng, int shots, int wallDmg, bool gateOnly) -> CombatUnit {
+                CombatUnit e;
+                e.name          = nm;
+                e.attack        = atk; e.defense = def;
+                e.hp            = e.maxHp = hp;
+                e.count         = 1;
+                e.speed         = spd;
+                e.range         = rng;
+                e.shots         = shots; e.shotsLeft = shots;
+                e.alive         = true;
+                e.isSiegeEngine = true;
+                e.wallDamage    = wallDmg;
+                e.gateOnly      = gateOnly;
+                e.isPlayer      = true;
+                e.stackSlot     = 0; // assigned below
+                return e;
+            };
+            // Base engine archetypes
+            // Catapult: ranged, hits walls
+            auto baseCat = [&]{ return mkEng("Catapult",        8,  4, 30, 3, 4, 5, 12, false); };
+            // Battering Ram: melee, gate specialist
+            auto baseRam = [&]{ return mkEng("Battering Ram",  14,  6, 50, 5, 0, 0, 20, true);  };
+            // Trebuchet: long-range, high wall damage
+            auto baseTre = [&]{ return mkEng("Trebuchet",      10,  3, 25, 2, 6, 4, 18, false); };
+            // Siege Tower: durable, moderate gate
+            auto baseTow = [&]{ return mkEng("Siege Tower",    12,  8, 70, 3, 0, 0, 15, true);  };
+
+            std::vector<CombatUnit> engines;
+            switch (hero.faction) {
+            case FactionId::HolyOrder:
+                // Divine Trebuchet (+20% wall damage, holy aura)
+                engines.push_back(baseRam());
+                {   auto dt = mkEng("Divine Trebuchet", 12, 4, 30, 2, 6, 5, 22, false);
+                    engines.push_back(dt); }
+                engines.push_back(baseCat());
+                break;
+            case FactionId::Bloodsworn:
+                // Blood Catapult (+15% dmg; future: blood pool on hit)
+                engines.push_back(baseRam());
+                {   auto bc = mkEng("Blood Catapult", 10, 4, 32, 3, 4, 6, 14, false);
+                    engines.push_back(bc); }
+                engines.push_back(baseTow());
+                break;
+            case FactionId::Thornkin:
+                // Living Tower (+30 HP, regenerates on its turn)
+                engines.push_back(baseCat());
+                {   auto lt = mkEng("Living Tower", 13, 9, 100, 3, 0, 0, 17, true);
+                    engines.push_back(lt); }
+                engines.push_back(baseRam());
+                break;
+            case FactionId::EternalEmpire:
+                // Bone Crusher Ram (future: spawns skeletons on destroy)
+                {   auto bc = mkEng("Bone Crusher", 17, 7, 55, 5, 0, 0, 24, true);
+                    engines.push_back(bc); }
+                engines.push_back(baseTre());
+                engines.push_back(baseCat());
+                break;
+            case FactionId::CrimsonWardens:
+                // Silver Trebuchet (+25% dmg vs Bloodsworn fortifications)
+                engines.push_back(baseCat());
+                {   auto st = mkEng("Silver Trebuchet", 13, 4, 28, 2, 6, 5, 23, false);
+                    engines.push_back(st); }
+                engines.push_back(baseRam());
+                break;
+            case FactionId::Voidkin:
+                // Void Caster (future: creates Void terrain tile at impact)
+                engines.push_back(baseRam());
+                {   auto vc = mkEng("Void Caster", 11, 4, 35, 3, 4, 5, 13, false);
+                    engines.push_back(vc); }
+                engines.push_back(baseTow());
+                break;
+            case FactionId::IronAssembly:
+                // All 3 engines upgraded: +30% HP, +15% damage
+                {   auto ir = mkEng("Iron Ram",      16,  7, 65, 5, 0, 0, 23, true);  engines.push_back(ir); }
+                {   auto ic = mkEng("Iron Catapult",  9,  5, 39, 3, 4, 6, 14, false); engines.push_back(ic); }
+                {   auto it = mkEng("Iron Trebuchet",12,  4, 33, 2, 6, 5, 21, false); engines.push_back(it); }
+                break;
+            case FactionId::Amalgamate:
+                // Flesh Drill (future: spawns FleshZone tiles on wall breach)
+                engines.push_back(baseCat());
+                engines.push_back(baseTre());
+                {   auto fd = mkEng("Flesh Drill",  15,  7, 60, 4, 0, 0, 22, true);  engines.push_back(fd); }
+                break;
+            default: // Convergence + fallback: mirrors a standard 3-engine set
+                engines.push_back(baseRam());
+                engines.push_back(baseCat());
+                engines.push_back(baseTre());
+                break;
+            }
+            return engines;
+        };
+
+        for (auto& eng : makeSiegeEngines(playerHero)) {
+            eng.stackSlot = static_cast<int>(pUnitsGarr.size());
+            pUnitsGarr.push_back(eng);
         }
     }
 
