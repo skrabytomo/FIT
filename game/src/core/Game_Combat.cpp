@@ -1159,7 +1159,7 @@ void Game::enterCombat(Hero& playerHero,
         }
     }
 
-    m_combat.startBattle(playerHero, pUnitsGarr, enemyHero, enemyUnits, isSiege);
+    m_combat.startBattle(playerHero, pUnitsGarr, enemyHero, enemyUnits, isSiege, m_combatTerrain);
 
     // Terrain-driven obstacle tiles (non-siege only; siege already has walls)
     if (!isSiege) {

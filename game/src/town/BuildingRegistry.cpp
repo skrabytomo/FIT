@@ -520,6 +520,27 @@ void BuildingRegistry::init()
     addUnit(2005,"Lich",        F::CrimsonWardens,5,P::None, 75,12,9,13,21,8,goldAndRes(610,ResourceType::FaithStones,3), T::Undead);
     m_units.back().range = 6; m_units.back().shots = 3;
     addUnit(2006,"Bone Dragon", F::CrimsonWardens,6,P::None,155,17,14,22,38,11,goldAndRes(1250,ResourceType::FaithStones,5), T::Undead|T::Flying, true);
+    // Crimson Wardens PathA — Crusader line (Holy tag, FaithStones)
+    addUnit(2011,"Hollow Knight",    F::CrimsonWardens,1,P::PathA, 14,4,3,1, 4,5, goldAndRes(70,ResourceType::FaithStones,1), T::Undead|T::Holy);
+    addUnit(2012,"Bone Sniper",      F::CrimsonWardens,2,P::PathA, 22,5,4,3, 5,5, goldAndRes(130,ResourceType::FaithStones,1), T::Undead|T::Flying, true);
+    m_units.back().range=5; m_units.back().shots=4;
+    addUnit(2013,"Wight Paladin",    F::CrimsonWardens,3,P::PathA, 48,8,6,6,10,6, goldAndRes(210,ResourceType::FaithStones,1), T::Undead|T::Holy);
+    addUnit(2014,"Crusader Vampire", F::CrimsonWardens,4,P::PathA, 60,11,7,8,14,10,goldAndRes(380,ResourceType::FaithStones,2), T::Undead|T::Holy|T::Flying, true);
+    addUnit(2015,"High Lich",        F::CrimsonWardens,5,P::PathA, 80,14,10,13,21,8,goldAndRes(650,ResourceType::FaithStones,3), T::Undead);
+    m_units.back().range=6; m_units.back().shots=3;
+    addUnit(2016,"Holy Bone Dragon", F::CrimsonWardens,6,P::PathA,160,19,14,22,38,11,goldAndRes(1350,ResourceType::FaithStones,5), T::Undead|T::Holy|T::Flying, true);
+    // Crimson Wardens PathB — Warden line (HP/DEF, BloodEssence)
+    addUnit(2021,"Marked Guard",     F::CrimsonWardens,1,P::PathB, 16,2,5,1, 3,5, goldAndRes(70,ResourceType::BloodEssence,1), T::Undead);
+    addUnit(2022,"Marrow Archer",    F::CrimsonWardens,2,P::PathB, 26,4,5,3, 5,5, goldAndRes(130,ResourceType::BloodEssence,1), T::Undead);
+    m_units.back().range=5; m_units.back().shots=3;
+    addUnit(2023,"Greater Wight",    F::CrimsonWardens,3,P::PathB, 55,6,8,6,10,6, goldAndRes(210,ResourceType::BloodEssence,1), T::Undead);
+    m_units.back().regenerates=true;
+    addUnit(2024,"Blood Vampire",    F::CrimsonWardens,4,P::PathB, 55,10,6,8,14,10,goldAndRes(380,ResourceType::BloodEssence,2), T::Undead|T::Flying, true);
+    m_units.back().vampiric=true;
+    addUnit(2025,"Undying Lich",     F::CrimsonWardens,5,P::PathB, 90,11,12,13,21,8,goldAndRes(650,ResourceType::BloodEssence,3), T::Undead);
+    m_units.back().regenerates=true; m_units.back().range=6; m_units.back().shots=3;
+    addUnit(2026,"Abyssal Dragon",   F::CrimsonWardens,6,P::PathB,175,17,16,22,38,11,goldAndRes(1350,ResourceType::BloodEssence,5), T::Undead|T::Flying, true);
+    m_units.back().vampiric=true;
 
     // ── THORNKIN ─────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::TK_GROVE_HEART; b.name="Grove Heart";
@@ -567,6 +588,21 @@ void BuildingRegistry::init()
     addUnit(3004,"Grove Guardian",F::Thornkin,4,P::None, 58,9,8,9,15,5, goldAndRes(370,ResourceType::VerdantSap,2), T::Beast);
     addUnit(3005,"Ancient Oak",   F::Thornkin,5,P::None, 92,12,11,13,22,6,goldAndRes(630,ResourceType::VerdantSap,3), T::Beast);
     addUnit(3006,"World Thorn",   F::Thornkin,6,P::None,158,16,14,24,38,7,goldAndRes(1300,ResourceType::VerdantSap,5), T::Beast);
+    // Thornkin PathA — Bonded line (symbiosis flavor, slightly lower HP)
+    addUnit(3011,"Seedling Twin",  F::Thornkin,1,P::PathA, 10,3,3,1, 3,5, goldAndRes(60,ResourceType::VerdantSap,1), T::Beast);
+    addUnit(3012,"Briar Pair",     F::Thornkin,2,P::PathA, 18,5,4,3, 6,5, goldAndRes(120,ResourceType::VerdantSap,1), T::Beast);
+    addUnit(3013,"Vine Duo",       F::Thornkin,3,P::PathA, 22,6,5,5, 9,5, goldAndRes(195,ResourceType::VerdantSap,1), T::Beast);
+    addUnit(3014,"Grove Bonded",   F::Thornkin,4,P::PathA, 55,10,8,9,15,5, goldAndRes(380,ResourceType::VerdantSap,2), T::Beast);
+    addUnit(3015,"Ancient Pair",   F::Thornkin,5,P::PathA, 85,13,11,13,22,6,goldAndRes(650,ResourceType::VerdantSap,3), T::Beast);
+    addUnit(3016,"Twin Thorn",     F::Thornkin,6,P::PathA,150,17,14,24,38,7,goldAndRes(1350,ResourceType::VerdantSap,5), T::Beast|T::Flying, true);
+    // Thornkin PathB — Ancient line (solo giants, pure bulk)
+    addUnit(3021,"Ironroot",       F::Thornkin,1,P::PathB, 16,2,4,1, 3,5, goldAndRes(65,ResourceType::VerdantSap,1), T::Beast);
+    addUnit(3022,"Thornwall",      F::Thornkin,2,P::PathB, 24,4,6,3, 6,5, goldAndRes(120,ResourceType::VerdantSap,1), T::Beast);
+    addUnit(3023,"Elder Vine",     F::Thornkin,3,P::PathB, 32,5,7,5, 9,5, goldAndRes(200,ResourceType::VerdantSap,2), T::Beast);
+    m_units.back().regenerates=true;
+    addUnit(3024,"Ironwood Golem", F::Thornkin,4,P::PathB, 68,8,11,9,15,5, goldAndRes(400,ResourceType::VerdantSap,3), T::Beast);
+    addUnit(3025,"World Root",     F::Thornkin,5,P::PathB,105,11,14,13,22,6,goldAndRes(680,ResourceType::VerdantSap,4), T::Beast);
+    addUnit(3026,"Elder Thorn",    F::Thornkin,6,P::PathB,175,15,17,24,38,7,goldAndRes(1400,ResourceType::VerdantSap,6), T::Beast);
 
     // ── ETERNAL EMPIRE ────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::EE_THRONE; b.name="Imperial Throne";
@@ -614,6 +650,27 @@ void BuildingRegistry::init()
     addUnit(4004,"Steel Guardian", F::EternalEmpire,4,P::None, 55,9,10,8,14,7, goldAndRes(380,ResourceType::Mercury,2), T::Construct|T::Undead);
     addUnit(4005,"Phantom Knight", F::EternalEmpire,5,P::None, 83,12,11,11,20,8, goldAndRes(600,ResourceType::Mercury,3), T::Undead|T::Flying, true);
     addUnit(4006,"Immortal",       F::EternalEmpire,6,P::None,122,14,12,20,30,10,goldAndRes(1100,ResourceType::Mercury,5), T::Undead|T::Flying, true);
+    // Eternal Empire PathA — Eternal Command (hasSecondLife, Mercury cost)
+    addUnit(4011,"Eternal Conscript", F::EternalEmpire,1,P::PathA, 14,2,3,1, 3,4, goldAndRes(70,ResourceType::Mercury,1),  T::Humanoid|T::Undead);
+    m_units.back().hasSecondLife=true;
+    addUnit(4012,"Eternal Revenant",  F::EternalEmpire,2,P::PathA, 22,4,4,3, 6,5, goldAndRes(130,ResourceType::Mercury,1), T::Undead);
+    m_units.back().hasSecondLife=true;
+    addUnit(4013,"Eternal Archer",    F::EternalEmpire,3,P::PathA, 35,5,5,4, 8,6, goldAndRes(215,ResourceType::Mercury,1), T::Undead);
+    m_units.back().hasSecondLife=true; m_units.back().range=5; m_units.back().shots=3;
+    addUnit(4014,"Eternal Guardian",  F::EternalEmpire,4,P::PathA, 58,9,10,8,14,7, goldAndRes(390,ResourceType::Mercury,2), T::Undead|T::Construct);
+    m_units.back().hasSecondLife=true; m_units.back().secondLifeFullHeal=true;
+    addUnit(4015,"Eternal Knight",    F::EternalEmpire,5,P::PathA, 88,12,11,11,20,8, goldAndRes(620,ResourceType::Mercury,3), T::Undead|T::Flying, true);
+    m_units.back().hasSecondLife=true;
+    addUnit(4016,"True Immortal",     F::EternalEmpire,6,P::PathA,130,14,12,20,30,10,goldAndRes(1150,ResourceType::Mercury,5), T::Undead|T::Flying, true);
+    m_units.back().hasSecondLife=true; m_units.back().secondLifeFullHeal=true;
+    // Eternal Empire PathB — Necromantic line (raw stats, BloodEssence)
+    addUnit(4021,"Shade",            F::EternalEmpire,1,P::PathB, 12,3,2,1, 3,4, goldAndRes(70,ResourceType::BloodEssence,1),  T::Undead);
+    addUnit(4022,"Wraith",           F::EternalEmpire,2,P::PathB, 23,5,4,3, 6,5, goldAndRes(130,ResourceType::BloodEssence,1), T::Undead);
+    addUnit(4023,"Soul Archer",      F::EternalEmpire,3,P::PathB, 34,6,5,4, 8,6, goldAndRes(220,ResourceType::BloodEssence,1), T::Undead);
+    m_units.back().moraleImmune=true; m_units.back().range=5; m_units.back().shots=3;
+    addUnit(4024,"Bone Knight",      F::EternalEmpire,4,P::PathB, 60,10,9,8,14,7, goldAndRes(395,ResourceType::BloodEssence,2), T::Undead|T::Construct);
+    addUnit(4025,"Void Knight",      F::EternalEmpire,5,P::PathB, 86,13,10,11,20,8, goldAndRes(620,ResourceType::BloodEssence,3), T::Undead|T::Void|T::Flying, true);
+    addUnit(4026,"Undying Avatar",   F::EternalEmpire,6,P::PathB,135,15,11,20,30,10,goldAndRes(1150,ResourceType::BloodEssence,5), T::Undead|T::Flying, true);
 
     // ── BLOODSWORN ────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::BS_WAR_HALL; b.name="War Hall";
@@ -661,6 +718,22 @@ void BuildingRegistry::init()
     addUnit(5004,"Ravager",            F::Bloodsworn,4,P::None, 54,10,7,10,18,8, goldAndRes(340,ResourceType::BloodEssence,2), T::Humanoid|T::BloodBound);
     addUnit(5005,"Bloodtide Warlord",  F::Bloodsworn,5,P::None, 72,13,8,14,25,9,goldAndRes(590,ResourceType::BloodEssence,3), T::Humanoid|T::BloodBound);
     addUnit(5006,"Crimson Avatar",     F::Bloodsworn,6,P::None,140,18,9,25,42,11,goldAndRes(1150,ResourceType::BloodEssence,5), T::Humanoid|T::BloodBound);
+    // Bloodsworn PathA — Blood Rush (ATK heavy, BloodEssence)
+    addUnit(5011,"Blood Fanatic",    F::Bloodsworn,1,P::PathA, 14,4,2,2, 4,5, goldAndRes(70,ResourceType::BloodEssence,1),  T::Humanoid|T::BloodBound);
+    addUnit(5012,"Blood Berserker",  F::Bloodsworn,2,P::PathA, 21,6,4,3, 7,6, goldAndRes(120,ResourceType::BloodEssence,1), T::Humanoid|T::BloodBound);
+    addUnit(5013,"High Shaman",      F::Bloodsworn,3,P::PathA, 28,6,5,3, 6,6, goldAndRes(190,ResourceType::BloodEssence,1), T::Humanoid|T::BloodBound);
+    m_units.back().range=4; m_units.back().shots=4;
+    addUnit(5014,"Blood Ravager",    F::Bloodsworn,4,P::PathA, 56,12,7,10,18,8, goldAndRes(360,ResourceType::BloodEssence,2), T::Humanoid|T::BloodBound);
+    addUnit(5015,"Blood Avatar",     F::Bloodsworn,5,P::PathA, 75,15,8,14,25,9, goldAndRes(610,ResourceType::BloodEssence,3), T::Humanoid|T::BloodBound);
+    addUnit(5016,"Blood God",        F::Bloodsworn,6,P::PathA,148,20,9,25,42,11,goldAndRes(1200,ResourceType::BloodEssence,6), T::Humanoid|T::BloodBound);
+    // Bloodsworn PathB — Ritual Pact (tankier, Iron cost)
+    addUnit(5021,"Pact Warrior",     F::Bloodsworn,1,P::PathB, 15,3,3,2, 4,5, goldAndRes(70,ResourceType::Iron,1),  T::Humanoid);
+    addUnit(5022,"Ritual Guard",     F::Bloodsworn,2,P::PathB, 23,4,6,3, 7,6, goldAndRes(120,ResourceType::Iron,1), T::Humanoid);
+    addUnit(5023,"Pact Shaman",      F::Bloodsworn,3,P::PathB, 30,5,7,3, 6,6, goldAndRes(195,ResourceType::Iron,1), T::Humanoid);
+    m_units.back().range=4; m_units.back().shots=4;
+    addUnit(5024,"Pact Ravager",     F::Bloodsworn,4,P::PathB, 60,9,10,10,18,8, goldAndRes(360,ResourceType::Iron,2), T::Humanoid);
+    addUnit(5025,"Ritual Champion",  F::Bloodsworn,5,P::PathB, 80,12,12,14,25,9, goldAndRes(610,ResourceType::Iron,3), T::Humanoid);
+    addUnit(5026,"Pact Titan",       F::Bloodsworn,6,P::PathB,155,17,13,25,42,11,goldAndRes(1200,ResourceType::Iron,6), T::Humanoid);
 
     // ── VOIDKIN ───────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::VK_NEXUS; b.name="Void Nexus";
@@ -708,6 +781,22 @@ void BuildingRegistry::init()
     addUnit(6004,"Void Stalker",   F::Voidkin,4,P::None, 44,9,9,9,15,10,goldAndRes(360,ResourceType::VerdantSap,2), T::Void|T::Flying, true);
     addUnit(6005,"Entropy Wraith", F::Voidkin,5,P::None, 72,12,11,13,22,12,goldAndRes(640,ResourceType::VerdantSap,3), T::Void|T::Flying, true);
     addUnit(6006,"Void Colossus",  F::Voidkin,6,P::None,135,16,14,22,34,13,goldAndRes(1220,ResourceType::VerdantSap,5), T::Void|T::Flying, true);
+    // Voidkin PathA — Phase line (speed+1, all flying)
+    addUnit(6011,"Phase Wisp",     F::Voidkin,1,P::PathA, 18,3,3,1, 3,7, goldAndRes(75,ResourceType::VerdantSap,1),  T::Void|T::Flying, true);
+    addUnit(6012,"Flicker",        F::Voidkin,2,P::PathA, 24,5,6,2, 6,7, goldAndRes(140,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
+    addUnit(6013,"Void Sniper",    F::Voidkin,3,P::PathA, 28,7,5,4, 9,8, goldAndRes(235,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
+    m_units.back().range=6; m_units.back().shots=3;
+    addUnit(6014,"Phase Hunter",   F::Voidkin,4,P::PathA, 44,10,9,9,15,11,goldAndRes(380,ResourceType::VerdantSap,2), T::Void|T::Flying, true);
+    addUnit(6015,"Chaos Wraith",   F::Voidkin,5,P::PathA, 72,13,11,13,22,13,goldAndRes(660,ResourceType::VerdantSap,3), T::Void|T::Flying, true);
+    addUnit(6016,"Void Specter",   F::Voidkin,6,P::PathA,135,17,14,22,34,14,goldAndRes(1280,ResourceType::VerdantSap,5), T::Void|T::Flying, true);
+    // Voidkin PathB — Void Anchor (tankier, lower speed)
+    addUnit(6021,"Void Anchor",    F::Voidkin,1,P::PathB, 22,2,4,1, 3,5, goldAndRes(75,ResourceType::VerdantSap,1),  T::Void|T::Flying, true);
+    addUnit(6022,"Void Bulwark",   F::Voidkin,2,P::PathB, 30,3,8,2, 6,5, goldAndRes(140,ResourceType::VerdantSap,1), T::Void|T::Flying, true);
+    addUnit(6023,"Anchor Archer",  F::Voidkin,3,P::PathB, 34,5,6,4, 9,7, goldAndRes(235,ResourceType::VerdantSap,2), T::Void|T::Flying, true);
+    m_units.back().range=5; m_units.back().shots=3;
+    addUnit(6024,"Void Monolith",  F::Voidkin,4,P::PathB, 55,8,13,9,15,9, goldAndRes(380,ResourceType::VerdantSap,2), T::Void|T::Flying, true);
+    addUnit(6025,"Entropy Anchor", F::Voidkin,5,P::PathB, 85,10,14,13,22,11,goldAndRes(660,ResourceType::VerdantSap,3), T::Void|T::Flying, true);
+    addUnit(6026,"Void Titan",     F::Voidkin,6,P::PathB,155,14,18,22,34,12,goldAndRes(1280,ResourceType::VerdantSap,6), T::Void|T::Flying, true);
 
     // ── IRON ASSEMBLY ─────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::IA_FORGE_HALL; b.name="Forge Hall";
@@ -757,6 +846,26 @@ void BuildingRegistry::init()
     m_units.back().range = 5; m_units.back().shots = 3;
     addUnit(7005,"Titan Construct", F::IronAssembly,5,P::None, 75,11,11,15,24,5,goldAndRes(660,ResourceType::Iron,7), T::Mechanical);
     addUnit(7006,"Colossus Prime",  F::IronAssembly,6,P::None,150,15,14,26,42,6,goldAndRes(1350,ResourceType::Iron,10), T::Mechanical);
+    // Iron Assembly PathA — Runic line (more Iron cost, better stats)
+    addUnit(7011,"Runic Automaton",   F::IronAssembly,1,P::PathA, 14,4,5,2, 4,5, goldAndRes(85,ResourceType::Iron,2),   T::Mechanical);
+    m_units.back().range=3; m_units.back().shots=1;
+    addUnit(7012,"Runic Gunner",      F::IronAssembly,2,P::PathA, 22,5,6,3, 6,5, goldAndRes(155,ResourceType::Iron,3),  T::Mechanical);
+    m_units.back().range=5; m_units.back().shots=2;
+    addUnit(7013,"Runic Walker",      F::IronAssembly,3,P::PathA, 33,7,7,5,10,5, goldAndRes(235,ResourceType::Iron,4),  T::Mechanical);
+    addUnit(7014,"Runic Siege Bot",   F::IronAssembly,4,P::PathA, 63,9,10,7,13,4, goldAndRes(430,ResourceType::Iron,6), T::Mechanical);
+    m_units.back().range=5; m_units.back().shots=3;
+    addUnit(7015,"Runic Titan",       F::IronAssembly,5,P::PathA, 82,12,13,15,24,5,goldAndRes(700,ResourceType::Iron,8), T::Mechanical);
+    addUnit(7016,"Runic Colossus",    F::IronAssembly,6,P::PathA,160,16,16,26,42,6,goldAndRes(1450,ResourceType::Iron,11), T::Mechanical);
+    // Iron Assembly PathB — Salvager line (cheaper, same stats)
+    addUnit(7021,"Salvage Bot",       F::IronAssembly,1,P::PathB, 12,3,4,2, 4,5, goldAndRes(75,ResourceType::Iron,1),   T::Mechanical);
+    m_units.back().range=3; m_units.back().shots=1;
+    addUnit(7022,"Scrap Gunner",      F::IronAssembly,2,P::PathB, 20,4,5,3, 6,5, goldAndRes(135,ResourceType::Iron,2),  T::Mechanical);
+    m_units.back().range=5; m_units.back().shots=1;
+    addUnit(7023,"Salvage Walker",    F::IronAssembly,3,P::PathB, 30,6,6,5,10,5, goldAndRes(210,ResourceType::Iron,2),  T::Mechanical);
+    addUnit(7024,"Salvage Bot MkII",  F::IronAssembly,4,P::PathB, 58,8,9,7,13,4, goldAndRes(385,ResourceType::Iron,4),  T::Mechanical);
+    m_units.back().range=5; m_units.back().shots=3;
+    addUnit(7025,"Salvage Titan",     F::IronAssembly,5,P::PathB, 75,11,11,15,24,5,goldAndRes(645,ResourceType::Iron,6), T::Mechanical);
+    addUnit(7026,"Salvage Prime",     F::IronAssembly,6,P::PathB,150,15,14,26,42,6,goldAndRes(1290,ResourceType::Iron,8), T::Mechanical);
 
     // ── AMALGAMATE ────────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::AM_GRAFTING_HALL; b.name="Grafting Hall";
@@ -804,6 +913,32 @@ void BuildingRegistry::init()
     addUnit(8004,"Fleshwork Knight",  F::Amalgamate,4,P::None, 60,9,7,9,16,7, goldAndRes(360,ResourceType::BloodEssence,2), T::OrganicMech|T::Flying, true);
     addUnit(8005,"Undying Juggernaut",F::Amalgamate,5,P::None, 95,12,10,14,23,8,goldAndRes(600,ResourceType::BloodEssence,3), T::OrganicMech);
     addUnit(8006,"Convergence Spawn", F::Amalgamate,6,P::None,155,16,14,23,37,9,goldAndRes(1200,ResourceType::BloodEssence,5), T::OrganicMech|T::Flying, true);
+    // Amalgamate PathA — Rapid Evolution (rapidEvolution=true, adapt on every hit)
+    addUnit(8011,"Rapid Crawler",      F::Amalgamate,1,P::PathA, 11,2,3,1, 4,5, goldAndRes(70,ResourceType::Iron,1),         T::OrganicMech);
+    m_units.back().rapidEvolution=true;
+    addUnit(8012,"Rapid Soldier",      F::Amalgamate,2,P::PathA, 18,4,4,3, 6,5, goldAndRes(125,ResourceType::Iron,2),        T::OrganicMech);
+    m_units.back().rapidEvolution=true;
+    addUnit(8013,"Rapid Machine",      F::Amalgamate,3,P::PathA, 28,5,5,4, 7,6, goldAndRes(205,ResourceType::Iron,2),        T::OrganicMech);
+    m_units.back().rapidEvolution=true; m_units.back().range=3; m_units.back().shots=3;
+    addUnit(8014,"Rapid Knight",       F::Amalgamate,4,P::PathA, 60,9,7,9,16,7, goldAndRes(380,ResourceType::Iron,3),        T::OrganicMech|T::Flying, true);
+    m_units.back().rapidEvolution=true;
+    addUnit(8015,"Rapid Juggernaut",   F::Amalgamate,5,P::PathA, 95,12,10,14,23,8,goldAndRes(640,ResourceType::Iron,4),      T::OrganicMech);
+    m_units.back().rapidEvolution=true;
+    addUnit(8016,"Rapid Spawn",        F::Amalgamate,6,P::PathA,155,16,14,23,37,9,goldAndRes(1250,ResourceType::Iron,5),     T::OrganicMech|T::Flying, true);
+    m_units.back().rapidEvolution=true;
+    // Amalgamate PathB — Fused (adaptationDouble=true, gain +2 per adaptation, more HP)
+    addUnit(8021,"Fused Crawler",      F::Amalgamate,1,P::PathB, 14,2,3,1, 4,5, goldAndRes(70,ResourceType::BloodEssence,1),  T::OrganicMech);
+    m_units.back().adaptationDouble=true;
+    addUnit(8022,"Fused Soldier",      F::Amalgamate,2,P::PathB, 22,4,4,3, 6,5, goldAndRes(120,ResourceType::BloodEssence,1), T::OrganicMech);
+    m_units.back().adaptationDouble=true;
+    addUnit(8023,"Fused Machine",      F::Amalgamate,3,P::PathB, 34,5,5,4, 7,6, goldAndRes(205,ResourceType::BloodEssence,2), T::OrganicMech);
+    m_units.back().adaptationDouble=true; m_units.back().range=3; m_units.back().shots=3;
+    addUnit(8024,"Fused Knight",       F::Amalgamate,4,P::PathB, 70,9,7,9,16,7, goldAndRes(370,ResourceType::BloodEssence,2), T::OrganicMech|T::Flying, true);
+    m_units.back().adaptationDouble=true;
+    addUnit(8025,"Fused Juggernaut",   F::Amalgamate,5,P::PathB,110,12,10,14,23,8,goldAndRes(620,ResourceType::BloodEssence,3),T::OrganicMech);
+    m_units.back().adaptationDouble=true;
+    addUnit(8026,"Fused Spawn",        F::Amalgamate,6,P::PathB,175,15,14,23,37,9,goldAndRes(1200,ResourceType::BloodEssence,5),T::OrganicMech|T::Flying, true);
+    m_units.back().adaptationDouble=true;
 
     // ── CONVERGENCE ───────────────────────────────────────────────────────────
     { BuildingDef b; b.id=BID::CV_SYNTHESIS_HUB; b.name="Synthesis Hub";
@@ -849,6 +984,22 @@ void BuildingRegistry::init()
     addUnit(9004,"Resonant",      F::Convergence,4,P::None, 58,10,10,9,16,8, gold(370), T::Humanoid|T::Flying, true);
     addUnit(9005,"Transcendent",  F::Convergence,5,P::None, 74,12,13,14,23,10,gold(640), T::Humanoid|T::Flying, true);
     addUnit(9006,"Unified Form",  F::Convergence,6,P::None,132,16,15,23,37,12,gold(1250), T::Humanoid|T::Flying, true);
+    // Convergence PathA — Mirror line (flying at T2+, matching enemy mobility)
+    addUnit(9011,"Mirror Awakened",    F::Convergence,1,P::PathA, 12,3,3,2, 4,5, gold(75),   T::Humanoid);
+    addUnit(9012,"Mirror Synth",       F::Convergence,2,P::PathA, 21,5,5,3, 6,6, gold(135),  T::Humanoid|T::Flying, true);
+    addUnit(9013,"Mirror Harmonized",  F::Convergence,3,P::PathA, 33,7,7,5,10,6, gold(225),  T::Humanoid|T::Flying, true);
+    m_units.back().range=4; m_units.back().shots=3;
+    addUnit(9014,"Mirror Resonant",    F::Convergence,4,P::PathA, 58,10,10,9,16,8, gold(390), T::Humanoid|T::Flying, true);
+    addUnit(9015,"Mirror Form",        F::Convergence,5,P::PathA, 74,12,13,14,23,10,gold(670), T::Humanoid|T::Flying, true);
+    addUnit(9016,"Mirror Unity",       F::Convergence,6,P::PathA,132,16,15,23,37,12,gold(1320), T::Humanoid|T::Flying, true);
+    // Convergence PathB — Harmony line (higher HP, grounded, stronger bulk)
+    addUnit(9021,"Harmony Seeker",     F::Convergence,1,P::PathB, 13,3,3,2, 4,5, gold(75),   T::Humanoid);
+    addUnit(9022,"Harmony Bound",      F::Convergence,2,P::PathB, 23,5,5,3, 6,6, gold(135),  T::Humanoid);
+    addUnit(9023,"Resonance Core",     F::Convergence,3,P::PathB, 36,7,7,5,10,6, gold(225),  T::Humanoid);
+    m_units.back().range=4; m_units.back().shots=3;
+    addUnit(9024,"Harmony Knight",     F::Convergence,4,P::PathB, 62,10,10,9,16,8, gold(390), T::Humanoid|T::Flying, true);
+    addUnit(9025,"Transcendent Prime", F::Convergence,5,P::PathB, 80,12,13,14,23,10,gold(670), T::Humanoid|T::Flying, true);
+    addUnit(9026,"Harmonic Unity",     F::Convergence,6,P::PathB,145,16,15,23,37,12,gold(1320), T::Humanoid|T::Flying, true);
 }
 
 const BuildingDef* BuildingRegistry::getBuildingDef(int id) const {

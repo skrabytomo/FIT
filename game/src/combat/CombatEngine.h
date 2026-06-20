@@ -46,7 +46,8 @@ public:
     // Setup a battle — populates grid with units from both sides
     void startBattle(const Hero& playerHero, const std::vector<CombatUnit>& playerUnits,
                      const Hero& enemyHero,  const std::vector<CombatUnit>& enemyUnits,
-                     bool isSiege = false);
+                     bool isSiege = false,
+                     Terrain terrain = Terrain::Plains);
 
     // Apply equipped-artifact bonuses to stored hero copies and their units
     // (call once after startBattle, before first turn)
@@ -151,6 +152,7 @@ private:
     void addLog(const std::string& msg);
     void applySymbiosisRound(); // Thornkin bond bonus — called at round start
     void processRoundStartEffects(); // DoT tick, mana regen — called at round start
+    void applyTerrainBonuses(); // faction home/penalty terrain stat modifiers at battle start
 
     // AI dispatch — delegates to difficulty-specific implementation
     void aiActUnit(CombatUnit& unit);
@@ -188,6 +190,10 @@ private:
     std::unordered_set<uint32_t> m_wildGrowthGhosted;  // unit IDs already ghosted
     bool     m_wardenBrand   = false;  // CW_WARDEN_BRAND: +1 splash target for Warden's Mark
     bool     m_symbiosisWeb  = false;  // TK_SYMBIOSIS_WEB: Symbiosis cap raised to 2
+
+    Terrain  m_battleTerrain = Terrain::Plains;  // terrain where the battle takes place
+    int      m_bloodPool     = 0;    // Bloodsworn: BloodBound kills toward Ascension
+    bool     m_ascended      = false; // true once Ascension triggers (once per battle)
 
     Hero m_playerHero;
     Hero m_enemyHero;

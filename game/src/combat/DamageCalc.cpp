@@ -86,7 +86,7 @@ float DamageCalc::weaknessBonus(UnitTag attackerTags, UnitTag defenderTags,
 
     // Organic-Mech (Amalgamate) deals bonus damage to Mechanical, Humanoid, Beast, and Void
     if (hasTag(attackerTags, UnitTag::OrganicMech)) {
-        if (hasTag(defenderTags, UnitTag::Mechanical))    bonus *= 1.12f;
+        if (hasTag(defenderTags, UnitTag::Mechanical))    bonus *= 1.10f;
         else if (hasTag(defenderTags, UnitTag::Humanoid)) bonus *= 1.02f;
         else if (hasTag(defenderTags, UnitTag::Beast))    bonus *= 1.06f;
         else if (hasTag(defenderTags, UnitTag::Void))     bonus *= 1.02f;
@@ -104,7 +104,7 @@ float DamageCalc::weaknessBonus(UnitTag attackerTags, UnitTag defenderTags,
     // Organized tactics and unit cohesion partially blunt berserker aggression vs Humanoids
     if (hasTag(attackerTags, UnitTag::BloodBound)) {
         if (hasTag(defenderTags, UnitTag::Beast))       bonus *= 1.06f;
-        if (hasTag(defenderTags, UnitTag::Undead))      bonus *= 1.12f;
+        if (hasTag(defenderTags, UnitTag::Undead))      bonus *= 1.10f;
         if (hasTag(defenderTags, UnitTag::OrganicMech)) bonus *= 1.06f;
         if (hasTag(defenderTags, UnitTag::Void))        bonus *= 1.05f;
         if (hasTag(defenderTags, UnitTag::Humanoid)

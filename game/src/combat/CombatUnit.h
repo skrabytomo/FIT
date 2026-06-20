@@ -109,6 +109,10 @@ struct CombatUnit
     bool        adaptationFast    = false; // Adaptation Basic: adapt after 2 hits (not 3)
     bool        adaptationDouble  = false; // Adaptation Advanced: gain +2 stat per adaptation (not +1)
 
+    // Possession (Voidkin) — unit fights for the other side for possessedRoundsLeft rounds
+    bool        possessed           = false;
+    int         possessedRoundsLeft = 0;
+
     // Siege engine fields (isSiegeEngine=true units are placed on turn 1, act from turn 2)
     bool isSiegeEngine   = false;
     int  wallDamage      = 0;     // damage dealt to wall tiles per attack

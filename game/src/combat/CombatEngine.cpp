@@ -8,6 +8,34 @@
 
 static thread_local std::mt19937 s_turnRng{42};
 
+// ── Faction terrain tables (from design doc) ───────────────────────────────────
+static bool isFactionHomeTerrain(FactionId f, Terrain t) {
+    switch (f) {
+    case FactionId::HolyOrder:      return t == Terrain::Plains    || t == Terrain::Sacred;
+    case FactionId::CrimsonWardens: return t == Terrain::Highland  || t == Terrain::Rocky;
+    case FactionId::Thornkin:       return t == Terrain::Forest;
+    case FactionId::EternalEmpire:  return t == Terrain::Toxic     || t == Terrain::Corrupted;
+    case FactionId::Bloodsworn:     return t == Terrain::Corrupted || t == Terrain::Swamp;
+    case FactionId::Voidkin:        return t == Terrain::CorruptedForest;
+    case FactionId::IronAssembly:   return t == Terrain::Industrial || t == Terrain::Rocky;
+    case FactionId::Amalgamate:     return t == Terrain::Wasteland || t == Terrain::FleshZone;
+    default: return false;
+    }
+}
+static bool isFactionPenaltyTerrain(FactionId f, Terrain t) {
+    switch (f) {
+    case FactionId::HolyOrder:      return t == Terrain::Corrupted || t == Terrain::Toxic;
+    case FactionId::CrimsonWardens: return t == Terrain::Corrupted || t == Terrain::Swamp;
+    case FactionId::Thornkin:       return t == Terrain::Volcanic  || t == Terrain::Barren;
+    case FactionId::EternalEmpire:  return t == Terrain::Sacred;
+    case FactionId::Bloodsworn:     return t == Terrain::Sacred    || t == Terrain::Plains;
+    case FactionId::Voidkin:        return t == Terrain::Sacred;
+    case FactionId::IronAssembly:   return t == Terrain::Swamp     || t == Terrain::Water;
+    case FactionId::Amalgamate:     return t == Terrain::Sacred;
+    default: return false;
+    }
+}
+
 void CombatEngine::seedTurnRng(uint32_t seed) { s_turnRng.seed(seed); }
 
 void CombatEngine::addLog(const std::string& msg)
@@ -22,12 +50,15 @@ void CombatEngine::addLog(const std::string& msg)
 void CombatEngine::startBattle(
     const Hero& playerHero, const std::vector<CombatUnit>& playerUnits,
     const Hero& enemyHero,  const std::vector<CombatUnit>& enemyUnits,
-    bool isSiege)
+    bool isSiege, Terrain terrain)
 {
-    m_playerHero = playerHero;
-    m_enemyHero  = enemyHero;
-    m_round      = 1;
-    m_turnIndex  = 0;
+    m_playerHero    = playerHero;
+    m_enemyHero     = enemyHero;
+    m_round         = 1;
+    m_turnIndex     = 0;
+    m_battleTerrain = terrain;
+    m_bloodPool     = 0;
+    m_ascended      = false;
     m_log.clear();
     m_waitQueue.clear();
 
@@ -209,30 +240,14 @@ void CombatEngine::startBattle(
             addLog(hero.name + " Adaptation: OrganicMech units adapt " + tier_desc);
         }
 
-        // BLOOD_POOL (Bloodsworn): BloodBound units start with enhanced morale
-        if (const SkillInstance* s = skills.getSkill(SkillID::BLOOD_POOL)) {
-            int bonus = 0;
-            if (const SkillDef* def = findSkillDef(SkillID::BLOOD_POOL))
-                bonus = def->values[static_cast<int>(s->tier)];
-            for (auto& u : m_grid.units()) {
-                if (u.isPlayer != isPlayer || !u.alive || u.moraleImmune) continue;
-                if (!hasTag(u.tags, UnitTag::BloodBound)) continue;
-                u.morale = std::min(100, u.morale + bonus);
-            }
-            addLog(hero.name + " Blood Pool: BloodBound units +" + std::to_string(bonus) + " morale");
+        // BLOOD_POOL (Bloodsworn): 5 BloodBound kills → Ascension burst (tracked in processKillEvents)
+        if (skills.getSkill(SkillID::BLOOD_POOL)) {
+            addLog(hero.name + " Blood Pool active — 5 BloodBound kills trigger Ascension!");
         }
 
-        // POSSESSION (Voidkin): Void units start with bonus luck
-        if (const SkillInstance* s = skills.getSkill(SkillID::POSSESSION)) {
-            int luckBonus = 0;
-            if (const SkillDef* def = findSkillDef(SkillID::POSSESSION))
-                luckBonus = def->values[static_cast<int>(s->tier)];
-            for (auto& u : m_grid.units()) {
-                if (u.isPlayer != isPlayer || !u.alive) continue;
-                if (!hasTag(u.tags, UnitTag::Void)) continue;
-                u.luck = std::min(5, u.luck + luckBonus);
-            }
-            addLog(hero.name + " Possession: Void units +" + std::to_string(luckBonus) + " luck");
+        // POSSESSION (Voidkin): Void unit kills reanimate the target for 1 round (processKillEvents)
+        if (skills.getSkill(SkillID::POSSESSION)) {
+            addLog(hero.name + " Possession active — Void kills will reanimate targets!");
         }
 
         // MIRRORING (Convergence): Humanoid units gain a bonus to their weaker combat stat
@@ -380,6 +395,8 @@ void CombatEngine::startBattle(
     applyApex(m_playerHero, true);
     applyApex(m_enemyHero,  false);
 
+    applyTerrainBonuses();
+
     m_coordinatedStrikeTarget = 0;
     m_wildGrowthGhosted.clear();
 
@@ -387,6 +404,32 @@ void CombatEngine::startBattle(
     m_phase = (firstUnit && !firstUnit->isPlayer) ? CombatPhase::EnemyTurn
                                                   : CombatPhase::PlayerTurn;
     addLog("Battle started! Round 1");
+}
+
+void CombatEngine::applyTerrainBonuses()
+{
+    for (auto& u : m_grid.units()) {
+        if (!u.alive) continue;
+        FactionId fac = u.isPlayer ? m_playerHero.faction : m_enemyHero.faction;
+        if (isFactionHomeTerrain(fac, m_battleTerrain)) {
+            u.attack  += 1;
+            u.defense += 1;
+        }
+        if (isFactionPenaltyTerrain(fac, m_battleTerrain)) {
+            u.attack  = std::max(1, u.attack  - 1);
+            u.defense = std::max(1, u.defense - 1);
+        }
+    }
+    // Log if either faction has a terrain bonus/penalty
+    auto logTerrain = [&](const Hero& hero, bool isPlayer) {
+        FactionId fac = hero.faction;
+        if (isFactionHomeTerrain(fac, m_battleTerrain))
+            addLog(hero.name + ": home terrain — all units +1 ATK/DEF");
+        if (isFactionPenaltyTerrain(fac, m_battleTerrain))
+            addLog(hero.name + ": penalty terrain — all units -1 ATK/DEF");
+    };
+    logTerrain(m_playerHero, true);
+    logTerrain(m_enemyHero,  false);
 }
 
 void CombatEngine::applyTerrainObstacles(int count)
@@ -1515,6 +1558,17 @@ void CombatEngine::processRoundStartEffects()
         }
     }
 
+    // Possession countdown — possessed units dissolve after their round
+    for (auto& u : m_grid.units()) {
+        if (!u.possessed) continue;
+        if (--u.possessedRoundsLeft <= 0) {
+            u.alive     = false;
+            u.possessed = false;
+            addLog(u.name + " possession ends — stack dissolves.");
+        }
+    }
+    m_grid.removeDeadUnits();
+
     // Feast specialty (Blood Prince) — drain 2 HP from largest own unit, heal hero
     auto applyFeast = [&](Hero& hero, bool isPlayer) {
         if (!hero.feastSpecialty) return;
@@ -2205,6 +2259,52 @@ void CombatEngine::processKillEvents(CombatUnit& attacker, CombatUnit& target,
         };
         applyAdaptationMirror(m_playerHero, true);
         applyAdaptationMirror(m_enemyHero,  false);
+    }
+
+    // ── Blood Pool + Ascension (Bloodsworn) ──────────────────────────────────
+    // Player BloodBound unit kills enemy → increment pool; 5 kills trigger Ascension
+    if (attacker.isPlayer && !targetIsPlayer && result.killed > 0
+        && hasTag(attacker.tags, UnitTag::BloodBound)
+        && m_playerHero.skills.getSkill(SkillID::BLOOD_POOL)
+        && !m_ascended) {
+        ++m_bloodPool;
+        addLog("Blood Pool: " + std::to_string(m_bloodPool) + "/5");
+        if (m_bloodPool >= 5) {
+            m_ascended = true;
+            int boosted = 0;
+            for (auto& u : m_grid.units()) {
+                if (!u.alive || !u.isPlayer) continue;
+                if (hasTag(u.tags, UnitTag::BloodBound)) {
+                    u.attack  += 3;
+                    u.defense += 1;
+                    u.morale   = std::min(100, u.morale + 20);
+                    boosted++;
+                }
+            }
+            if (boosted > 0)
+                addLog("ASCENSION! " + std::to_string(boosted) +
+                       " BloodBound units surge: +3 ATK, +1 DEF, +20 morale!");
+        }
+    }
+
+    // ── Possession (Voidkin) ──────────────────────────────────────────────────
+    // Player Void unit kills enemy stack → reanimate it for 1 round on player side
+    if (attacker.isPlayer && !targetIsPlayer && !target.alive
+        && hasTag(attacker.tags, UnitTag::Void)
+        && m_playerHero.skills.getSkill(SkillID::POSSESSION)
+        && target.count > 0 && !target.possessed) {
+        target.alive              = true;
+        target.count              = std::max(1, target.count / 2);
+        target.hp                 = target.maxHp;
+        target.possessed          = true;
+        target.possessedRoundsLeft = 1;
+        target.isPlayer           = true;   // switch to player side
+        target.hasActed           = false;
+        target.hasMoved           = false;
+        addLog(target.name + " is Possessed! Fights for you this round.");
+        // Do NOT fall through to removeDeadUnits — unit stays alive
+        spawnWildGrowthGhosts();
+        return;
     }
 
     spawnWildGrowthGhosts();

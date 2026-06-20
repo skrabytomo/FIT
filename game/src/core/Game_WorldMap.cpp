@@ -152,12 +152,16 @@ static std::vector<CombatUnit> makeHeroUnits(const Hero& hero,
         u.speed    = ud->speed;
         u.range    = ud->range;
         u.shots    = u.shotsLeft = ud->shots;
-        u.flying      = ud->flying;
-        u.vampiric    = ud->vampiric;
-        u.regenerates = ud->regenerates;
-        u.tags        = ud->tags;
-        u.isPlayer    = isPlayer;
-        u.hasSecondLife = (hero.faction == FactionId::EternalEmpire);
+        u.flying             = ud->flying;
+        u.vampiric           = ud->vampiric;
+        u.regenerates        = ud->regenerates;
+        u.tags               = ud->tags;
+        u.isPlayer           = isPlayer;
+        u.hasSecondLife      = ud->hasSecondLife || (hero.faction == FactionId::EternalEmpire && ud->path != UpgradePath::PathB);
+        u.secondLifeFullHeal = ud->secondLifeFullHeal;
+        u.moraleImmune       = ud->moraleImmune || hasTag(ud->tags, UnitTag::Undead) || hasTag(ud->tags, UnitTag::Mechanical);
+        u.rapidEvolution     = ud->rapidEvolution;
+        u.adaptationDouble   = ud->adaptationDouble;
         out.push_back(u);
     }
     return out.empty() ? makeFactionUnits(hero.faction, isPlayer) : out;

@@ -50,6 +50,13 @@ struct UnitDef
     bool  vampiric    = false;  // heals attacker for damage dealt
     bool  regenerates = false;  // restores full HP at start of own turn
 
+    // Faction-specific unit properties
+    bool  hasSecondLife      = false; // Eternal Empire PathA: revive once per battle
+    bool  secondLifeFullHeal = false; // revive at full HP (T4/T6 PathA only)
+    bool  moraleImmune       = false; // immune to morale effects
+    bool  rapidEvolution     = false; // Amalgamate PathA: adapt after every hit
+    bool  adaptationDouble   = false; // Amalgamate PathB: +2 stat per adaptation
+
     UnitTag tags = UnitTag::Humanoid;
 
     // Recruitment cost per unit
