@@ -347,6 +347,10 @@ private:
     bool        m_showFoundCityPopup  = false;
     uint32_t    m_foundCityUtopiaId   = 0;
 
+    // ── Kingdom overview panel ────────────────────────────────────────────────
+    bool        m_showKingdomPanel    = false;
+    void renderKingdomPanel();
+
     bool        m_showCapturePopup  = false;
     std::string m_capturedTownName;
 

@@ -29,6 +29,9 @@ public:
     UICallback onEndTurn;
     UIIntCallback onHeroClicked;  // index into heroes list
     UIIntCallback onTownClicked;  // index into player-towns list
+    UICallback onWorldSpells;     // toggle world-map spell panel
+    UICallback onKingdom;         // toggle kingdom overview
+    UICallback onOptions;         // toggle options / pause menu
 
     void setIconTex(ImTextureID tex) { m_iconTex = tex; }
     void setPortraitTex(int factionIdx, ImTextureID tex) {
@@ -48,8 +51,11 @@ private:
     Rect m_topBar;
 
     // Bottom bar
-    Rect m_bottomBar;
+    Rect   m_bottomBar;
     Button m_endTurnBtn;
+    Button m_worldSpellsBtn;
+    Button m_kingdomBtn;
+    Button m_optionsBtn;
 
     // Hero list (right side)
     Panel m_heroPanel;

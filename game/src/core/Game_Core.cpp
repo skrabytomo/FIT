@@ -151,7 +151,10 @@ bool Game::init(const std::string& title, int width, int height)
     for (int i = 0; i < NUM_FACTIONS; ++i)
         if (m_portraitTex[i].ok())
             m_worldHUD.setPortraitTex(i, (ImTextureID)(uintptr_t)m_portraitTex[i].id());
-    m_worldHUD.onEndTurn = [this]() { doEndTurn(); };
+    m_worldHUD.onEndTurn     = [this]() { doEndTurn(); };
+    m_worldHUD.onWorldSpells = [this]() { m_showWorldSpellPanel = !m_showWorldSpellPanel; };
+    m_worldHUD.onKingdom     = [this]() { m_showKingdomPanel    = !m_showKingdomPanel; };
+    m_worldHUD.onOptions     = [this]() { m_showPauseMenu       = !m_showPauseMenu; };
     m_worldHUD.onHeroClicked = [this](int idx) {
         if (idx >= 0 && idx < static_cast<int>(m_heroes.size())) {
             if (idx == m_activeHeroIdx) {

@@ -51,8 +51,21 @@ static const TutorialSlide kTutorial[] = {
         "Press SPACE or click the 'End Turn' button in the HUD to end your turn.\n\n"
         "Enemy AI heroes will then take their actions.\n"
         "After all factions have acted, a new day begins.\n"
-        "After 7 days, a new week begins — your mines and towns pay out income.\n\n"
-        "Good luck, Commander."
+        "After 7 days, a new week begins — your mines and towns pay out income."
+    },
+    {
+        "The Utopia Ruins",
+        "You will find a set of Utopia Ruins nearby — marked with a golden crown icon.\n\n"
+        "Enter the tile to face its weakened guardians in your first real battle.\n"
+        "Use the action bar to move, attack, and cast spells.\n\n"
+        "Defeating the guardians unlocks a reward AND allows you to found a city there!"
+    },
+    {
+        "Found City",
+        "Once you have cleared a Utopia and reached Level 5, you gain the 'Found City' spell.\n\n"
+        "Open 'World Spells' in the action bar, stand on the cleared Utopia tile,\n"
+        "and cast Found City to build a new town of any faction you choose.\n\n"
+        "This is your second city — treasure it. Good luck, Commander."
     },
 };
 static constexpr int kTutorialCount = static_cast<int>(sizeof(kTutorial) / sizeof(kTutorial[0]));
@@ -160,6 +173,31 @@ void Game::enterCampaign()
     m_newGameClassId  = 0;   // auto-assign first class for faction
     startNewGame();
     m_state = GameState::Campaign;
+
+    // Place a weakened tutorial Utopia 4 tiles east of the starting hero
+    if (!m_heroes.empty()) {
+        const Hero& ph = m_heroes[0];
+        // Find a valid tile 4 tiles away (try east, SE, NE variants)
+        HexCoord candidates[] = {
+            {ph.pos.q + 4, ph.pos.r},
+            {ph.pos.q + 3, ph.pos.r + 2},
+            {ph.pos.q + 4, ph.pos.r - 2},
+        };
+        for (auto& cpos : candidates) {
+            HexTile* ct = m_map.getTile(cpos);
+            if (ct && ct->terrain != Terrain::Water && ct->townId == 0 && ct->resourceId == 0) {
+                WorldObject uto;
+                uto.id      = m_nextObjId++;
+                uto.type    = WorldObjectType::Utopia;
+                uto.pos     = cpos;
+                uto.value   = -1;   // tutorial marker: weakened guards
+                uto.faction = 0;    // HolyOrder guardian style
+                uto.collected = false;
+                m_worldObjects.push_back(uto);
+                break;
+            }
+        }
+    }
     m_campaign.init();
 
     // Lock in convergence eligibility at campaign start (HideoutDB state won't change mid-run)

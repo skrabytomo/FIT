@@ -1213,31 +1213,9 @@ void Game::renderWorldMapImGui()
     m_ui.flushText(ImGui::GetBackgroundDrawList());
     renderWorldOverlay();
 
-    // World-map spell button — bottom-left, visible when hero has world-map spells
-    if (!m_heroes.empty() && !m_showCombatResult && !m_showVictory && !m_showDefeat) {
-        const Hero& wsh = m_heroes[m_activeHeroIdx];
-        bool hasWS = false;
-        for (int sid : wsh.knownSpells) {
-            const SpellDef* sp = findSpell(sid);
-            if (sp && sp->target == SpellTarget::WorldMap) { hasWS = true; break; }
-        }
-        if (hasWS) {
-            ImGuiIO& wsio = ImGui::GetIO();
-            ImGui::SetNextWindowPos({8.0f, wsio.DisplaySize.y - 90.0f}, ImGuiCond_Always);
-            ImGui::SetNextWindowBgAlpha(0.85f);
-            if (ImGui::Begin("##wmap_spell_btn", nullptr,
-                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav |
-                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize |
-                ImGuiWindowFlags_NoSavedSettings)) {
-                if (ImGui::Button("World Spells", ImVec2(140, 28)))
-                    m_showWorldSpellPanel = !m_showWorldSpellPanel;
-            }
-            ImGui::End();
-        }
-    }
-
     // Non-game-state overlays (can coexist with most things)
     if (m_showWorldSpellPanel)    renderWorldSpellPanel();
+    if (m_showKingdomPanel)       renderKingdomPanel();
     if (m_showTownPortalPopup)    renderTownPortalPopup();
     if (m_showFoundCityPopup)     renderFoundCityPopup();
     if (m_showHideoutScreen)      renderHideoutScreen();
@@ -1831,6 +1809,12 @@ void Game::checkTileEvents()
                 };
                 float wm = std::min(3.0f, 1.0f + (m_turns.week() - 1) * 0.12f);
                 std::vector<CombatUnit> utoUnits;
+                // obj.value == -1 marks a tutorial Utopia (weakened guards)
+                bool tutorialUtopia = (obj.value == -1);
+                if (tutorialUtopia) {
+                    CombatUnit c1; c1.id=50; c1.name="Ruin Warden";   c1.count=6; c1.maxHp=c1.hp=18; c1.attack=6; c1.defense=4; c1.speed=4; c1.isPlayer=false; utoUnits.push_back(c1);
+                    CombatUnit c2; c2.id=51; c2.name="Ruin Sentinel"; c2.count=4; c2.maxHp=c2.hp=28; c2.attack=9; c2.defense=6; c2.speed=3; c2.isPlayer=false; utoUnits.push_back(c2);
+                } else {
                 for (int si = 0; si < 4; ++si) {
                     CombatUnit cu;
                     cu.name    = kUtoNames[(obj.faction + si) % 9];
@@ -1843,6 +1827,7 @@ void Game::checkTileEvents()
                     if (si == 3) { cu.range = 5; cu.shots = cu.shotsLeft = 4; }
                     cu.isPlayer = false;
                     utoUnits.push_back(cu);
+                }
                 }
                 uint32_t objId = obj.id;
                 m_encounterTitle        = "Utopia (Ancient Guardian)";
@@ -2172,8 +2157,8 @@ void Game::renderWorldOverlay()
 
     // Returns true if a label at (lx, ly) of approx width lw is in a safe area,
     // i.e. not overlapping the top bar, bottom bar, or right-side panels.
-    const float HUD_TOP    = 60.0f;
-    const float HUD_BOTTOM = static_cast<float>(m_height) - 52.0f;
+    const float HUD_TOP    = 68.0f;
+    const float HUD_BOTTOM = static_cast<float>(m_height) - 100.0f;
     const float HUD_RIGHT  = static_cast<float>(m_width)  - 185.0f;
     auto labelOK = [&](float lx, float ly, float lw = 0.0f) -> bool {
         if (ly < HUD_TOP)    return false;
@@ -2971,8 +2956,9 @@ void Game::renderLevelUpModal()
                 } else {
                     m_pendingLevelUps = 0;
                     m_showLevelUpModal = false;
-                    // Grant Found City at level 10
-                    if (hero.level >= 10) {
+                    // Grant Found City: level 5 in campaign (tutorial), level 10 elsewhere
+                    int foundCityLevel = (m_state == GameState::Campaign) ? 5 : 10;
+                    if (hero.level >= foundCityLevel) {
                         bool hasFC = false;
                         for (int sid : hero.knownSpells)
                             if (sid == SPL::FOUND_CITY) { hasFC = true; break; }
@@ -4390,6 +4376,158 @@ void Game::renderEncounterPrompt()
     ImGui::End();
 }
 
+// ── Kingdom Overview panel ────────────────────────────────────────────────────
+void Game::renderKingdomPanel()
+{
+    if (!m_showKingdomPanel) return;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Once, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({560, 480}, ImGuiCond_Once);
+    ImGui::SetNextWindowBgAlpha(0.97f);
+
+    if (!ImGui::Begin("Kingdom Overview", &m_showKingdomPanel,
+        ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::End(); return;
+    }
+
+    // ── HEROES ────────────────────────────────────────────────────────────────
+    ImGui::TextColored({1.0f, 0.82f, 0.2f, 1.0f}, "HEROES");
+    ImGui::Separator();
+
+    for (const auto& h : m_heroes) {
+        char hdr[120];
+        std::snprintf(hdr, sizeof(hdr), "%s  (Level %d  ATK %d  DEF %d  MP %d/%d)",
+                      h.name.c_str(), h.level, h.attack, h.defense, h.mana, h.maxMana);
+        if (ImGui::TreeNodeEx(hdr, ImGuiTreeNodeFlags_DefaultOpen)) {
+            // Move bar
+            float mv = h.maxMove > 0 ? static_cast<float>(h.movePool) / h.maxMove : 0.0f;
+            ImGui::ProgressBar(mv, ImVec2(-1, 8), "");
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Movement: %d / %d", h.movePool, h.maxMove);
+
+            // Army
+            ImGui::TextColored({0.7f, 1.0f, 0.7f, 1.0f}, "Army:");
+            ImGui::SameLine();
+            bool first = true;
+            for (const auto& s : h.army) {
+                if (s.count <= 0) continue;
+                // Look up unit name
+                const char* uname = "Unit";
+                for (const auto& ud : m_registry.units())
+                    if (ud.id == s.defId) { uname = ud.name.c_str(); break; }
+                if (!first) ImGui::SameLine();
+                ImGui::TextColored({0.85f, 0.9f, 0.85f, 1.0f}, "[%s x%d]", uname, s.count);
+                first = false;
+            }
+            if (first) ImGui::TextDisabled("  (no army)");
+
+            // Known world-map spells
+            bool hasWS = false;
+            for (int sid : h.knownSpells) {
+                const SpellDef* sp = findSpell(sid);
+                if (sp && sp->target == SpellTarget::WorldMap) {
+                    if (!hasWS) { ImGui::TextColored({0.7f, 0.7f, 1.0f, 1.0f}, "Spells:"); ImGui::SameLine(); hasWS = true; }
+                    ImGui::TextColored({0.8f, 0.8f, 1.0f, 1.0f}, "[%s]", sp->name);
+                    ImGui::SameLine();
+                }
+            }
+            if (hasWS) ImGui::NewLine();
+
+            ImGui::TreePop();
+        }
+    }
+
+    ImGui::Spacing();
+
+    // ── TOWNS ─────────────────────────────────────────────────────────────────
+    ImGui::TextColored({1.0f, 0.82f, 0.2f, 1.0f}, "TOWNS");
+    ImGui::Separator();
+
+    static const char* kFacShort[] = {
+        "HO","BS","TK","EE","CW","VK","IA","AM","CV"
+    };
+    bool anyTown = false;
+    for (const auto& t : m_towns) {
+        if (t.ownerId != 1) continue;
+        anyTown = true;
+        int fi = static_cast<int>(t.faction);
+        char thdr[100];
+        std::snprintf(thdr, sizeof(thdr), "%s  [%s]  %d buildings",
+                      t.name.c_str(),
+                      (fi >= 0 && fi < 9) ? kFacShort[fi] : "?",
+                      static_cast<int>(t.builtBuildings.size()));
+        if (ImGui::TreeNodeEx(thdr, ImGuiTreeNodeFlags_Leaf)) {
+            // Garrison
+            if (!t.garrison.empty()) {
+                ImGui::TextColored({0.9f, 0.8f, 0.5f, 1.0f}, "Garrison:");
+                for (const auto& s : t.garrison) {
+                    const char* uname = "Unit";
+                    for (const auto& ud : m_registry.units())
+                        if (ud.id == s.defId) { uname = ud.name.c_str(); break; }
+                    ImGui::SameLine();
+                    ImGui::Text("[%s x%d]", uname, s.count);
+                }
+            }
+            ImGui::TreePop();
+        }
+    }
+    if (!anyTown) ImGui::TextDisabled("No towns owned.");
+
+    ImGui::Spacing();
+
+    // ── MINES & INCOME ────────────────────────────────────────────────────────
+    ImGui::TextColored({1.0f, 0.82f, 0.2f, 1.0f}, "MINES & INCOME");
+    ImGui::Separator();
+
+    // Aggregate mines by resource type
+    int mineCount[RESOURCE_COUNT] = {};
+    int mineIncome[RESOURCE_COUNT] = {};
+    for (const auto& r : m_resources) {
+        if (r.ownedBy != 1) continue;
+        int ri = static_cast<int>(r.type);
+        mineCount[ri]++;
+        mineIncome[ri] += r.amount;
+    }
+
+    static constexpr ImVec4 kResCol[] = {
+        {1.0f, 0.82f, 0.2f, 1.0f},  // Gold
+        {0.65f,0.72f,0.80f, 1.0f},  // Iron
+        {0.91f,0.89f,1.00f, 1.0f},  // FaithStones
+        {0.85f,0.25f,0.25f, 1.0f},  // BloodEssence
+        {0.30f,0.75f,0.35f, 1.0f},  // VerdantSap
+        {0.20f,0.72f,0.65f, 1.0f},  // Mercury
+    };
+
+    ImGui::Columns(4, "mines_cols", true);
+    ImGui::TextColored({0.8f,0.8f,0.8f,1.f}, "Resource");     ImGui::NextColumn();
+    ImGui::TextColored({0.8f,0.8f,0.8f,1.f}, "Mines owned");  ImGui::NextColumn();
+    ImGui::TextColored({0.8f,0.8f,0.8f,1.f}, "Income / wk");  ImGui::NextColumn();
+    ImGui::TextColored({0.8f,0.8f,0.8f,1.f}, "Current");      ImGui::NextColumn();
+    ImGui::Separator();
+    for (int i = 0; i < RESOURCE_COUNT; ++i) {
+        auto rt = static_cast<ResourceType>(i);
+        ImVec4 col = (i < 6) ? kResCol[i] : ImVec4(1,1,1,1);
+        ImGui::TextColored(col, "%s", resourceName(rt));     ImGui::NextColumn();
+        ImGui::Text("%d", mineCount[i]);                      ImGui::NextColumn();
+        if (mineIncome[i] > 0)
+            ImGui::TextColored({0.4f,1.f,0.4f,1.f}, "+%d", mineIncome[i]);
+        else
+            ImGui::TextDisabled("0");
+        ImGui::NextColumn();
+        ImGui::Text("%d", m_playerResources.get(rt));         ImGui::NextColumn();
+    }
+    ImGui::Columns(1);
+
+    ImGui::Spacing();
+    float bw = ImGui::GetWindowWidth() - 32.0f;
+    if (ImGui::Button("Close", ImVec2(bw, 28)))
+        m_showKingdomPanel = false;
+
+    ImGui::End();
+}
+
 // ── Mini-map ──────────────────────────────────────────────────────────────────
 // Minimap rendering is handled inside renderWorldOverlay(), toggled with M key.
 void Game::renderMinimap() {}
@@ -4401,8 +4539,8 @@ void Game::renderWorldSpellPanel()
     Hero& hero = m_heroes[m_activeHeroIdx];
 
     ImGuiIO& io = ImGui::GetIO();
-    ImGui::SetNextWindowPos({8.0f, io.DisplaySize.y - 300.0f}, ImGuiCond_Always);
-    ImGui::SetNextWindowSize({200, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowPos({8.0f, io.DisplaySize.y - 340.0f}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({220, 0}, ImGuiCond_Always);
     ImGui::SetNextWindowBgAlpha(0.93f);
     if (!ImGui::Begin("World Spells", &m_showWorldSpellPanel,
         ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove |
