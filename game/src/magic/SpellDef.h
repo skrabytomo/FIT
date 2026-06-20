@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 
-enum class SpellSchool : uint8_t { Light, Blood, Death, Nature, Forge, Flesh };
+enum class SpellSchool : uint8_t { Light, Blood, Death, Nature, Forge, Flesh, Neutral };
 
 // Who the spell targets
 enum class SpellTarget : uint8_t
@@ -11,6 +11,7 @@ enum class SpellTarget : uint8_t
     AllEnemies,    // all enemy units
     AllAllies,     // all friendly units
     Self,          // the caster's hero
+    WorldMap,      // cast on the adventure map (not usable in combat)
 };
 
 // What the spell does
@@ -26,6 +27,9 @@ enum class SpellEffect : uint8_t
     MoraleDrain,   // -power from morale of target
     Poison,        // apply poison DoT: power damage/round for 3 rounds
     Burn,          // apply burn DoT:   power damage/round for 2 rounds
+    WorldReveal,   // reveal fog in radius on the world map
+    WorldTeleport, // teleport hero to chosen friendly town
+    WorldFoundCity,// convert a cleared Utopia into a player town
 };
 
 struct SpellDef
@@ -88,4 +92,9 @@ namespace SPL
 
     // Forge (new)
     static constexpr int NAPALM         = 44;  // Burn DoT, all enemies
+
+    // Neutral (world-map spells — no school bonus, any hero can learn)
+    static constexpr int VISIONS     = 60;  // reveal fog + contents in radius
+    static constexpr int TOWN_PORTAL = 61;  // teleport to chosen friendly town
+    static constexpr int FOUND_CITY  = 62;  // convert cleared Utopia → town (level 10)
 }

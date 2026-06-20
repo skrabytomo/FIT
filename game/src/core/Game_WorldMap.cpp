@@ -1212,7 +1212,34 @@ void Game::renderWorldMapImGui()
     m_ui.endFrame();
     m_ui.flushText(ImGui::GetBackgroundDrawList());
     renderWorldOverlay();
+
+    // World-map spell button — bottom-left, visible when hero has world-map spells
+    if (!m_heroes.empty() && !m_showCombatResult && !m_showVictory && !m_showDefeat) {
+        const Hero& wsh = m_heroes[m_activeHeroIdx];
+        bool hasWS = false;
+        for (int sid : wsh.knownSpells) {
+            const SpellDef* sp = findSpell(sid);
+            if (sp && sp->target == SpellTarget::WorldMap) { hasWS = true; break; }
+        }
+        if (hasWS) {
+            ImGuiIO& wsio = ImGui::GetIO();
+            ImGui::SetNextWindowPos({8.0f, wsio.DisplaySize.y - 90.0f}, ImGuiCond_Always);
+            ImGui::SetNextWindowBgAlpha(0.85f);
+            if (ImGui::Begin("##wmap_spell_btn", nullptr,
+                ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoNav |
+                ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize |
+                ImGuiWindowFlags_NoSavedSettings)) {
+                if (ImGui::Button("World Spells", ImVec2(140, 28)))
+                    m_showWorldSpellPanel = !m_showWorldSpellPanel;
+            }
+            ImGui::End();
+        }
+    }
+
     // Non-game-state overlays (can coexist with most things)
+    if (m_showWorldSpellPanel)    renderWorldSpellPanel();
+    if (m_showTownPortalPopup)    renderTownPortalPopup();
+    if (m_showFoundCityPopup)     renderFoundCityPopup();
     if (m_showHideoutScreen)      renderHideoutScreen();
     if (m_showArtifactPanel)      renderArtifactPanel();
     if (m_showHeroInspect)        renderHeroInspect();
@@ -2944,6 +2971,16 @@ void Game::renderLevelUpModal()
                 } else {
                     m_pendingLevelUps = 0;
                     m_showLevelUpModal = false;
+                    // Grant Found City at level 10
+                    if (hero.level >= 10) {
+                        bool hasFC = false;
+                        for (int sid : hero.knownSpells)
+                            if (sid == SPL::FOUND_CITY) { hasFC = true; break; }
+                        if (!hasFC) {
+                            hero.knownSpells.push_back(SPL::FOUND_CITY);
+                            pushPickupEffect(hero.pos, "Learned: Found City!", IM_COL32(255, 215, 50, 255));
+                        }
+                    }
                 }
                 ImGui::CloseCurrentPopup();
             }
@@ -4356,3 +4393,262 @@ void Game::renderEncounterPrompt()
 // ── Mini-map ──────────────────────────────────────────────────────────────────
 // Minimap rendering is handled inside renderWorldOverlay(), toggled with M key.
 void Game::renderMinimap() {}
+
+// ── World-map spell panel ─────────────────────────────────────────────────────
+void Game::renderWorldSpellPanel()
+{
+    if (m_heroes.empty()) { m_showWorldSpellPanel = false; return; }
+    Hero& hero = m_heroes[m_activeHeroIdx];
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({8.0f, io.DisplaySize.y - 300.0f}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({200, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.93f);
+    if (!ImGui::Begin("World Spells", &m_showWorldSpellPanel,
+        ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoSavedSettings)) {
+        ImGui::End(); return;
+    }
+
+    ImGui::Text("Mana: %d / %d", hero.mana, hero.maxMana);
+    ImGui::Separator();
+
+    bool any = false;
+    for (int sid : hero.knownSpells) {
+        const SpellDef* spl = findSpell(sid);
+        if (!spl || spl->target != SpellTarget::WorldMap) continue;
+        any = true;
+        bool canAfford = hero.mana >= spl->manaCost;
+        if (!canAfford) ImGui::BeginDisabled();
+        char label[128];
+        std::snprintf(label, sizeof(label), "%dmana  %s", spl->manaCost, spl->name);
+        if (ImGui::Button(label, ImVec2(-1, 0)))
+            castWorldSpell(sid);
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", spl->desc);
+        if (!canAfford) ImGui::EndDisabled();
+    }
+    if (!any) ImGui::TextDisabled("No world-map spells known.");
+    ImGui::End();
+}
+
+// ── castWorldSpell ────────────────────────────────────────────────────────────
+void Game::castWorldSpell(int spellId)
+{
+    if (m_heroes.empty()) return;
+    Hero& hero = m_heroes[m_activeHeroIdx];
+    const SpellDef* spl = findSpell(spellId);
+    if (!spl || hero.mana < spl->manaCost) return;
+
+    if (spellId == SPL::VISIONS) {
+        hero.mana -= spl->manaCost;
+        m_audio.playSound("spell");
+        // Temporarily expand vision to reveal radius around hero
+        int saved = hero.visionRange;
+        hero.visionRange = spl->power;
+        FogOfWar::updateVision(m_map, hero);
+        hero.visionRange = saved;
+        // Count revealed entities for feedback
+        int found = 0;
+        for (const auto& eh : m_enemyHeroes)
+            if (HexGrid::distance(hero.pos, eh.pos) <= spl->power) ++found;
+        for (const auto& obj : m_worldObjects)
+            if (!obj.collected && HexGrid::distance(hero.pos, obj.pos) <= spl->power) ++found;
+        char buf[64];
+        std::snprintf(buf, sizeof(buf), "Visions: %d things revealed", found);
+        pushPickupEffect(hero.pos, buf, IM_COL32(160, 160, 255, 255));
+        m_showWorldSpellPanel = false;
+    }
+    else if (spellId == SPL::TOWN_PORTAL) {
+        if (hero.movePool < hero.maxMove) {
+            pushPickupEffect(hero.pos,
+                "Town Portal needs full movement — hero already moved!",
+                IM_COL32(255, 80, 80, 255));
+            return;
+        }
+        hero.mana -= spl->manaCost;
+        m_audio.playSound("spell");
+        m_showWorldSpellPanel = false;
+        m_showTownPortalPopup = true;
+    }
+    else if (spellId == SPL::FOUND_CITY) {
+        if (hero.level < 10) {
+            pushPickupEffect(hero.pos, "Found City requires hero level 10!",
+                IM_COL32(255, 80, 80, 255));
+            return;
+        }
+        // Must stand on a cleared Utopia
+        WorldObject* utopia = nullptr;
+        for (auto& obj : m_worldObjects)
+            if (obj.type == WorldObjectType::Utopia && obj.pos == hero.pos && obj.collected)
+                { utopia = &obj; break; }
+        if (!utopia) {
+            pushPickupEffect(hero.pos, "Found City: must stand on a cleared Utopia!",
+                IM_COL32(255, 80, 80, 255));
+            return;
+        }
+        // Check cost: 10 000 gold + 10 each other resource
+        Resources cost;
+        cost.set(ResourceType::Gold,         10000);
+        cost.set(ResourceType::Iron,            10);
+        cost.set(ResourceType::FaithStones,     10);
+        cost.set(ResourceType::BloodEssence,    10);
+        cost.set(ResourceType::VerdantSap,      10);
+        cost.set(ResourceType::Mercury,         10);
+        if (!m_playerResources.canAfford(cost)) {
+            pushPickupEffect(hero.pos, "Found City: insufficient resources!",
+                IM_COL32(255, 80, 80, 255));
+            return;
+        }
+        m_foundCityUtopiaId = utopia->id;
+        hero.mana -= spl->manaCost;
+        m_audio.playSound("spell");
+        m_showWorldSpellPanel = false;
+        m_showFoundCityPopup  = true;
+    }
+}
+
+// ── Town Portal popup ─────────────────────────────────────────────────────────
+void Game::renderTownPortalPopup()
+{
+    if (!m_showTownPortalPopup) return;
+    if (m_heroes.empty()) { m_showTownPortalPopup = false; return; }
+    Hero& hero = m_heroes[m_activeHeroIdx];
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({320, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar
+                        | ImGuiWindowFlags_NoSavedSettings;
+    if (!ImGui::Begin("##townportal", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({0.6f, 0.8f, 1.0f, 1.0f}, "Town Portal");
+    ImGui::Separator();
+    ImGui::TextWrapped("Choose a destination (all movement spent on arrival):");
+    ImGui::Spacing();
+
+    // Collect player towns sorted by distance
+    std::vector<std::pair<int,Town*>> options;
+    for (auto& t : m_towns)
+        if (t.ownerId == 1)
+            options.push_back({HexGrid::distance(hero.pos, t.pos), &t});
+    std::sort(options.begin(), options.end(),
+              [](const auto& a, const auto& b){ return a.first < b.first; });
+
+    if (options.empty()) {
+        ImGui::TextDisabled("No friendly towns.");
+    }
+    for (auto& [dist, t] : options) {
+        char label[80];
+        std::snprintf(label, sizeof(label), "%s  (%d tiles away)", t->name.c_str(), dist);
+        if (ImGui::Button(label, ImVec2(-1, 30))) {
+            // Remove hero from old tile
+            if (HexTile* ot = m_map.getTile(hero.pos)) ot->heroId = 0;
+            hero.pos = t->pos;
+            hero.movePool = 0;
+            if (HexTile* nt = m_map.getTile(hero.pos)) nt->heroId = hero.id;
+            FogOfWar::updateVision(m_map, hero);
+            // Snap camera to destination
+            float wx, wy;
+            m_hexRenderer.grid().hexToWorld(hero.pos, wx, wy);
+            m_camera.setPosition(wx, wy);
+            pushPickupEffect(hero.pos, "Town Portal!", IM_COL32(100, 180, 255, 255));
+            m_showTownPortalPopup = false;
+        }
+    }
+
+    ImGui::Spacing();
+    if (ImGui::Button("Cancel", ImVec2(-1, 28))) {
+        // Refund mana — spell was already deducted before opening popup
+        const SpellDef* spl = findSpell(SPL::TOWN_PORTAL);
+        if (spl) hero.mana = std::min(hero.maxMana, hero.mana + spl->manaCost);
+        m_showTownPortalPopup = false;
+    }
+    ImGui::End();
+}
+
+// ── Found City popup ──────────────────────────────────────────────────────────
+void Game::renderFoundCityPopup()
+{
+    if (!m_showFoundCityPopup) return;
+    if (m_heroes.empty()) { m_showFoundCityPopup = false; return; }
+    Hero& hero = m_heroes[m_activeHeroIdx];
+
+    // Find the Utopia object by id
+    WorldObject* utopia = nullptr;
+    for (auto& obj : m_worldObjects)
+        if (obj.id == m_foundCityUtopiaId) { utopia = &obj; break; }
+    if (!utopia) { m_showFoundCityPopup = false; return; }
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({360, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar
+                        | ImGuiWindowFlags_NoSavedSettings;
+    if (!ImGui::Begin("##foundcity", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({1.0f, 0.85f, 0.3f, 1.0f}, "Found City");
+    ImGui::Separator();
+    ImGui::TextWrapped("Choose the faction for your new settlement.");
+    ImGui::TextWrapped("Cost: 10000 Gold + 10 Iron + 10 Faith Stones + 10 Blood Essence + 10 Verdant Sap + 10 Mercury");
+    ImGui::Spacing();
+
+    static const char* kFacNames[] = {
+        "Holy Order","Bloodsworn","Thornkin","Eternal Empire",
+        "Crimson Wardens","Voidkin","Iron Assembly","Amalgamate","Convergence"
+    };
+    float bw = ImGui::GetWindowWidth() - 32.0f;
+    HexCoord cityPos = utopia->pos;
+
+    for (int i = 0; i < 9; ++i) {
+        if (ImGui::Button(kFacNames[i], ImVec2(bw, 30))) {
+            Resources cost;
+            cost.set(ResourceType::Gold,         10000);
+            cost.set(ResourceType::Iron,            10);
+            cost.set(ResourceType::FaithStones,     10);
+            cost.set(ResourceType::BloodEssence,    10);
+            cost.set(ResourceType::VerdantSap,      10);
+            cost.set(ResourceType::Mercury,         10);
+            m_playerResources.spend(cost);
+
+            // Build unique town id
+            uint32_t newId = 1;
+            for (const auto& t : m_towns) newId = std::max(newId, t.id + 1);
+
+            Town newTown;
+            newTown.id      = newId;
+            newTown.name    = std::string(kFacNames[i]) + " Settlement";
+            newTown.faction = static_cast<FactionId>(i);
+            newTown.pos     = cityPos;
+            newTown.ownerId = 1;
+            if (HexTile* ht = m_map.getTile(newTown.pos)) ht->townId = newTown.id;
+            m_towns.push_back(newTown);
+
+            // Remove the Utopia world object
+            m_worldObjects.erase(
+                std::remove_if(m_worldObjects.begin(), m_worldObjects.end(),
+                    [this](const WorldObject& o){ return o.id == m_foundCityUtopiaId; }),
+                m_worldObjects.end());
+
+            char buf[64];
+            std::snprintf(buf, sizeof(buf), "Founded: %s Settlement!", kFacNames[i]);
+            pushPickupEffect(hero.pos, buf, IM_COL32(255, 215, 50, 255));
+            m_showFoundCityPopup = false;
+        }
+    }
+
+    ImGui::Spacing();
+    if (ImGui::Button("Cancel", ImVec2(bw, 28))) {
+        // Refund mana
+        const SpellDef* spl = findSpell(SPL::FOUND_CITY);
+        if (spl) hero.mana = std::min(hero.maxMana, hero.mana + spl->manaCost);
+        m_showFoundCityPopup = false;
+    }
+    ImGui::End();
+}

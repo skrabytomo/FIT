@@ -117,6 +117,12 @@ private:
     // ── Combat spell panel ─────────────────────────────────────────────────────
     void renderSpellPanel();
 
+    // ── World-map spell panel and effects ─────────────────────────────────────
+    void renderWorldSpellPanel();
+    void renderTownPortalPopup();
+    void renderFoundCityPopup();
+    void castWorldSpell(int spellId);
+
     // ── Combat board (hex grid with units) ────────────────────────────────────
     void renderCombatBoard();
 
@@ -335,6 +341,12 @@ private:
     int         m_marketSellQty         = 4;   // multiples of trade ratio
 
     // ── Town capture notification ─────────────────────────────────────────────
+    // ── World-map spell panel ─────────────────────────────────────────────────
+    bool        m_showWorldSpellPanel = false;
+    bool        m_showTownPortalPopup = false;
+    bool        m_showFoundCityPopup  = false;
+    uint32_t    m_foundCityUtopiaId   = 0;
+
     bool        m_showCapturePopup  = false;
     std::string m_capturedTownName;
 

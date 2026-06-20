@@ -362,6 +362,42 @@ void Game::renderMageGuild()
             ImGui::SetTooltip("%s", sp->desc);
         ImGui::PopID();
     }
+
+    // Neutral spells — always available regardless of faction
+    // Visions: T1 guild. Town Portal: T2+ guild.
+    ImGui::Separator();
+    ImGui::TextColored(ImVec4(0.75f, 0.75f, 1.0f, 1.0f), "Neutral (Universal)");
+    struct NeutralEntry { int spellId; int goldCost; int minTier; };
+    static constexpr NeutralEntry kNeutral[] = {
+        { SPL::VISIONS,     2000, 1 },
+        { SPL::TOWN_PORTAL, 4000, 2 },
+    };
+    for (const auto& ne : kNeutral) {
+        if (tierLevel < ne.minTier) continue;
+        const SpellDef* sp = findSpell(ne.spellId);
+        if (!sp) continue;
+        bool alreadyKnown = false;
+        for (int sid : hero.knownSpells) if (sid == sp->id) { alreadyKnown = true; break; }
+        ImGui::PushID(ne.spellId + 1000);
+        if (alreadyKnown) {
+            ImGui::TextColored(ImVec4(0.4f,1.f,0.4f,1.f), "[known] %s", sp->name);
+        } else {
+            int cost = static_cast<int>(ne.goldCost * costMult);
+            bool canAfford = m_playerResources.get(ResourceType::Gold) >= cost;
+            if (!canAfford) ImGui::BeginDisabled();
+            char btn[80];
+            std::snprintf(btn, sizeof(btn), "Learn %s  (%dg)", sp->name, cost);
+            if (ImGui::Button(btn, ImVec2(-1, 0))) {
+                hero.knownSpells.push_back(sp->id);
+                m_playerResources.add(ResourceType::Gold, -cost);
+            }
+            if (!canAfford) ImGui::EndDisabled();
+        }
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+            ImGui::SetTooltip("%s", sp->desc);
+        ImGui::PopID();
+    }
+
     ImGui::End();
 }
 

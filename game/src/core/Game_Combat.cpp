@@ -817,6 +817,7 @@ void Game::renderSpellPanel()
     for (int sid : hero.knownSpells) {
         const SpellDef* spell = findSpell(sid);
         if (!spell) continue;
+        if (spell->target == SpellTarget::WorldMap) continue;  // world-map only
 
         bool freeBlood  = hasFreeByCast && spell->school == SpellSchool::Blood;
         bool freeMirror = hasFreeByMirror;
@@ -843,7 +844,7 @@ void Game::renderSpellPanel()
             {0.8f, 0.5f,  0.2f, 1.0f},  // Flesh — orange
         };
         int si = static_cast<int>(spell->school);
-        if (si < 0 || si >= 6) si = 0;
+        if (si < 0 || si >= static_cast<int>(std::size(kSchoolCol))) si = 0;
 
         ImGui::PushStyleColor(ImGuiCol_Text, kSchoolCol[si]);
         char btnLabel[160];

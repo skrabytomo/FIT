@@ -43,6 +43,11 @@ static const SpellDef ALL_SPELLS[] = {
     {SPL::TOXIN,          "Toxin",           "Toxic cloud drains enemy morale",              SpellSchool::Flesh, SpellTarget::SingleEnemy,   SpellEffect::MoraleDrain,    4,  20},
     {SPL::GROWTH,         "Growth",          "All allies surge with life — morale boost",    SpellSchool::Flesh, SpellTarget::AllAllies,     SpellEffect::MoraleBoost,    7,  15},
     {SPL::ACID_SPRAY,     "Acid Spray",      "Corrosive acid — burns one enemy for 2 rounds",              SpellSchool::Flesh, SpellTarget::SingleEnemy, SpellEffect::Burn, 7, 12},
+
+    // ── NEUTRAL (world-map only) ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+    {SPL::VISIONS,    "Visions",    "Reveals terrain, objects and enemy forces within 5 tiles",    SpellSchool::Neutral, SpellTarget::WorldMap, SpellEffect::WorldReveal,    5, 5 },
+    {SPL::TOWN_PORTAL,"Town Portal","Teleport to a friendly town (requires full daily movement)",   SpellSchool::Neutral, SpellTarget::WorldMap, SpellEffect::WorldTeleport,  8, 0 },
+    {SPL::FOUND_CITY, "Found City", "Convert a cleared Utopia into a town of your chosen faction (level 10; costs 10000 Gold + 10 each resource)", SpellSchool::Neutral, SpellTarget::WorldMap, SpellEffect::WorldFoundCity, 15, 0},
 };
 // clang-format on
 
