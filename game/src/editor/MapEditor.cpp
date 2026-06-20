@@ -348,25 +348,54 @@ void MapEditor::drawGenPanel(HexMap& map,
                               std::vector<WorldObject>& worldObjects)
 {
     ImGui::SetNextWindowPos({(float)m_screenW - 200.f, 418.f}, ImGuiCond_Always);
-    ImGui::SetNextWindowSize({196.f, 220.f}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({196.f, 330.f}, ImGuiCond_Always);
     ImGui::Begin("ProGen", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoSavedSettings);
 
     ImGui::Text("Procedural Gen");
-    ImGui::InputInt("Seed",    &m_genSeed);
-    ImGui::InputInt("Players", &m_genPlayers);
-    ImGui::SliderFloat("Resource Density", &m_genResDensity, 0.25f, 3.0f);
+
+    // Template picker
+    static const char* kTemplateNames[] = {
+        "Custom", "Balanced Hexagon", "Jebus Cross", "Large Jebus", "Ring Island"
+    };
+    if (ImGui::Combo("Template", &m_genTemplateIdx, kTemplateNames, 5)) {
+        if (m_genTemplateIdx > 0) {
+            const MapTemplate& tmpl = kMapTemplates[m_genTemplateIdx - 1];
+            m_genShapeIdx  = static_cast<int>(tmpl.shape);
+            m_genSizeIdx   = static_cast<int>(tmpl.size);
+            m_genPlayers   = tmpl.playerCount;
+            m_genWaterRatio = tmpl.waterRatio;
+        }
+    }
+
+    // Shape (disabled when a template is selected)
+    static const char* kShapes[] = {"Hexagon", "Jebus Cross", "Ring"};
+    bool isCustom = (m_genTemplateIdx == 0);
+    if (!isCustom) ImGui::BeginDisabled();
+    ImGui::Combo("Shape", &m_genShapeIdx, kShapes, 3);
+    if (!isCustom) ImGui::EndDisabled();
 
     static const char* kSizes[] = {"Small","Medium","Large","XLarge"};
     ImGui::Combo("Map Size", &m_genSizeIdx, kSizes, 4);
 
+    ImGui::InputInt("Players", &m_genPlayers);
+
+    int waterPct = static_cast<int>(m_genWaterRatio * 100.f);
+    if (ImGui::SliderInt("Water %", &waterPct, 5, 40))
+        m_genWaterRatio = waterPct / 100.f;
+
+    ImGui::InputInt("Seed", &m_genSeed);
+    ImGui::SliderFloat("Res Density", &m_genResDensity, 0.25f, 3.0f);
+
     if (ImGui::Button("Generate!", {180.f, 30.f})) {
         WorldGenParams p;
-        p.seed         = static_cast<uint32_t>(m_genSeed);
-        p.size         = static_cast<MapSize>(m_genSizeIdx);
-        p.playerCount  = std::max(1, std::min(m_genPlayers, 8));
+        p.seed            = static_cast<uint32_t>(m_genSeed);
+        p.size            = static_cast<MapSize>(m_genSizeIdx);
+        p.playerCount     = std::max(1, std::min(m_genPlayers, 8));
         p.resourceDensity = m_genResDensity;
+        p.waterRatio      = m_genWaterRatio;
+        p.shape           = static_cast<MapShape>(m_genShapeIdx);
 
         map.create(p.size);
         auto result = WorldGen::generate(map, p);

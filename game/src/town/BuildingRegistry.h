@@ -144,6 +144,63 @@ namespace BID {
     constexpr int CV_T6           = 906; // Unified Form
     constexpr int CV_RESONANCE_WELL = 907; // Mirroring support
     constexpr int CV_MIRROR_CHAMBER = 908; // Mirror duration
+
+    // CrimsonWardens upgrades (21x)
+    constexpr int CW_T1_A = 211, CW_T1_B = 212;
+    constexpr int CW_T2_A = 213, CW_T2_B = 214;
+    constexpr int CW_T3_A = 215, CW_T3_B = 216;
+    constexpr int CW_T4_A = 217, CW_T4_B = 218;
+    constexpr int CW_T5_A = 219, CW_T5_B = 220;
+    constexpr int CW_T6_A = 221, CW_T6_B = 222;
+    // Thornkin upgrades (31x)
+    constexpr int TK_T1_A = 311, TK_T1_B = 312;
+    constexpr int TK_T2_A = 313, TK_T2_B = 314;
+    constexpr int TK_T3_A = 315, TK_T3_B = 316;
+    constexpr int TK_T4_A = 317, TK_T4_B = 318;
+    constexpr int TK_T5_A = 319, TK_T5_B = 320;
+    constexpr int TK_T6_A = 321, TK_T6_B = 322;
+    // EternalEmpire upgrades (41x)
+    constexpr int EE_T1_A = 411, EE_T1_B = 412;
+    constexpr int EE_T2_A = 413, EE_T2_B = 414;
+    constexpr int EE_T3_A = 415, EE_T3_B = 416;
+    constexpr int EE_T4_A = 417, EE_T4_B = 418;
+    constexpr int EE_T5_A = 419, EE_T5_B = 420;
+    constexpr int EE_T6_A = 421, EE_T6_B = 422;
+    // Bloodsworn upgrades (51x)
+    constexpr int BS_T1_A = 511, BS_T1_B = 512;
+    constexpr int BS_T2_A = 513, BS_T2_B = 514;
+    constexpr int BS_T3_A = 515, BS_T3_B = 516;
+    constexpr int BS_T4_A = 517, BS_T4_B = 518;
+    constexpr int BS_T5_A = 519, BS_T5_B = 520;
+    constexpr int BS_T6_A = 521, BS_T6_B = 522;
+    // Voidkin upgrades (61x)
+    constexpr int VK_T1_A = 611, VK_T1_B = 612;
+    constexpr int VK_T2_A = 613, VK_T2_B = 614;
+    constexpr int VK_T3_A = 615, VK_T3_B = 616;
+    constexpr int VK_T4_A = 617, VK_T4_B = 618;
+    constexpr int VK_T5_A = 619, VK_T5_B = 620;
+    constexpr int VK_T6_A = 621, VK_T6_B = 622;
+    // IronAssembly upgrades (71x)
+    constexpr int IA_T1_A = 711, IA_T1_B = 712;
+    constexpr int IA_T2_A = 713, IA_T2_B = 714;
+    constexpr int IA_T3_A = 715, IA_T3_B = 716;
+    constexpr int IA_T4_A = 717, IA_T4_B = 718;
+    constexpr int IA_T5_A = 719, IA_T5_B = 720;
+    constexpr int IA_T6_A = 721, IA_T6_B = 722;
+    // Amalgamate upgrades (81x)
+    constexpr int AM_T1_A = 811, AM_T1_B = 812;
+    constexpr int AM_T2_A = 813, AM_T2_B = 814;
+    constexpr int AM_T3_A = 815, AM_T3_B = 816;
+    constexpr int AM_T4_A = 817, AM_T4_B = 818;
+    constexpr int AM_T5_A = 819, AM_T5_B = 820;
+    constexpr int AM_T6_A = 821, AM_T6_B = 822;
+    // Convergence upgrades (91x)
+    constexpr int CV_T1_A = 911, CV_T1_B = 912;
+    constexpr int CV_T2_A = 913, CV_T2_B = 914;
+    constexpr int CV_T3_A = 915, CV_T3_B = 916;
+    constexpr int CV_T4_A = 917, CV_T4_B = 918;
+    constexpr int CV_T5_A = 919, CV_T5_B = 920;
+    constexpr int CV_T6_A = 921, CV_T6_B = 922;
 }
 
 class BuildingRegistry

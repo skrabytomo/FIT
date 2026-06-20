@@ -34,6 +34,7 @@ public:
     void onHeroDefeated(uint32_t heroId);
     void onResourcesChecked(ResourceType type, int amount);
     void onTileReached(HexCoord pos);
+    void triggerMissionLoss();  // called when player is finally defeated with no recovery
 
     // Decision flow
     bool                    hasPendingDecision() const;

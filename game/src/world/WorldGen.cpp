@@ -39,6 +39,9 @@ WorldGenResult WorldGen::generate(HexMap& map, const WorldGenParams& p)
     // 1. Fill map with noise-driven terrain
     passNoiseTerrain(map, p);
 
+    // 1b. Apply shape constraints (water corridors for JebusCross, inner hole for Ring)
+    passShapeConstraints(map, p.shape);
+
     // 2. Pick player spawn zones
     auto spawnPos = pickSpawnPositions(map, p.playerCount, p.seed);
 
@@ -157,6 +160,38 @@ Terrain WorldGen::heightToTerrain(float h, float waterCutoff)
 bool WorldGen::isLand(Terrain t)
 {
     return t != Terrain::Water;
+}
+
+// ── Shape constraints: force water corridors or inner hole ────────────────────
+void WorldGen::passShapeConstraints(HexMap& map, MapShape shape)
+{
+    if (shape == MapShape::Hexagon) return; // no constraints needed
+
+    int R = map.radius();
+
+    for (auto& c : map.coords()) {
+        int q = c.q, r = c.r, s = -q - r;
+
+        if (shape == MapShape::JebusCross) {
+            // Corridor half-width scales with map radius
+            int W = std::max(2, R / 8);
+            // Force water where two of the three cube axes are within W of 0
+            // This creates 3 corridors (6-pointed) but for 4-quadrant Jebus
+            // we use just q-axis and r-axis corridors
+            if (std::abs(q) <= W || std::abs(r) <= W) {
+                if (HexTile* t = map.getTile(c))
+                    t->terrain = Terrain::Water;
+            }
+        } else if (shape == MapShape::Ring) {
+            // Force inner circle to be water to create a donut
+            int innerR = R * 2 / 5;
+            int dist   = std::max({std::abs(q), std::abs(r), std::abs(s)});
+            if (dist <= innerR) {
+                if (HexTile* t = map.getTile(c))
+                    t->terrain = Terrain::Water;
+            }
+        }
+    }
 }
 
 // ── Pass 2a: Biome clusters (legacy path) ─────────────────────────────────────

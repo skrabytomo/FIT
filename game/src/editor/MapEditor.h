@@ -4,6 +4,7 @@
 #include "../world/HexMap.h"
 #include "../world/HexGrid.h"
 #include "../world/WorldObject.h"
+#include "../world/WorldGen.h"
 #include "../town/Town.h"
 #include "../data/ResourceNode.h"
 #include "../data/MapFormat.h"
@@ -114,6 +115,9 @@ private:
     int      m_genPlayers     = 2;
     float    m_genResDensity  = 1.0f;
     int      m_genSizeIdx     = 1;   // index into Small/Medium/Large/XLarge
+    int      m_genShapeIdx    = 0;   // 0=Hexagon, 1=JebusCross, 2=Ring
+    int      m_genTemplateIdx = 0;   // 0=Custom, 1-4=named templates
+    float    m_genWaterRatio  = 0.15f;
 
     // File dialog state
     char m_filePath[256] = "maps/untitled.map";

@@ -7,6 +7,33 @@
 #include "../town/Town.h"
 #include "../world/WorldObject.h"
 
+// ── Map shape ─────────────────────────────────────────────────────────────────
+enum class MapShape : uint8_t
+{
+    Hexagon,    // circular island — default
+    JebusCross, // water corridors divide map into 4 quadrants (ideal 4p)
+    Ring,       // donut — center is water, players on perimeter (ideal 3p)
+};
+
+// ── Named templates ───────────────────────────────────────────────────────────
+struct MapTemplate
+{
+    const char* name;
+    const char* desc;
+    MapShape    shape;
+    MapSize     size;
+    int         playerCount;
+    float       waterRatio;
+};
+
+static const MapTemplate kMapTemplates[] = {
+    { "Balanced Hexagon", "2-player circular island",         MapShape::Hexagon,    MapSize::Medium, 2, 0.15f },
+    { "Jebus Cross",      "4-player quadrant map",            MapShape::JebusCross, MapSize::Large,  4, 0.20f },
+    { "Large Jebus",      "8-player large quadrant map",      MapShape::JebusCross, MapSize::XLarge, 8, 0.20f },
+    { "Ring Island",      "3-player perimeter ring",          MapShape::Ring,       MapSize::Medium, 3, 0.25f },
+};
+static constexpr int kMapTemplateCount = 4;
+
 // ── Generation parameters ──────────────────────────────────────────────────────
 struct WorldGenParams
 {
@@ -18,6 +45,7 @@ struct WorldGenParams
     float    waterRatio      = 0.15f; // target fraction of map that is water
     bool     richNeutralZones = true;  // extra objects in neutral zones
     bool     zoneBasedTerrain = true;  // use zone terrain vs old noise biomes
+    MapShape shape            = MapShape::Hexagon; // overall map layout
 };
 
 // ── Generation results ─────────────────────────────────────────────────────────
@@ -38,6 +66,7 @@ public:
 
 private:
     static void passNoiseTerrain(HexMap& map, const WorldGenParams& p);
+    static void passShapeConstraints(HexMap& map, MapShape shape);
     static void passBiomeClusters(HexMap& map, const WorldGenParams& p,
                                   const std::vector<HexCoord>& centers);
     static void passSmoothCoastlines(HexMap& map, int iterations = 2);

@@ -219,25 +219,25 @@ void CampaignManager::startMission(int id)
 void CampaignManager::onWeekStart(int week, LuaEngine& lua)
 {
     if (m_over) return;
+    if (m_pendingDecIdx >= 0) return;  // unresolved decision — wait for player
     auto& mission = m_missions[m_currentIdx];
 
     // Check if a decision should trigger this week
     for (auto& [trigWeek, decId] : mission.decisionWeekTriggers) {
         if (trigWeek == week) {
-            // Find the decision
             for (int i = 0; i < static_cast<int>(mission.decisions.size()); ++i) {
                 if (mission.decisions[i].id == static_cast<uint32_t>(decId) &&
                     !mission.decisions[i].resolved)
                 {
                     m_pendingDecIdx = i;
                     fireEvent(CampaignEvent::DecisionPresented);
-                    return;  // Present one at a time
+                    break;  // Present one at a time — but continue to check objectives
                 }
             }
         }
     }
 
-    // Check SurviveWeeks objectives
+    // Check SurviveWeeks objectives (runs even if a decision was just triggered)
     for (auto& obj : mission.objectives) {
         if (obj.type == ObjectiveType::SurviveWeeks && !obj.completed) {
             if (week >= obj.targetValue) {
@@ -301,7 +301,7 @@ void CampaignManager::onResourcesChecked(ResourceType type, int amount)
             tryCompleteObjective(obj, true);
         }
     }
-    // No checkAllObjectives here — bonus objectives don't trigger completion
+    checkAllObjectives();
 }
 
 bool CampaignManager::hasPendingDecision() const
@@ -393,6 +393,12 @@ void CampaignManager::checkAllObjectives()
     if (allRequired) {
         completeMission(true);
     }
+}
+
+void CampaignManager::triggerMissionLoss()
+{
+    if (!m_over)
+        completeMission(false);
 }
 
 void CampaignManager::completeMission(bool won)

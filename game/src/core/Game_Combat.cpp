@@ -1686,6 +1686,8 @@ void Game::exitCombat(bool playerWon)
                     if (t.ownerId == 1) { anyTown = true; break; }
                 m_finalDefeat = !anyUnit && !anyTown;
             }
+            if (m_state == GameState::Campaign && m_finalDefeat)
+                m_campaign.triggerMissionLoss();
             m_audio.playSound("hit");
         }
     }
