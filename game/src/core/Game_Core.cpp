@@ -388,6 +388,9 @@ bool Game::loadGame(const std::string& path)
     SaveLoad::unpackState(data, m_map, m_heroes, m_enemyHeroes,
                           m_towns, m_worldObjects, m_resources, m_nextObjId,
                           m_playerResources, day, week);
+    for (const auto& wo : m_worldObjects)
+        if (wo.type == WorldObjectType::Barrier && !wo.collected)
+            if (HexTile* t = m_map.getTile(wo.pos)) t->blocked = true;
 
     m_newGameDifficulty = data.difficulty;
     m_activeHeroIdx = (!m_heroes.empty())

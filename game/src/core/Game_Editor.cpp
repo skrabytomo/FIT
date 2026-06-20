@@ -267,6 +267,15 @@ void Game::renderEditor()
                 break;
             }
 
+            case WorldObjectType::Barrier: {
+                dl->AddRectFilled({sx - 9, sy - 9}, {sx + 9, sy + 9},
+                                  IM_COL32(80, 70, 60, 220));
+                dl->AddRect({sx - 9, sy - 9}, {sx + 9, sy + 9},
+                            IM_COL32(200, 190, 170, 220), 0.f, 0, 2.0f);
+                dl->AddLine({sx - 6, sy - 6}, {sx + 6, sy + 6}, IM_COL32(200, 190, 170, 220), 2.0f);
+                dl->AddLine({sx + 6, sy - 6}, {sx - 6, sy + 6}, IM_COL32(200, 190, 170, 220), 2.0f);
+                break;
+            }
             default: {
                 dl->AddCircleFilled({sx, sy}, 7.f, IM_COL32(180, 180, 180, 200));
                 shortName = "?";

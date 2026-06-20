@@ -383,7 +383,7 @@ void Game::updateWorldMap(float dt)
         m_selected = {-999, -999};
         auto costFn2 = [this, &nextHero](HexCoord c) -> int {
             const HexTile* t = m_map.getTile(c);
-            if (!t || !nextHero.canEnter(t->terrain)) return 999;
+            if (!t || !nextHero.canEnter(t->terrain) || t->blocked) return 999;
             int base = nextHero.moveCost(t->terrain);
             if (m_roadHexes.count(c)) base = std::max(1, base / 2);
             return base;
@@ -503,7 +503,7 @@ void Game::doEndTurn()
 
                     auto costFn = [this, &eHero, aggressive](HexCoord c) -> int {
                         const HexTile* t = m_map.getTile(c);
-                        if (!t || !eHero.canEnter(t->terrain)) return 999;
+                        if (!t || !eHero.canEnter(t->terrain) || t->blocked) return 999;
                         // Only block passage through player towns, not destination
                         if (!aggressive && t->townId != 0) {
                             for (const auto& town : m_towns)
@@ -1299,12 +1299,12 @@ void Game::onTileClicked(HexCoord h)
     }
 
     Hero& hero = m_heroes[m_activeHeroIdx];
-    if (!hero.canEnter(tile->terrain)) return;
+    if (!hero.canEnter(tile->terrain) || tile->blocked) return;
     if (m_moveT < 1.0f) return;
 
     auto costFn = [this, &hero](HexCoord c) -> int {
         const HexTile* t = m_map.getTile(c);
-        if (!t || !hero.canEnter(t->terrain)) return 999;
+        if (!t || !hero.canEnter(t->terrain) || t->blocked) return 999;
         int base = hero.moveCost(t->terrain);
         if (m_roadHexes.count(c)) base = std::max(1, base / 2);
         return base;
@@ -2018,6 +2018,8 @@ void Game::checkTileEvents()
                 m_showTreeKnowledgePopup = true;
             }
             break;
+        case WorldObjectType::Barrier:
+            break;  // impassable — hero cannot enter this tile anyway
         }
     }
 
@@ -2318,6 +2320,7 @@ void Game::renderWorldOverlay()
     // ── World objects ──────────────────────────────────────────────────────────
     for (int oi = 0; oi < static_cast<int>(m_worldObjects.size()); ++oi) {
         const auto& obj = m_worldObjects[oi];
+        if (obj.type == WorldObjectType::Barrier) continue;  // drawn as blocked terrain
         // NeutralOutpost and WitchHut stay visible after collection
         if (obj.collected && obj.type != WorldObjectType::NeutralOutpost
             && obj.type != WorldObjectType::WitchHut) continue;
@@ -2697,7 +2700,7 @@ void Game::renderWorldOverlay()
                 // Movement cost tooltip (roads halve terrain cost)
                 auto costFn = [this, &activeHero](HexCoord c) -> int {
                     const HexTile* t = m_map.getTile(c);
-                    if (!t || !activeHero.canEnter(t->terrain)) return 999;
+                    if (!t || !activeHero.canEnter(t->terrain) || t->blocked) return 999;
                     int base = activeHero.moveCost(t->terrain);
                     if (m_roadHexes.count(c)) base = std::max(1, base / 2);
                     return base;
@@ -2718,7 +2721,9 @@ void Game::renderWorldOverlay()
                     else          ImGui::Text("%d day%s  (%d MP)", days, days == 1 ? "" : "s", totalCost);
                 } else {
                     const HexTile* bt = m_map.getTile(m_hovered);
-                    if (bt && !activeHero.canEnter(bt->terrain))
+                    if (bt && bt->blocked)
+                        ImGui::TextColored({1.0f, 0.4f, 0.4f, 1.0f}, "Barrier");
+                    else if (bt && !activeHero.canEnter(bt->terrain))
                         ImGui::TextColored({1.0f, 0.4f, 0.4f, 1.0f}, "Impassable terrain");
                     else
                         ImGui::TextColored({1.0f, 0.4f, 0.4f, 1.0f}, "Unreachable");
@@ -2727,10 +2732,10 @@ void Game::renderWorldOverlay()
                 static const char* kTerrainNames[] = {
                     "Plains","Forest","Highland","Corrupted","Toxic","Sacred",
                     "Industrial","Rocky","Swamp","Water","Volcanic","Barren",
-                    "Wasteland","Corrupted Forest","Flesh Zone"
+                    "Wasteland","Corrupted Forest","Flesh Zone","Mountain"
                 };
                 int tidx = static_cast<int>(ht->terrain);
-                if (tidx >= 0 && tidx < 15)
+                if (tidx >= 0 && tidx < 16)
                     ImGui::TextDisabled("%s", kTerrainNames[tidx]);
             }
             ImGui::EndTooltip();
@@ -2769,6 +2774,7 @@ void Game::renderWorldOverlay()
             case Terrain::Wasteland:      return IM_COL32(125,  95,  55, a);
             case Terrain::CorruptedForest:return IM_COL32( 45,  65,  65, a);
             case Terrain::FleshZone:      return IM_COL32(155,  75,  75, a);
+            case Terrain::Mountain:       return IM_COL32(110, 100,  90, a);
             default:                      return IM_COL32( 95,  95,  95, a);
             }
         };

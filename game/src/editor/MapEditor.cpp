@@ -34,8 +34,9 @@ static const char* kWorldObjNames[] = {
     "WitchHut",
     "Stables",
     "TreeOfKnowledge",
+    "Barrier",
 };
-static constexpr int kWorldObjNameCount = 26;
+static constexpr int kWorldObjNameCount = 27;
 
 static const char* kFactionNames[] = {
     "HolyOrder","CrimsonWardens","Thornkin","EternalEmpire",
@@ -195,6 +196,7 @@ void MapEditor::drawTerrainPalette()
         {Terrain::Wasteland,      "Wasteland",       0.55f,0.45f,0.3f},
         {Terrain::CorruptedForest,"Corrupt.Forest",  0.3f, 0.2f,0.45f},
         {Terrain::FleshZone,      "FleshZone",       0.75f,0.35f,0.35f},
+        {Terrain::Mountain,       "Mountain",        0.55f,0.50f,0.45f},
     };
 
     for (auto& te : kTerrains) {
@@ -527,6 +529,9 @@ void MapEditor::placeWorldObject(HexCoord h, HexMap& map,
     obj.resourceType = m_objResourceType;
     obj.questState   = 0;
     worldObjects.push_back(obj);
+
+    if (m_objType == WorldObjectType::Barrier)
+        tile->blocked = true;
 }
 
 void MapEditor::eraseAt(HexCoord h, HexMap& map,
@@ -551,6 +556,9 @@ void MapEditor::eraseAt(HexCoord h, HexMap& map,
         tile->resourceId = 0;
     }
     // Also erase any world object at this hex
+    for (const auto& wo : worldObjects)
+        if (wo.pos == h && wo.type == WorldObjectType::Barrier)
+            if (tile) tile->blocked = false;
     worldObjects.erase(std::remove_if(worldObjects.begin(), worldObjects.end(),
                        [h](const WorldObject& wo){ return wo.pos == h; }),
                        worldObjects.end());
@@ -603,6 +611,9 @@ bool MapEditor::loadMap(const std::string& path,
     heroStarts   = mf.heroStarts;
     worldObjects = mf.worldObjects;
     m_triggers   = mf.triggers;
+    for (const auto& wo : worldObjects)
+        if (wo.type == WorldObjectType::Barrier && !wo.collected)
+            if (HexTile* t = map.getTile(wo.pos)) t->blocked = true;
     strncpy(m_nameBuffer,   mf.meta.name.c_str(),        sizeof(m_nameBuffer)-1);
     strncpy(m_authorBuffer, mf.meta.author.c_str(),      sizeof(m_authorBuffer)-1);
     strncpy(m_descBuffer,   mf.meta.description.c_str(), sizeof(m_descBuffer)-1);

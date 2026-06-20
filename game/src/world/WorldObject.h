@@ -32,6 +32,7 @@ enum class WorldObjectType : uint8_t
     WitchHut,       // teaches one random secondary skill; questState=skillId taught; revisitable
     Stables,        // permanently increases hero maxMove by 3; one-time per playthrough
     TreeOfKnowledge,// pay 2000 gold to gain +1 level, or free XP; one-time per playthrough
+    Barrier,        // impassable tile blocker for scenarios; sets tile->blocked; can be removed via trigger (collected=true)
 };
 
 struct WorldObject

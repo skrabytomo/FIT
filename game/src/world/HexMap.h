@@ -23,6 +23,7 @@ enum class Terrain : uint8_t
     Wasteland,
     CorruptedForest,
     FleshZone,
+    Mountain,   // impassable cliff/rock — scenario barrier
     COUNT
 };
 
@@ -33,6 +34,7 @@ struct HexTile
     Terrain  terrain  = Terrain::Plains;
     bool     explored = false;   // fog of war
     bool     visible  = false;   // currently in vision range
+    bool     blocked  = false;   // impassable Barrier WorldObject placed here
     int      elevation = 0;      // reserved for future
 
     // Entity IDs (0 = none) — filled by game systems

@@ -53,7 +53,7 @@ int Hero::moveCost(Terrain t) const
 
 bool Hero::canEnter(Terrain t) const
 {
-    // Water impassable for all except future naval units
-    if (t == Terrain::Water) return false;
+    if (t == Terrain::Water)    return false;
+    if (t == Terrain::Mountain) return false;
     return true;
 }

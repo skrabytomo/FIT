@@ -23,6 +23,7 @@ static constexpr int BASE_MOVE_COST[] = {
     4,  // Wasteland
     3,  // CorruptedForest
     3,  // FleshZone
+    99, // Mountain
 };
 
 struct UnitStack

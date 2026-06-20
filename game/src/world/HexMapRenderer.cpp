@@ -163,11 +163,12 @@ static const float s_colors[][3] = {
     {0.28f, 0.25f, 0.20f}, // Wasteland
     {0.10f, 0.20f, 0.09f}, // CorruptedForest
     {0.52f, 0.26f, 0.26f}, // FleshZone
+    {0.43f, 0.39f, 0.35f}, // Mountain
 };
 
 // Base name (no extension) for each terrain — variants loaded as NAME_0.png … NAME_3.png
 // Falls back to NAME.png if no variants found
-static const char* s_terrainBase[15] = {
+static const char* s_terrainBase[16] = {
     "assets/terrain/plains",
     "assets/terrain/forest",
     "assets/terrain/highland",
@@ -183,6 +184,7 @@ static const char* s_terrainBase[15] = {
     "assets/terrain/wasteland",
     "assets/terrain/corrupted_forest",
     "assets/terrain/flesh_zone",
+    "assets/terrain/mountain",
 };
 
 HexMapRenderer::~HexMapRenderer()

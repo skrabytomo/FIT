@@ -32,7 +32,7 @@ private:
     GLuint   m_vao  = 0;
     GLuint   m_vbo  = 0;
 
-    static constexpr int NUM_TERRAIN    = 15;
+    static constexpr int NUM_TERRAIN    = 16;
     static constexpr int MAX_VARIANTS   = 24;
     static constexpr int HEX_VERTS      =  8; // center + 6 corners + close
 
