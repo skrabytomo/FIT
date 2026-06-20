@@ -763,26 +763,36 @@ void Game::renderSpellPanel()
 {
     if (m_heroes.empty()) return;
     const Hero& hero = m_heroes[m_activeHeroIdx];
+
+    // Large spellbook window — fills most of the screen
+    ImGuiIO& spio = ImGui::GetIO();
+    float winW = std::min(720.0f, spio.DisplaySize.x - 40.0f);
+    float winH = std::min(560.0f, spio.DisplaySize.y - 120.0f);
+    ImGui::SetNextWindowPos({spio.DisplaySize.x * 0.5f, spio.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({winW, winH}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.97f);
+    ImGuiWindowFlags sbFlags = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                             | ImGuiWindowFlags_NoSavedSettings;
+
     if (hero.knownSpells.empty()) {
-        ImGui::Begin("Spells", &m_showSpellPanel, ImGuiWindowFlags_AlwaysAutoResize);
+        if (!ImGui::Begin("Spellbook", &m_showSpellPanel, sbFlags)) { ImGui::End(); return; }
         ImGui::TextDisabled("No spells known.");
-        ImGui::TextDisabled("Find spellbooks on the world map or build a mage tower.");
+        ImGui::TextDisabled("Find spellbooks on the world map or visit a Mage Guild.");
         ImGui::End();
         return;
     }
 
-    ImGui::SetNextWindowSize(ImVec2(340, 0), ImGuiCond_FirstUseEver);
-    if (!ImGui::Begin("Spells", &m_showSpellPanel)) { ImGui::End(); return; }
+    if (!ImGui::Begin("Spellbook", &m_showSpellPanel, sbFlags)) { ImGui::End(); return; }
 
-    ImGui::Text("Mana: %d / %d", hero.mana, hero.maxMana);
-    ImGui::Separator();
-
-    // Target selector — pick from living enemy units
-    if (ImGui::BeginCombo("Target", m_spellTargetId == 0 ? "— pick —" : [&]() -> const char* {
+    // Header: mana + target picker
+    ImGui::TextColored({1.0f, 0.82f, 0.2f, 1.0f}, "Mana: %d / %d", hero.mana, hero.maxMana);
+    ImGui::SameLine(0, 20);
+    ImGui::SetNextItemWidth(200);
+    if (ImGui::BeginCombo("Target", m_spellTargetId == 0 ? "-- pick target --" : [&]() -> const char* {
         auto* u = m_combat.grid().getUnit(m_spellTargetId);
-        return u ? u->name.c_str() : "—";
-    }()))
-    {
+        return u ? u->name.c_str() : "--";
+    }())) {
         for (auto& u : m_combat.grid().units()) {
             if (!u.alive) continue;
             bool sel = (u.id == m_spellTargetId);
@@ -797,11 +807,9 @@ void Game::renderSpellPanel()
     CombatUnit* active = m_combat.activeUnit();
     bool isPlayerTurn  = active && active->isPlayer;
 
-    // Check for free-cast flags
-    bool hasFreeByCast = hero.exsanguinate && !hero.exsanguinateUsed;
-    bool hasFreeByMirror = hero.predatorMirrorSpecialty && !hero.predatorMirrorUsed;
+    bool hasFreeByCast  = hero.exsanguinate && !hero.exsanguinateUsed;
+    bool hasFreeByMirror= hero.predatorMirrorSpecialty && !hero.predatorMirrorUsed;
 
-    // School power lookup
     auto schoolPow = [&](SpellSchool school) -> int {
         switch (school) {
             case SpellSchool::Light:  return hero.lightPower;
@@ -810,53 +818,60 @@ void Game::renderSpellPanel()
             case SpellSchool::Nature: return hero.naturePower;
             case SpellSchool::Forge:  return hero.forgePower;
             case SpellSchool::Flesh:  return hero.fleshPower;
+            default: return 0;
         }
-        return 0;
     };
 
+    static constexpr ImVec4 kSchoolCol[] = {
+        {1.0f, 0.95f, 0.6f, 1.0f},  // Light
+        {0.9f, 0.25f, 0.25f, 1.0f}, // Blood
+        {0.3f, 0.85f, 0.75f, 1.0f}, // Death
+        {0.4f, 0.85f, 0.35f, 1.0f}, // Nature
+        {0.7f, 0.75f, 1.0f, 1.0f},  // Forge
+        {0.8f, 0.5f,  0.2f, 1.0f},  // Flesh
+    };
+    static const char* kSchoolName[] = { "Light","Blood","Death","Nature","Forge","Flesh","Neutral" };
+
+    // Spell cards — 2 columns, big icon + name + cost + desc
+    const float ICON_SZ  = 56.0f;
+    const float CARD_H   = ICON_SZ + 16.0f;
+    const float CARD_W   = (winW - 24.0f) * 0.5f - 4.0f;
+    ImGui::BeginChild("##spellcards", ImVec2(-1, -1), false);
+
+    int col = 0;
     for (int sid : hero.knownSpells) {
         const SpellDef* spell = findSpell(sid);
-        if (!spell) continue;
-        if (spell->target == SpellTarget::WorldMap) continue;  // world-map only
+        if (!spell || spell->target == SpellTarget::WorldMap) continue;
 
-        bool freeBlood  = hasFreeByCast && spell->school == SpellSchool::Blood;
+        bool freeBlood  = hasFreeByCast  && spell->school == SpellSchool::Blood;
         bool freeMirror = hasFreeByMirror;
         bool isFree     = freeBlood || freeMirror;
         bool canAfford  = isFree || hero.mana >= spell->manaCost;
-        if (!isPlayerTurn || !canAfford) ImGui::BeginDisabled();
+        bool canCast    = isPlayerTurn && canAfford;
 
-        // Spell icon from atlas (5×5 grid, spellId is 1-based)
-        if (m_spellIconTex.ok()) {
-            int   idx = sid - 1;
-            float u0  = (idx % 5) * 0.2f,  v0  = (idx / 5) * 0.2f;
-            ImGui::Image((ImTextureID)(uintptr_t)m_spellIconTex.id(),
-                         ImVec2(24.0f, 24.0f), ImVec2(u0, v0), ImVec2(u0 + 0.2f, v0 + 0.2f));
-            ImGui::SameLine();
-        }
+        if (col == 1) ImGui::SameLine(0, 8);
 
-        // Color by school
-        static constexpr ImVec4 kSchoolCol[] = {
-            {1.0f, 0.95f, 0.6f, 1.0f},  // Light — gold
-            {0.9f, 0.25f, 0.25f, 1.0f}, // Blood — red
-            {0.3f, 0.85f, 0.75f, 1.0f}, // Death — teal
-            {0.4f, 0.85f, 0.35f, 1.0f}, // Nature — green
-            {0.7f, 0.75f, 1.0f, 1.0f},  // Forge — blue
-            {0.8f, 0.5f,  0.2f, 1.0f},  // Flesh — orange
-        };
         int si = static_cast<int>(spell->school);
         if (si < 0 || si >= static_cast<int>(std::size(kSchoolCol))) si = 0;
+        ImVec4 sc = kSchoolCol[si];
 
-        ImGui::PushStyleColor(ImGuiCol_Text, kSchoolCol[si]);
-        char btnLabel[160];
-        if (isFree)
-            std::snprintf(btnLabel, sizeof(btnLabel), "FREE  %s  [%d pow]", spell->name,
-                          spell->power + schoolPow(spell->school));
-        else
-            std::snprintf(btnLabel, sizeof(btnLabel), "%d mana  %s  [%d pow]", spell->manaCost,
-                          spell->name, spell->power + schoolPow(spell->school));
-        ImGui::PopStyleColor();
+        // Card background
+        ImVec2 cardPos = ImGui::GetCursorScreenPos();
+        ImDrawList* dl2 = ImGui::GetWindowDrawList();
+        ImU32 bgCol = canCast ? IM_COL32(30, 28, 40, 230) : IM_COL32(18, 18, 24, 180);
+        ImU32 brdCol = canCast
+            ? IM_COL32((int)(sc.x*200),(int)(sc.y*200),(int)(sc.z*200),200)
+            : IM_COL32(50, 50, 60, 200);
+        dl2->AddRectFilled({cardPos.x, cardPos.y},
+                           {cardPos.x + CARD_W, cardPos.y + CARD_H}, bgCol, 6.0f);
+        dl2->AddRect({cardPos.x, cardPos.y},
+                     {cardPos.x + CARD_W, cardPos.y + CARD_H}, brdCol, 6.0f, 0, 1.5f);
 
-        if (ImGui::Button(btnLabel, ImVec2(-1, 0))) {
+        ImGui::PushID(sid);
+
+        // Invisible button covers the card
+        if (!canCast) ImGui::BeginDisabled();
+        if (ImGui::InvisibleButton("##card", ImVec2(CARD_W, CARD_H))) {
             CombatAction act;
             act.type         = ActionType::UseAbility;
             act.spellId      = sid;
@@ -865,16 +880,58 @@ void Game::renderSpellPanel()
             m_combat.submitAction(act);
             m_showSpellPanel = false;
         }
+        if (!canCast) ImGui::EndDisabled();
+
+        // Hover glow
         if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            dl2->AddRect({cardPos.x, cardPos.y},
+                         {cardPos.x + CARD_W, cardPos.y + CARD_H},
+                         IM_COL32(255, 220, 80, 120), 6.0f, 0, 3.0f);
             char tipBuf[256];
-            std::snprintf(tipBuf, sizeof(tipBuf), "%s\n(Power %d + school %d = %d potency)",
-                          spell->desc, spell->power, schoolPow(spell->school),
-                          spell->power + schoolPow(spell->school));
+            std::snprintf(tipBuf, sizeof(tipBuf), "%s\nPower: %d + %s %d = %d",
+                spell->desc, spell->power, kSchoolName[si], schoolPow(spell->school),
+                spell->power + schoolPow(spell->school));
             ImGui::SetTooltip("%s", tipBuf);
         }
 
-        if (!isPlayerTurn || !canAfford) ImGui::EndDisabled();
+        // Draw icon over the card
+        ImVec2 icoPos = {cardPos.x + 6.0f, cardPos.y + (CARD_H - ICON_SZ) * 0.5f};
+        if (m_spellIconTex.ok()) {
+            int   idx = sid - 1;
+            float u0  = (idx % 5) * 0.2f, v0 = (idx / 5) * 0.2f;
+            dl2->AddImageRounded((ImTextureID)(uintptr_t)m_spellIconTex.id(),
+                icoPos, {icoPos.x + ICON_SZ, icoPos.y + ICON_SZ},
+                {u0, v0}, {u0+0.2f, v0+0.2f}, IM_COL32_WHITE, ICON_SZ * 0.5f);
+        } else {
+            dl2->AddCircleFilled({icoPos.x + ICON_SZ*0.5f, icoPos.y + ICON_SZ*0.5f},
+                ICON_SZ*0.5f, IM_COL32((int)(sc.x*200),(int)(sc.y*200),(int)(sc.z*200),200));
+        }
+
+        // Text: name + cost + school
+        float tx = cardPos.x + ICON_SZ + 14.0f;
+        float ty = cardPos.y + 8.0f;
+        dl2->AddText(ImGui::GetFont(), 15.0f, {tx, ty},
+                     canCast ? IM_COL32(240,225,180,255) : IM_COL32(120,115,100,255),
+                     spell->name);
+        char costLine[80];
+        if (isFree)
+            std::snprintf(costLine, sizeof(costLine), "FREE  [pow %d]", spell->power + schoolPow(spell->school));
+        else
+            std::snprintf(costLine, sizeof(costLine), "%d mana  [pow %d]", spell->manaCost, spell->power + schoolPow(spell->school));
+        dl2->AddText(ImGui::GetFont(), 12.0f, {tx, ty + 19.0f},
+                     canCast ? IM_COL32(180,220,180,255) : IM_COL32(90,110,90,200),
+                     costLine);
+        dl2->AddText(ImGui::GetFont(), 11.0f, {tx, ty + 35.0f},
+                     IM_COL32((int)(sc.x*200),(int)(sc.y*200),(int)(sc.z*200),200),
+                     kSchoolName[si]);
+
+        ImGui::PopID();
+
+        col = 1 - col;
+        if (col == 0) ImGui::Dummy(ImVec2(0, 4)); // row gap
     }
+
+    ImGui::EndChild();
     ImGui::End();
 }
 
