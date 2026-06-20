@@ -4,6 +4,7 @@
 #include "../world/HexMap.h"
 #include "../town/Town.h"
 #include "../data/ResourceNode.h"
+#include "../world/WorldObject.h"
 
 // ── Map metadata ──────────────────────────────────────────────────────────────
 struct MapMetadata
@@ -45,6 +46,7 @@ struct MapFile
     std::vector<Town>         towns;
     std::vector<ResourceNode> resources;
     std::vector<HexCoord>     heroStarts;  // one per player slot
+    std::vector<WorldObject>  worldObjects;
 };
 
 // ── MapFormat ─────────────────────────────────────────────────────────────────

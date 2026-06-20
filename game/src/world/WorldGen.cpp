@@ -6,33 +6,101 @@
 #include <algorithm>
 #include <cstdio>
 
+// ── Terrain constants ─────────────────────────────────────────────────────────
+static const Terrain kHomeTerrain[] = {
+    Terrain::Sacred,          // HolyOrder      (0)
+    Terrain::Highland,        // CrimsonWardens (1)
+    Terrain::Forest,          // Thornkin       (2)
+    Terrain::Toxic,           // EternalEmpire  (3)
+    Terrain::Corrupted,       // Bloodsworn     (4)
+    Terrain::CorruptedForest, // Voidkin        (5)
+    Terrain::Industrial,      // IronAssembly   (6)
+    Terrain::Wasteland,       // Amalgamate     (7)
+    Terrain::Plains,          // Convergence    (8)
+};
+
+static const Terrain kNeutralTerrains[] = {
+    Terrain::Volcanic,
+    Terrain::Barren,
+    Terrain::Rocky,
+    Terrain::Swamp,
+    Terrain::Wasteland,
+    Terrain::Highland,
+};
+static constexpr int kNeutralTerrainCount = 6;
+
 // ── Main entry point ──────────────────────────────────────────────────────────
 WorldGenResult WorldGen::generate(HexMap& map, const WorldGenParams& p)
 {
-    printf("WorldGen: seed=%u size=%d players=%d\n",
-           p.seed, static_cast<int>(p.size), p.playerCount);
+    printf("WorldGen: seed=%u size=%d players=%d zone=%s\n",
+           p.seed, static_cast<int>(p.size), p.playerCount,
+           p.zoneBasedTerrain ? "yes" : "no");
 
     // 1. Fill map with noise-driven terrain
     passNoiseTerrain(map, p);
 
-    // 2. Pick player spawn zones, then grow faction home terrain clusters
+    // 2. Pick player spawn zones
     auto spawnPos = pickSpawnPositions(map, p.playerCount, p.seed);
-    passBiomeClusters(map, p, spawnPos);
 
-    // 3. Smooth choppy coastlines
+    uint32_t rng = p.seed ^ 0xDEADB00B;
+
+    // Prepare zone data (used by both terrain and object passes)
+    std::vector<HexCoord> neutralCenters;
+    std::unordered_map<HexCoord, int, HexCoordHash> tileZones;
+    std::vector<HexCoord> allCenters;
+    std::vector<int>      zonePlayer;
+    std::vector<Terrain>  zoneTerrain;
+
+    if (p.zoneBasedTerrain) {
+        tileZones = assignZones(map, spawnPos, neutralCenters, rng);
+
+        // Build allCenters: player spawns first, then neutral centers
+        allCenters = spawnPos;
+        for (auto& nc : neutralCenters) allCenters.push_back(nc);
+
+        // zonePlayer: player zones get index 0..N-1, neutral zones get -1
+        for (int i = 0; i < (int)spawnPos.size(); ++i)
+            zonePlayer.push_back(i);
+        for (int i = 0; i < (int)neutralCenters.size(); ++i)
+            zonePlayer.push_back(-1);
+
+        // Zone terrain: player zones get home terrain, neutral zones get neutral terrains
+        for (int i = 0; i < (int)spawnPos.size(); ++i)
+            zoneTerrain.push_back(kHomeTerrain[i % 9]);
+        for (int i = 0; i < (int)neutralCenters.size(); ++i)
+            zoneTerrain.push_back(kNeutralTerrains[i % kNeutralTerrainCount]);
+
+        passZoneTerrain(map, tileZones, zoneTerrain, rng);
+    } else {
+        passBiomeClusters(map, p, spawnPos);
+    }
+
+    // 3. Smooth coastlines
     passSmoothCoastlines(map, 2);
     passRemoveIsolatedWater(map);
 
-    // 4. Place resources
+    // 4. Place guaranteed player-zone mines (before global resource pass)
     uint32_t nextId = 1;
-    auto resources = placeResources(map, p, nextId);
-
-    // 5. Build town objects
     WorldGenResult result;
-    result.resources     = std::move(resources);
     result.startPositions = spawnPos;
+
+    if (p.zoneBasedTerrain) {
+        placePlayerZoneMines(result, map, spawnPos, tileZones, p, nextId, rng);
+    }
+
+    // 5. Global resource placement
+    auto resources = placeResources(map, p, nextId);
+    result.resources = std::move(resources);
+
+    // 6. Build towns
     buildTowns(result, map, spawnPos, nextId);
-    placeWorldObjects(result, map, p, nextId);
+
+    // 7. World objects
+    if (p.zoneBasedTerrain) {
+        placeZoneObjects(result, map, allCenters, zonePlayer, tileZones, p, nextId, rng);
+    } else {
+        placeWorldObjects(result, map, p, nextId);
+    }
 
     printf("WorldGen: %zu towns, %zu resources, %zu world objects\n",
            result.towns.size(), result.resources.size(), result.worldObjects.size());
@@ -44,19 +112,15 @@ void WorldGen::passNoiseTerrain(HexMap& map, const WorldGenParams& p)
 {
     Noise2D noise(p.seed);
 
-    // Scale noise so the full map radius maps to ~2 noise cycles
     float scale = 2.0f / static_cast<float>(map.radius());
+    float waterCutoff = -0.4f + p.waterRatio * 0.8f;
 
-    // Elevation bias: makes map edges more likely to be water (island feel)
-    float waterCutoff = -0.4f + p.waterRatio * 0.8f;   // higher ratio → more water
-
-    HexGrid grid(40.f);   // size arbitrary — only ratio matters
+    HexGrid grid(40.f);
 
     const int maxR = map.radius();
     map.forEach([&](HexTile& tile) {
         int dist = HexGrid::distance(tile.coord, {0, 0});
 
-        // Force water on the outermost 4 rings — wide ocean border
         if (dist >= maxR - 3) {
             tile.terrain = Terrain::Water;
             return;
@@ -65,15 +129,13 @@ void WorldGen::passNoiseTerrain(HexMap& map, const WorldGenParams& p)
         float wx, wy;
         grid.hexToWorld(tile.coord, wx, wy);
 
-        // Base height from fbm noise
         float h = noise.fbm(wx * scale, wy * scale, 5, 2.0f, 0.5f);
 
-        // Radial falloff — edges of map become ocean
         float r    = static_cast<float>(dist);
         float maxRf = static_cast<float>(maxR);
-        float edge = 1.0f - (r / maxRf);        // 1 at center, 0 at edge
-        float bias = 2.5f * (edge - 0.5f);      // positive at center, negative at edge
-        h += bias * 0.55f;                       // stronger edge push for wider water margin
+        float edge = 1.0f - (r / maxRf);
+        float bias = 2.5f * (edge - 0.5f);
+        h += bias * 0.55f;
 
         tile.terrain = heightToTerrain(h, waterCutoff);
     });
@@ -97,23 +159,10 @@ bool WorldGen::isLand(Terrain t)
     return t != Terrain::Water;
 }
 
-// ── Pass 2: Biome clusters around spawn points ────────────────────────────────
+// ── Pass 2a: Biome clusters (legacy path) ─────────────────────────────────────
 void WorldGen::passBiomeClusters(HexMap& map, const WorldGenParams& p,
                                   const std::vector<HexCoord>& centers)
 {
-    // Faction home terrains in order (matches FactionId enum)
-    static const Terrain kHomeTerrain[] = {
-        Terrain::Sacred,          // Holy Order
-        Terrain::Highland,        // Crimson Wardens
-        Terrain::Forest,          // Thornkin
-        Terrain::Toxic,           // Eternal Empire
-        Terrain::Corrupted,       // Bloodsworn
-        Terrain::CorruptedForest, // Voidkin
-        Terrain::Industrial,      // Iron Assembly
-        Terrain::Wasteland,       // Amalgamate
-        Terrain::Plains,          // Convergence (neutral)
-    };
-
     uint32_t rng = p.seed ^ 0xDEADBEEF;
     int clusterRadius = map.radius() / 5 + 1;
 
@@ -128,12 +177,128 @@ void WorldGen::passBiomeClusters(HexMap& map, const WorldGenParams& p,
 
             float dist = static_cast<float>(HexGrid::distance(c, centers[i]));
             float frac = 1.0f - dist / static_cast<float>(clusterRadius);
-            // Probabilistic: high chance near center, tapers off
             float n = cNoise.sample(c.q * 0.3f, c.r * 0.3f) * 0.5f + 0.5f;
             if (n < frac * 0.8f)
                 tile->terrain = home;
         }
         lcg(rng);
+    }
+}
+
+// ── Pass 2b: Zone-based terrain assignment ────────────────────────────────────
+std::unordered_map<HexCoord, int, HexCoordHash> WorldGen::assignZones(
+    const HexMap& map,
+    const std::vector<HexCoord>& playerSpawns,
+    std::vector<HexCoord>& neutralCentersOut,
+    uint32_t& rng)
+{
+    int nPlayers = static_cast<int>(playerSpawns.size());
+
+    // Compute neutral zone centers between adjacent player pairs (by angle)
+    int neutralCount = std::max(1, nPlayers / 2);
+    neutralCentersOut.clear();
+
+    // Sort players by angle from map center (0,0)
+    std::vector<std::pair<float,int>> byAngle;
+    for (int i = 0; i < nPlayers; ++i) {
+        float angle = std::atan2((float)playerSpawns[i].r,
+                                  (float)playerSpawns[i].q);
+        byAngle.push_back({angle, i});
+    }
+    std::sort(byAngle.begin(), byAngle.end());
+
+    for (int i = 0; i < neutralCount; ++i) {
+        int ia = byAngle[i % nPlayers].second;
+        int ib = byAngle[(i + 1) % nPlayers].second;
+
+        // Midpoint in cube coords
+        int qa = playerSpawns[ia].q, ra = playerSpawns[ia].r;
+        int qb = playerSpawns[ib].q, rb = playerSpawns[ib].r;
+
+        // Average and round
+        HexCoord mid;
+        mid.q = (qa + qb) / 2;
+        mid.r = (ra + rb) / 2;
+
+        // Find nearest land tile to that midpoint
+        HexCoord best = mid;
+        int bestDist = INT32_MAX;
+        for (auto& c : map.coords()) {
+            const HexTile* t = map.getTile(c);
+            if (!t || !isLand(t->terrain)) continue;
+            int d = HexGrid::distance(c, mid);
+            if (d < bestDist) { bestDist = d; best = c; }
+        }
+        neutralCentersOut.push_back(best);
+    }
+
+    // Assign each land tile to nearest center (player zones 0..N-1, neutral N..N+M-1)
+    std::vector<HexCoord> allCenters = playerSpawns;
+    for (auto& nc : neutralCentersOut) allCenters.push_back(nc);
+    int totalZones = static_cast<int>(allCenters.size());
+
+    std::unordered_map<HexCoord, int, HexCoordHash> tileZones;
+    tileZones.reserve(2048);
+
+    for (auto& c : map.coords()) {
+        const HexTile* tile = map.getTile(c);
+        if (!tile || !isLand(tile->terrain)) {
+            tileZones[c] = -1;
+            continue;
+        }
+        int bestZ = 0;
+        int bestD = INT32_MAX;
+        for (int z = 0; z < totalZones; ++z) {
+            int d = HexGrid::distance(c, allCenters[z]);
+            if (d < bestD) { bestD = d; bestZ = z; }
+        }
+        tileZones[c] = bestZ;
+    }
+
+    (void)rng;
+    return tileZones;
+}
+
+void WorldGen::passZoneTerrain(
+    HexMap& map,
+    const std::unordered_map<HexCoord, int, HexCoordHash>& tileZones,
+    const std::vector<Terrain>& zoneTerrain,
+    uint32_t& rng)
+{
+    // For each land tile, compute distance to nearest tile with a different zone
+    // Then assign terrain based on that distance
+    std::unordered_map<HexCoord, int, HexCoordHash> borderDist;
+    borderDist.reserve(tileZones.size());
+
+    for (auto& [c, zid] : tileZones) {
+        if (zid < 0) { borderDist[c] = 0; continue; }
+        auto nbrs = HexGrid::neighbors(c);
+        bool isBorder = false;
+        for (auto& n : nbrs) {
+            auto it = tileZones.find(n);
+            if (it == tileZones.end()) { isBorder = true; break; }
+            if (it->second != zid) { isBorder = true; break; }
+        }
+        borderDist[c] = isBorder ? 1 : 2;  // 1=border, 2=interior (simplified)
+    }
+
+    for (auto& [c, zid] : tileZones) {
+        if (zid < 0) continue;
+        HexTile* tile = map.getTile(c);
+        if (!tile || !isLand(tile->terrain)) continue;
+
+        if (zid >= (int)zoneTerrain.size()) continue;
+        Terrain zt = zoneTerrain[zid];
+
+        int bd = borderDist[c];
+        if (bd >= 2) {
+            // Interior: always set to zone terrain
+            tile->terrain = zt;
+        } else {
+            // Border band: 70% zone terrain, 30% keep noise
+            uint32_t r = lcg(rng) % 100;
+            if (r < 70) tile->terrain = zt;
+        }
     }
 }
 
@@ -158,10 +323,8 @@ void WorldGen::passSmoothCoastlines(HexMap& map, int iterations)
                 else { ++landCount; commonLand = nt->terrain; }
             }
 
-            // Isolated water tile surrounded by land → convert to land
             if (tile->terrain == Terrain::Water && waterCount <= 1 && landCount >= 4)
                 changes.push_back({c, commonLand});
-            // Isolated land tile surrounded by water → convert to water
             else if (isLand(tile->terrain) && landCount <= 1 && waterCount >= 4)
                 changes.push_back({c, Terrain::Water});
         }
@@ -174,7 +337,6 @@ void WorldGen::passSmoothCoastlines(HexMap& map, int iterations)
 // ── Pass 4: Remove isolated water specks ─────────────────────────────────────
 void WorldGen::passRemoveIsolatedWater(HexMap& map)
 {
-    // Single water hexes surrounded by all-land get converted to swamp
     for (auto c : map.coords()) {
         HexTile* tile = map.getTile(c);
         if (!tile || tile->terrain != Terrain::Water) continue;
@@ -196,7 +358,6 @@ std::vector<HexCoord> WorldGen::pickSpawnPositions(const HexMap& map,
     std::vector<HexCoord> candidates, result;
     int radius = map.radius();
 
-    // Collect land tiles in the inner 60% of the map radius
     for (auto c : map.coords()) {
         const HexTile* tile = map.getTile(c);
         if (!tile || !isLand(tile->terrain)) continue;
@@ -206,7 +367,6 @@ std::vector<HexCoord> WorldGen::pickSpawnPositions(const HexMap& map,
     }
 
     if (candidates.empty()) {
-        // Fallback: use axial positions around the ring
         for (int i = 0; i < count; ++i) {
             float angle = 2.0f * 3.14159f * i / count;
             int q = static_cast<int>(std::round(radius * 0.6f * std::cos(angle)));
@@ -218,15 +378,12 @@ std::vector<HexCoord> WorldGen::pickSpawnPositions(const HexMap& map,
 
     uint32_t rng = seed ^ 0xBEEF1234;
 
-    // For balanced start, pick evenly spaced candidates around a ring
     if (count <= 1) {
-        // Just pick a random land tile near center
         uint32_t idx = lcg(rng) % static_cast<uint32_t>(candidates.size());
         result.push_back(candidates[idx]);
         return result;
     }
 
-    // Place first randomly, then pick furthest from all existing
     {
         uint32_t idx = lcg(rng) % static_cast<uint32_t>(candidates.size());
         result.push_back(candidates[idx]);
@@ -256,12 +413,10 @@ std::vector<ResourceNode> WorldGen::placeResources(HexMap& map,
     uint32_t rng = p.seed ^ 0xCAFE0000;
     int radius = map.radius();
 
-    // Target count scales with map area and density
     int baseCount = static_cast<int>(radius * radius * 0.08f * p.resourceDensity);
     baseCount = std::max(baseCount, 6);
 
     auto allCoords = map.coords();
-    // Shuffle candidate list deterministically
     for (size_t i = allCoords.size() - 1; i > 0; --i) {
         uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
         std::swap(allCoords[i], allCoords[j]);
@@ -275,7 +430,6 @@ std::vector<ResourceNode> WorldGen::placeResources(HexMap& map,
         if (!tile || !isLand(tile->terrain)) continue;
         if (tile->resourceId != 0) continue;
 
-        // Minimum spacing between resources
         bool tooClose = false;
         for (auto& n : nodes) {
             if (HexGrid::distance(c, n.pos) < 3) { tooClose = true; break; }
@@ -286,7 +440,6 @@ std::vector<ResourceNode> WorldGen::placeResources(HexMap& map,
         node.id     = nextId++;
         node.pos    = c;
         node.type   = terrainResource(tile->terrain, lcg(rng));
-        // Gold mines give 250/week (like HoMM3); other resources give 2-5/week
         if (node.type == ResourceType::Gold)
             node.amount = 250;
         else
@@ -318,13 +471,103 @@ ResourceType WorldGen::terrainResource(Terrain t, uint32_t rng)
     }
 }
 
+// ── Faction resource per player index ─────────────────────────────────────────
+static ResourceType factionPrimaryResource(int playerIdx)
+{
+    // Matches faction order in kHomeTerrain
+    // HO/CW=FaithStones, TK/VK=VerdantSap, EE/CV=Mercury, BS/AM=BloodEssence, IA=Iron
+    switch (playerIdx % 9) {
+        case 0: case 1: return ResourceType::FaithStones;   // HolyOrder, CrimsonWardens
+        case 2: case 5: return ResourceType::VerdantSap;    // Thornkin, Voidkin
+        case 3: case 8: return ResourceType::Mercury;       // EternalEmpire, Convergence
+        case 4: case 7: return ResourceType::BloodEssence;  // Bloodsworn, Amalgamate
+        case 6: default: return ResourceType::Iron;          // IronAssembly
+    }
+}
+
+// ── Player-zone mine placement ────────────────────────────────────────────────
+void WorldGen::placePlayerZoneMines(
+    WorldGenResult& result, HexMap& map,
+    const std::vector<HexCoord>& spawns,
+    const std::unordered_map<HexCoord, int, HexCoordHash>& tileZones,
+    const WorldGenParams& p, uint32_t& nextId, uint32_t& rng)
+{
+    for (int pi = 0; pi < (int)spawns.size(); ++pi) {
+        HexCoord spawn = spawns[pi];
+        ResourceType factionRes = factionPrimaryResource(pi);
+        std::vector<HexCoord> placed;
+
+        // Shuffle map coords for picking
+        auto allCoords = map.coords();
+        for (size_t i = allCoords.size() - 1; i > 0; --i) {
+            uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+            std::swap(allCoords[i], allCoords[j]);
+        }
+
+        // 2 faction-resource mines, 3-6 tiles from spawn, same zone, min 3 apart
+        int factionMinesPlaced = 0;
+        for (auto& c : allCoords) {
+            if (factionMinesPlaced >= 2) break;
+            int d = HexGrid::distance(c, spawn);
+            if (d < 3 || d > 6) continue;
+            HexTile* tile = map.getTile(c);
+            if (!tile || !isLand(tile->terrain)) continue;
+            if (tile->resourceId != 0) continue;
+
+            // Same zone
+            auto it = tileZones.find(c);
+            if (it == tileZones.end() || it->second != pi) continue;
+
+            // Min 3 apart from other placed mines
+            bool tooClose = false;
+            for (auto& pp : placed)
+                if (HexGrid::distance(c, pp) < 3) { tooClose = true; break; }
+            if (tooClose) continue;
+
+            ResourceNode node;
+            node.id     = nextId++;
+            node.pos    = c;
+            node.type   = factionRes;
+            node.amount = (factionRes == ResourceType::Gold) ? 250
+                        : 2 + static_cast<int>(lcg(rng) % 4);
+            tile->resourceId = node.id;
+            result.resources.push_back(node);
+            placed.push_back(c);
+            ++factionMinesPlaced;
+        }
+
+        // 1 gold mine, 4-7 tiles from spawn, min 3 from any placed mine
+        for (auto& c : allCoords) {
+            int d = HexGrid::distance(c, spawn);
+            if (d < 4 || d > 7) continue;
+            HexTile* tile = map.getTile(c);
+            if (!tile || !isLand(tile->terrain)) continue;
+            if (tile->resourceId != 0) continue;
+
+            bool tooClose = false;
+            for (auto& pp : placed)
+                if (HexGrid::distance(c, pp) < 3) { tooClose = true; break; }
+            if (tooClose) continue;
+
+            ResourceNode node;
+            node.id     = nextId++;
+            node.pos    = c;
+            node.type   = ResourceType::Gold;
+            node.amount = 250;
+            tile->resourceId = node.id;
+            result.resources.push_back(node);
+            placed.push_back(c);
+            break;
+        }
+    }
+}
+
 // ── Town building ─────────────────────────────────────────────────────────────
 void WorldGen::buildTowns(WorldGenResult& result,
                            const HexMap& map,
                            const std::vector<HexCoord>& positions,
                            uint32_t& nextId)
 {
-    // Faction IDs match order of spawn positions (players pick factions separately)
     static const FactionId kFactions[] = {
         FactionId::HolyOrder,   FactionId::CrimsonWardens,
         FactionId::Thornkin,    FactionId::EternalEmpire,
@@ -342,10 +585,10 @@ void WorldGen::buildTowns(WorldGenResult& result,
     for (int i = 0; i < static_cast<int>(positions.size()); ++i) {
         Town t;
         t.id      = nextId++;
-        t.name    = kTownNames[i % 8];
-        t.faction = kFactions[i % 8];
+        t.name    = kTownNames[i % 9];
+        t.faction = kFactions[i % 9];
         t.pos     = positions[i];
-        t.ownerId = static_cast<uint32_t>(i + 1);  // player ID 1-based
+        t.ownerId = static_cast<uint32_t>(i + 1);
         result.towns.push_back(t);
     }
 }
@@ -360,29 +603,26 @@ bool WorldGen::isSuitable(const HexMap& map, HexCoord c, int minDist,
     return true;
 }
 
-// ── World object placement ────────────────────────────────────────────────────
-void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
-                                  const WorldGenParams& p, uint32_t& nextId)
+// ── Zone-based world object placement ─────────────────────────────────────────
+void WorldGen::placeZoneObjects(
+    WorldGenResult& result, HexMap& map,
+    const std::vector<HexCoord>& allCenters,
+    const std::vector<int>& zonePlayer,
+    const std::unordered_map<HexCoord, int, HexCoordHash>& tileZones,
+    const WorldGenParams& p, uint32_t& nextId, uint32_t& rng)
 {
-    uint32_t rng = p.seed ^ 0xDEADB00B;
-    int radius = map.radius();
-
-    // Build a list of occupied positions (towns + resources)
     std::vector<HexCoord> occupied;
-    for (const auto& t : result.towns)    occupied.push_back(t.pos);
+    for (const auto& t : result.towns)     occupied.push_back(t.pos);
     for (const auto& r : result.resources) occupied.push_back(r.pos);
 
-    // Helper: place one world object at a random suitable location
     auto tryPlace = [&](WorldObject& obj, int minDist) -> bool {
         auto allCoords = map.coords();
-        // Shuffle
         for (size_t i = allCoords.size() - 1; i > 0; --i) {
             uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
             std::swap(allCoords[i], allCoords[j]);
         }
         for (auto& c : allCoords) {
             if (!isSuitable(map, c, minDist, occupied)) continue;
-            // Extra: check no other worldObject here
             bool used = false;
             for (const auto& wo : result.worldObjects)
                 if (wo.pos == c) { used = true; break; }
@@ -394,91 +634,248 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         return false;
     };
 
-    // 8-10 Treasure Chests — multi-choice (gold/XP/stat) scattered across map
-    {
-        int chestCount = 8 + static_cast<int>(lcg(rng) % 3); // 8-10
-        static const int kStatTypes[] = { 0, 1, 2 }; // ATK, DEF, SPD
-        for (int i = 0; i < chestCount; ++i) {
+    auto tryPlaceNear = [&](WorldObject& obj, HexCoord center,
+                            int minR, int maxR, int minDist) -> bool {
+        auto allCoords = map.coords();
+        for (size_t i = allCoords.size() - 1; i > 0; --i) {
+            uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+            std::swap(allCoords[i], allCoords[j]);
+        }
+        for (auto& c : allCoords) {
+            int d = HexGrid::distance(c, center);
+            if (d < minR || d > maxR) continue;
+            if (!isSuitable(map, c, minDist, occupied)) continue;
+            bool used = false;
+            for (const auto& wo : result.worldObjects)
+                if (wo.pos == c) { used = true; break; }
+            if (used) continue;
+            obj.pos = c;
+            occupied.push_back(c);
+            return true;
+        }
+        return false;
+    };
+
+    int nPlayers = 0;
+    for (int zp : zonePlayer) if (zp >= 0) ++nPlayers;
+
+    // ── Per-player zones ──────────────────────────────────────────────────────
+    for (int zi = 0; zi < (int)allCenters.size(); ++zi) {
+        if (zonePlayer[zi] < 0) continue; // skip neutral zones here
+        int pi = zonePlayer[zi];
+        HexCoord spawnCenter = allCenters[zi];
+
+        // Determine zone's terrain for ambient object picking
+        Terrain zt = (zi < (int)p.playerCount) ? kHomeTerrain[pi % 9] : Terrain::Plains;
+
+        // 2 ambient terrain objects
+        for (int n = 0; n < 2; ++n) {
+            WorldObjectType ambType = WorldObjectType::XPShrine;
+            int ambVal = 50;
+            switch (zt) {
+                case Terrain::Forest:        ambType = WorldObjectType::ForestShrine; ambVal = 75;  break;
+                case Terrain::Sacred:        ambType = WorldObjectType::HolyFountain; ambVal = 0;   break;
+                case Terrain::Barren:
+                case Terrain::Wasteland:     ambType = WorldObjectType::Oasis;        ambVal = 0;   break;
+                case Terrain::Plains:        ambType = WorldObjectType::Campfire;     ambVal = 150; break;
+                case Terrain::Highland:
+                case Terrain::Rocky:         ambType = WorldObjectType::HighlandRuin; ambVal = 4;   break;
+                default:                     ambType = WorldObjectType::XPShrine;     ambVal = 50;  break;
+            }
+
+            WorldObject obj;
+            obj.id    = nextId++;
+            obj.type  = ambType;
+            obj.value = ambVal;
+            if (!tryPlaceNear(obj, spawnCenter, 3, 7, 3)) --nextId;
+            else result.worldObjects.push_back(obj);
+        }
+
+        // 1 UnitDwelling (tier 1 or 2 of player's faction)
+        {
+            WorldObject obj;
+            obj.id        = nextId++;
+            obj.type      = WorldObjectType::UnitDwelling;
+            obj.value     = 1 + static_cast<int>(lcg(rng) % 2); // tier 1 or 2
+            obj.faction   = static_cast<uint8_t>(pi % 9);
+            obj.available = 4 + obj.value * 2;
+            if (!tryPlaceNear(obj, spawnCenter, 4, 7, 3)) --nextId;
+            else result.worldObjects.push_back(obj);
+        }
+    }
+
+    // ── Zone border areas ─────────────────────────────────────────────────────
+    // Collect border tiles (tiles whose zone differs from at least one neighbor's zone)
+    std::vector<HexCoord> borderTiles;
+    for (auto& [c, zid] : tileZones) {
+        if (zid < 0) continue;
+        auto nbrs = HexGrid::neighbors(c);
+        for (auto& n : nbrs) {
+            auto it = tileZones.find(n);
+            if (it == tileZones.end() || it->second != zid) {
+                if (it != tileZones.end() && it->second >= 0) {
+                    borderTiles.push_back(c);
+                    break;
+                }
+            }
+        }
+    }
+
+    // BanditCamp at zone-pair borders (1 per zone-pair, max nPlayers)
+    int campCount = nPlayers;
+    int campPlaced = 0;
+    // Shuffle border tiles
+    for (size_t i = borderTiles.size() > 1 ? borderTiles.size() - 1 : 0; i > 0; --i) {
+        uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+        std::swap(borderTiles[i], borderTiles[j]);
+    }
+    for (auto& c : borderTiles) {
+        if (campPlaced >= campCount) break;
+        if (!isSuitable(map, c, 4, occupied)) continue;
+        bool used = false;
+        for (const auto& wo : result.worldObjects)
+            if (wo.pos == c) { used = true; break; }
+        if (used) continue;
+
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::BanditCamp;
+        obj.value = 1; // difficulty 1 at borders
+        obj.pos   = c;
+        occupied.push_back(c);
+        result.worldObjects.push_back(obj);
+        ++campPlaced;
+    }
+
+    // NeutralOutpost at borders: 1 per 2 players
+    int outpostCount = std::max(1, nPlayers / 2);
+    int outpostPlaced = 0;
+    for (auto& c : borderTiles) {
+        if (outpostPlaced >= outpostCount) break;
+        if (!isSuitable(map, c, 5, occupied)) continue;
+        bool used = false;
+        for (const auto& wo : result.worldObjects)
+            if (wo.pos == c) { used = true; break; }
+        if (used) continue;
+
+        WorldObject obj;
+        obj.id      = nextId++;
+        obj.type    = WorldObjectType::NeutralOutpost;
+        obj.faction = static_cast<uint8_t>(lcg(rng) % 9);
+        obj.value   = 1;
+        obj.pos     = c;
+        occupied.push_back(c);
+        result.worldObjects.push_back(obj);
+        ++outpostPlaced;
+    }
+
+    // ── Neutral zones ─────────────────────────────────────────────────────────
+    for (int zi = 0; zi < (int)allCenters.size(); ++zi) {
+        if (zonePlayer[zi] >= 0) continue; // skip player zones
+
+        HexCoord nCenter = allCenters[zi];
+
+        // 2-3 TreasureChests
+        int chestCount = 2 + static_cast<int>(lcg(rng) % 2);
+        for (int n = 0; n < chestCount; ++n) {
             WorldObject obj;
             obj.id         = nextId++;
             obj.type       = WorldObjectType::TreasureChest;
-            obj.value      = 500 + static_cast<int>(lcg(rng) % 501);   // 500-1000 gold
-            obj.questState = 300 + static_cast<int>(lcg(rng) % 301);   // 300-600 XP
-            obj.faction    = static_cast<uint8_t>(kStatTypes[lcg(rng) % 3]); // stat type
-            if (tryPlace(obj, 3)) result.worldObjects.push_back(obj);
+            obj.value      = 500 + static_cast<int>(lcg(rng) % 501);
+            obj.questState = 300 + static_cast<int>(lcg(rng) % 301);
+            obj.faction    = static_cast<uint8_t>(lcg(rng) % 3);
+            if (!tryPlaceNear(obj, nCenter, 2, 8, 3)) --nextId;
+            else result.worldObjects.push_back(obj);
         }
-    }
 
-    // 5 Crypts — faction army guards → gold + spell reward
-    {
-        int numFactions = 9; // NUM_FACTIONS
-        for (int i = 0; i < 5; ++i) {
+        // 1 Crypt
+        {
             WorldObject obj;
             obj.id      = nextId++;
             obj.type    = WorldObjectType::Crypt;
-            obj.value   = 1 + static_cast<int>(lcg(rng) % 3); // difficulty 1-3
-            obj.faction = static_cast<uint8_t>(lcg(rng) % static_cast<uint32_t>(numFactions));
-            if (!tryPlace(obj, 4)) --nextId;
+            obj.value   = 2; // difficulty 2
+            obj.faction = static_cast<uint8_t>(lcg(rng) % 9);
+            if (!tryPlaceNear(obj, nCenter, 2, 8, 4)) --nextId;
             else result.worldObjects.push_back(obj);
         }
-    }
 
-    // 3 Utopias — elite guards → major reward choices
-    {
-        int numFactions = 9;
-        for (int i = 0; i < 3; ++i) {
+        // 1 WitchHut
+        {
+            static const int kWitchSkills[] = { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110 };
+            WorldObject obj;
+            obj.id         = nextId++;
+            obj.type       = WorldObjectType::WitchHut;
+            obj.questState = kWitchSkills[lcg(rng) % 10];
+            if (!tryPlaceNear(obj, nCenter, 2, 8, 4)) --nextId;
+            else result.worldObjects.push_back(obj);
+        }
+
+        // 1 Utopia (if richNeutralZones)
+        if (p.richNeutralZones) {
             WorldObject obj;
             obj.id      = nextId++;
             obj.type    = WorldObjectType::Utopia;
-            obj.value   = static_cast<int>(lcg(rng)); // reward seed
-            obj.faction = static_cast<uint8_t>(lcg(rng) % static_cast<uint32_t>(numFactions));
-            if (!tryPlace(obj, 7)) --nextId;
+            obj.value   = static_cast<int>(lcg(rng));
+            obj.faction = static_cast<uint8_t>(lcg(rng) % 9);
+            if (!tryPlaceNear(obj, nCenter, 2, 8, 7)) --nextId;
             else result.worldObjects.push_back(obj);
         }
     }
 
-    // 2 Observatories (value=5 radius, far from towns)
+    // ── Global placement (far from zone centers) ──────────────────────────────
+
+    // 2 Observatories
     for (int i = 0; i < 2; ++i) {
         WorldObject obj;
         obj.id    = nextId++;
         obj.type  = WorldObjectType::Observatory;
         obj.value = 5;
-        if (tryPlace(obj, radius / 3)) result.worldObjects.push_back(obj);
+        if (!tryPlace(obj, map.radius() / 3)) --nextId;
+        else result.worldObjects.push_back(obj);
     }
 
-    // 6 StatShrines (value = which stat 0-5: ATK/DEF/Move/Mana/Vision/HP)
-    for (int i = 0; i < 6; ++i) {
+    // 2 Trees of Knowledge
+    for (int i = 0; i < 2; ++i) {
         WorldObject obj;
         obj.id    = nextId++;
-        obj.type  = WorldObjectType::StatShrine;
-        obj.value = static_cast<int>(i % 6); // one shrine of each type
-        obj.questState = 3; // 3 uses max
-        if (tryPlace(obj, 4)) result.worldObjects.push_back(obj);
+        obj.type  = WorldObjectType::TreeOfKnowledge;
+        if (!tryPlace(obj, 6)) --nextId;
+        else result.worldObjects.push_back(obj);
     }
 
-    // 3 BanditCamps (value = difficulty 1-3)
+    // 3 Landmarks
     for (int i = 0; i < 3; ++i) {
         WorldObject obj;
         obj.id    = nextId++;
-        obj.type  = WorldObjectType::BanditCamp;
-        obj.value = 1 + static_cast<int>(lcg(rng) % 3);
-        if (tryPlace(obj, 4)) result.worldObjects.push_back(obj);
+        obj.type  = WorldObjectType::Landmark;
+        obj.value = 100 + i * 50;
+        if (!tryPlace(obj, 5)) --nextId;
+        else result.worldObjects.push_back(obj);
     }
 
-    // 4 WitchHuts — each teaches one random generic secondary skill (skillId stored in questState)
-    // SkillIDs 101-110: Offense, Defense, Archery, Leadership, Tactics, Logistics,
-    //                   Scouting, First Aid, Luck, Mysticism
-    static const int kWitchSkills[] = { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110 };
+    // 2 CursedGrounds
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id         = nextId++;
+        obj.type       = WorldObjectType::CursedGround;
+        obj.value      = 3;
+        obj.questState = 5;
+        if (!tryPlace(obj, 5)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    // 4 StatShrines (one each of stat type 0-3)
     for (int i = 0; i < 4; ++i) {
         WorldObject obj;
         obj.id         = nextId++;
-        obj.type       = WorldObjectType::WitchHut;
-        obj.questState = kWitchSkills[lcg(rng) % 10];
+        obj.type       = WorldObjectType::StatShrine;
+        obj.value      = i;
+        obj.questState = 3;
         if (!tryPlace(obj, 4)) --nextId;
         else result.worldObjects.push_back(obj);
     }
 
-    // 2 Stables — permanently increase hero maxMove by 3 (value = bonus amount)
+    // 2 Stables
     for (int i = 0; i < 2; ++i) {
         WorldObject obj;
         obj.id    = nextId++;
@@ -488,48 +885,7 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         else result.worldObjects.push_back(obj);
     }
 
-    // 2 Trees of Knowledge — hero pays 2000 gold for a full level, or takes free XP
-    for (int i = 0; i < 2; ++i) {
-        WorldObject obj;
-        obj.id    = nextId++;
-        obj.type  = WorldObjectType::TreeOfKnowledge;
-        if (!tryPlace(obj, 6)) --nextId;
-        else result.worldObjects.push_back(obj);
-    }
-
-    // 3 Landmarks — permanent XP + lore on first visit
-    for (int i = 0; i < 3; ++i) {
-        WorldObject obj;
-        obj.id    = nextId++;
-        obj.type  = WorldObjectType::Landmark;
-        obj.value = 100 + i * 50; // 100, 150, 200 XP
-        if (!tryPlace(obj, 5)) --nextId;
-        else result.worldObjects.push_back(obj);
-    }
-
-    // 2 CursedGrounds — damages hero army on each pass; 5 charges, 3 dmg/charge
-    for (int i = 0; i < 2; ++i) {
-        WorldObject obj;
-        obj.id         = nextId++;
-        obj.type       = WorldObjectType::CursedGround;
-        obj.value      = 3;  // damage per charge
-        obj.questState = 5;  // charges remaining
-        if (!tryPlace(obj, 5)) --nextId;
-        else result.worldObjects.push_back(obj);
-    }
-
-    // 3 NeutralOutposts — guarded; capture gives weekly T1 production
-    for (int i = 0; i < 3; ++i) {
-        WorldObject obj;
-        obj.id      = nextId++;
-        obj.type    = WorldObjectType::NeutralOutpost;
-        obj.faction = static_cast<uint8_t>(lcg(rng) % 9);
-        obj.value   = 1; // tier of weekly production
-        if (!tryPlace(obj, 5)) --nextId;
-        else result.worldObjects.push_back(obj);
-    }
-
-    // UnitDwellings: for factions 0-8, tier 1-3
+    // UnitDwellings: factions 0-8, tiers 1-3 (global)
     for (int faction = 0; faction < 9; ++faction) {
         for (int tier = 1; tier <= 3; ++tier) {
             WorldObject obj;
@@ -539,10 +895,70 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
             obj.faction   = static_cast<uint8_t>(faction);
             obj.available = 4 + tier * 2;
             if (tryPlace(obj, 3)) result.worldObjects.push_back(obj);
+            else --nextId;
         }
     }
 
-    // 2 QuestGiver pairs (QuestGiver + QuestTarget 8+ tiles apart)
+    // Terrain-specific ambient supplement from kTerrainSpecs
+    struct TerrainObjSpec {
+        Terrain         terrain;
+        WorldObjectType type;
+        int             value;
+        ResourceType    rtype;
+        int             count;
+    };
+    static const TerrainObjSpec kTerrainSpecs[] = {
+        { Terrain::Forest,          WorldObjectType::ForestShrine,  75,                    ResourceType::Gold,         2 },
+        { Terrain::Highland,        WorldObjectType::HighlandRuin,   4,                    ResourceType::Gold,         1 },
+        { Terrain::Rocky,           WorldObjectType::HighlandRuin,   3,                    ResourceType::Gold,         1 },
+        { Terrain::Sacred,          WorldObjectType::HolyFountain,   0,                    ResourceType::Gold,         1 },
+        { Terrain::Barren,          WorldObjectType::Oasis,          0,                    ResourceType::Gold,         1 },
+        { Terrain::Wasteland,       WorldObjectType::Oasis,          0,                    ResourceType::Gold,         1 },
+        { Terrain::Plains,          WorldObjectType::Campfire,      150,                   ResourceType::Gold,         2 },
+        { Terrain::Volcanic,        WorldObjectType::LavaCrystal,    3,                    ResourceType::Mercury,      2 },
+        { Terrain::Swamp,           WorldObjectType::SwampAltar,    SPL::CURSE,            ResourceType::Gold,         1 },
+        { Terrain::Corrupted,       WorldObjectType::SpellScroll,   SPL::DEATH_COIL,       ResourceType::Gold,         1 },
+        { Terrain::CorruptedForest, WorldObjectType::SpellScroll,   SPL::VENOMOUS_CLOUD,   ResourceType::Gold,         1 },
+        { Terrain::Industrial,      WorldObjectType::ResourceCache,  250,                   ResourceType::Iron,         1 },
+        { Terrain::Toxic,           WorldObjectType::ResourceCache,    5,                   ResourceType::BloodEssence, 1 },
+    };
+
+    auto tryPlaceOnTerrain = [&](WorldObject& obj, Terrain terrain, int minDist) -> bool {
+        auto allCoords = map.coords();
+        for (size_t i = allCoords.size() - 1; i > 0; --i) {
+            uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+            std::swap(allCoords[i], allCoords[j]);
+        }
+        for (auto& c : allCoords) {
+            const HexTile* t = map.getTile(c);
+            if (!t || t->terrain != terrain) continue;
+            if (!isSuitable(map, c, minDist, occupied)) continue;
+            bool used = false;
+            for (const auto& wo : result.worldObjects)
+                if (wo.pos == c) { used = true; break; }
+            if (used) continue;
+            obj.pos = c;
+            occupied.push_back(c);
+            return true;
+        }
+        return false;
+    };
+
+    for (const auto& spec : kTerrainSpecs) {
+        for (int n = 0; n < spec.count; ++n) {
+            WorldObject obj;
+            obj.id           = nextId++;
+            obj.type         = spec.type;
+            obj.value        = spec.value;
+            obj.resourceType = spec.rtype;
+            if (tryPlaceOnTerrain(obj, spec.terrain, 3))
+                result.worldObjects.push_back(obj);
+            else
+                --nextId;
+        }
+    }
+
+    // 2 QuestGiver pairs
     for (int q = 0; q < 2; ++q) {
         WorldObject giver;
         giver.id   = nextId++;
@@ -551,7 +967,6 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
 
         if (!tryPlace(giver, 5)) continue;
 
-        // Find a target 8+ tiles away from giver
         WorldObject target;
         target.id   = nextId++;
         target.type = WorldObjectType::QuestTarget;
@@ -574,9 +989,205 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
             found = true;
             break;
         }
-        if (!found) { nextId -= 2; continue; }  // rollback IDs if we can't place
+        if (!found) { nextId -= 2; continue; }
 
-        // Link them
+        giver.linkedId  = target.id;
+        target.linkedId = giver.id;
+
+        result.worldObjects.push_back(giver);
+        result.worldObjects.push_back(target);
+    }
+}
+
+// ── Legacy world object placement (used when zoneBasedTerrain=false) ──────────
+void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
+                                  const WorldGenParams& p, uint32_t& nextId)
+{
+    uint32_t rng = p.seed ^ 0xDEADB00B;
+    int radius = map.radius();
+
+    std::vector<HexCoord> occupied;
+    for (const auto& t : result.towns)    occupied.push_back(t.pos);
+    for (const auto& r : result.resources) occupied.push_back(r.pos);
+
+    auto tryPlace = [&](WorldObject& obj, int minDist) -> bool {
+        auto allCoords = map.coords();
+        for (size_t i = allCoords.size() - 1; i > 0; --i) {
+            uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+            std::swap(allCoords[i], allCoords[j]);
+        }
+        for (auto& c : allCoords) {
+            if (!isSuitable(map, c, minDist, occupied)) continue;
+            bool used = false;
+            for (const auto& wo : result.worldObjects)
+                if (wo.pos == c) { used = true; break; }
+            if (used) continue;
+            obj.pos = c;
+            occupied.push_back(c);
+            return true;
+        }
+        return false;
+    };
+
+    {
+        int chestCount = 8 + static_cast<int>(lcg(rng) % 3);
+        static const int kStatTypes[] = { 0, 1, 2 };
+        for (int i = 0; i < chestCount; ++i) {
+            WorldObject obj;
+            obj.id         = nextId++;
+            obj.type       = WorldObjectType::TreasureChest;
+            obj.value      = 500 + static_cast<int>(lcg(rng) % 501);
+            obj.questState = 300 + static_cast<int>(lcg(rng) % 301);
+            obj.faction    = static_cast<uint8_t>(kStatTypes[lcg(rng) % 3]);
+            if (tryPlace(obj, 3)) result.worldObjects.push_back(obj);
+        }
+    }
+
+    for (int i = 0; i < 5; ++i) {
+        WorldObject obj;
+        obj.id      = nextId++;
+        obj.type    = WorldObjectType::Crypt;
+        obj.value   = 1 + static_cast<int>(lcg(rng) % 3);
+        obj.faction = static_cast<uint8_t>(lcg(rng) % 9u);
+        if (!tryPlace(obj, 4)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        WorldObject obj;
+        obj.id      = nextId++;
+        obj.type    = WorldObjectType::Utopia;
+        obj.value   = static_cast<int>(lcg(rng));
+        obj.faction = static_cast<uint8_t>(lcg(rng) % 9u);
+        if (!tryPlace(obj, 7)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::Observatory;
+        obj.value = 5;
+        if (tryPlace(obj, radius / 3)) result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 6; ++i) {
+        WorldObject obj;
+        obj.id         = nextId++;
+        obj.type       = WorldObjectType::StatShrine;
+        obj.value      = i % 6;
+        obj.questState = 3;
+        if (tryPlace(obj, 4)) result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::BanditCamp;
+        obj.value = 1 + static_cast<int>(lcg(rng) % 3);
+        if (tryPlace(obj, 4)) result.worldObjects.push_back(obj);
+    }
+
+    static const int kWitchSkills[] = { 101, 102, 103, 104, 105, 106, 107, 108, 109, 110 };
+    for (int i = 0; i < 4; ++i) {
+        WorldObject obj;
+        obj.id         = nextId++;
+        obj.type       = WorldObjectType::WitchHut;
+        obj.questState = kWitchSkills[lcg(rng) % 10];
+        if (!tryPlace(obj, 4)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::Stables;
+        obj.value = 3;
+        if (!tryPlace(obj, 6)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::TreeOfKnowledge;
+        if (!tryPlace(obj, 6)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        WorldObject obj;
+        obj.id    = nextId++;
+        obj.type  = WorldObjectType::Landmark;
+        obj.value = 100 + i * 50;
+        if (!tryPlace(obj, 5)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 2; ++i) {
+        WorldObject obj;
+        obj.id         = nextId++;
+        obj.type       = WorldObjectType::CursedGround;
+        obj.value      = 3;
+        obj.questState = 5;
+        if (!tryPlace(obj, 5)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    for (int i = 0; i < 3; ++i) {
+        WorldObject obj;
+        obj.id      = nextId++;
+        obj.type    = WorldObjectType::NeutralOutpost;
+        obj.faction = static_cast<uint8_t>(lcg(rng) % 9);
+        obj.value   = 1;
+        if (!tryPlace(obj, 5)) --nextId;
+        else result.worldObjects.push_back(obj);
+    }
+
+    for (int faction = 0; faction < 9; ++faction) {
+        for (int tier = 1; tier <= 3; ++tier) {
+            WorldObject obj;
+            obj.id        = nextId++;
+            obj.type      = WorldObjectType::UnitDwelling;
+            obj.value     = tier;
+            obj.faction   = static_cast<uint8_t>(faction);
+            obj.available = 4 + tier * 2;
+            if (tryPlace(obj, 3)) result.worldObjects.push_back(obj);
+        }
+    }
+
+    for (int q = 0; q < 2; ++q) {
+        WorldObject giver;
+        giver.id   = nextId++;
+        giver.type = WorldObjectType::QuestGiver;
+        giver.questState = 0;
+
+        if (!tryPlace(giver, 5)) continue;
+
+        WorldObject target;
+        target.id   = nextId++;
+        target.type = WorldObjectType::QuestTarget;
+
+        auto allCoords = map.coords();
+        for (size_t i = allCoords.size() - 1; i > 0; --i) {
+            uint32_t j = lcg(rng) % static_cast<uint32_t>(i + 1);
+            std::swap(allCoords[i], allCoords[j]);
+        }
+        bool found = false;
+        for (auto& c : allCoords) {
+            if (HexGrid::distance(c, giver.pos) < 8) continue;
+            if (!isSuitable(map, c, 4, occupied)) continue;
+            bool used = false;
+            for (const auto& wo : result.worldObjects)
+                if (wo.pos == c) { used = true; break; }
+            if (used) continue;
+            target.pos = c;
+            occupied.push_back(c);
+            found = true;
+            break;
+        }
+        if (!found) { nextId -= 2; continue; }
+
         giver.linkedId  = target.id;
         target.linkedId = giver.id;
 
@@ -584,13 +1195,12 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         result.worldObjects.push_back(target);
     }
 
-    // Terrain-specific ambient objects
     struct TerrainObjSpec {
         Terrain         terrain;
         WorldObjectType type;
         int             value;
         ResourceType    rtype;
-        int             count;   // how many to place
+        int             count;
     };
     static const TerrainObjSpec kTerrainSpecs[] = {
         { Terrain::Forest,          WorldObjectType::ForestShrine,  75,                    ResourceType::Gold,         3 },
@@ -602,7 +1212,6 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
         { Terrain::Plains,          WorldObjectType::Campfire,      150,                   ResourceType::Gold,         4 },
         { Terrain::Volcanic,        WorldObjectType::LavaCrystal,    3,                    ResourceType::Mercury,      2 },
         { Terrain::Swamp,           WorldObjectType::SwampAltar,    SPL::CURSE,            ResourceType::Gold,         2 },
-        // Extended: formerly missing terrains
         { Terrain::Corrupted,       WorldObjectType::SpellScroll,   SPL::DEATH_COIL,      ResourceType::Gold,         2 },
         { Terrain::CorruptedForest, WorldObjectType::SpellScroll,   SPL::VENOMOUS_CLOUD,  ResourceType::Gold,         2 },
         { Terrain::Industrial,      WorldObjectType::ResourceCache,  250,                   ResourceType::Iron,         2 },
@@ -640,7 +1249,7 @@ void WorldGen::placeWorldObjects(WorldGenResult& result, HexMap& map,
             if (tryPlaceOnTerrain(obj, spec.terrain, 3))
                 result.worldObjects.push_back(obj);
             else
-                --nextId; // rollback unused id
+                --nextId;
         }
     }
 }

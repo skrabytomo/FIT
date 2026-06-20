@@ -90,6 +90,23 @@ bool MapFormat::save(const std::string& path, const MapFile& mf)
         }
         j["triggers"] = trigs;
 
+        // World objects
+        json wobjs = json::array();
+        for (auto& wo : mf.worldObjects) {
+            json jwo;
+            jwo["id"]           = wo.id;
+            jwo["type"]         = static_cast<int>(wo.type);
+            jwo["q"]            = wo.pos.q;
+            jwo["r"]            = wo.pos.r;
+            jwo["value"]        = wo.value;
+            jwo["resourceType"] = static_cast<int>(wo.resourceType);
+            jwo["faction"]      = static_cast<int>(wo.faction);
+            jwo["questState"]   = wo.questState;
+            jwo["linkedId"]     = wo.linkedId;
+            wobjs.push_back(jwo);
+        }
+        j["worldObjects"] = wobjs;
+
         std::ofstream f(path);
         if (!f.is_open()) return false;
         f << j.dump(2);
@@ -167,9 +184,23 @@ bool MapFormat::load(const std::string& path, MapFile& out)
             out.triggers.push_back(t);
         }
 
-        printf("MapFormat: loaded '%s' (%zu tiles, %zu towns, %zu triggers)\n",
+        out.worldObjects.clear();
+        for (auto& jwo : j.value("worldObjects", json::array())) {
+            WorldObject wo;
+            wo.id           = jwo.value("id", 0u);
+            wo.type         = static_cast<WorldObjectType>(jwo.value("type", 0));
+            wo.pos          = {jwo.value("q", 0), jwo.value("r", 0)};
+            wo.value        = jwo.value("value", 0);
+            wo.resourceType = static_cast<ResourceType>(jwo.value("resourceType", 0));
+            wo.faction      = static_cast<uint8_t>(jwo.value("faction", 0));
+            wo.questState   = jwo.value("questState", 0);
+            wo.linkedId     = jwo.value("linkedId", 0u);
+            out.worldObjects.push_back(wo);
+        }
+
+        printf("MapFormat: loaded '%s' (%zu tiles, %zu towns, %zu triggers, %zu world objects)\n",
                out.meta.name.c_str(), out.tiles.size(),
-               out.towns.size(), out.triggers.size());
+               out.towns.size(), out.triggers.size(), out.worldObjects.size());
         return true;
     }
     catch (const std::exception& e) {

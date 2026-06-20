@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
 #include "HexMap.h"
 #include "../data/ResourceNode.h"
 #include "../town/Town.h"
@@ -15,6 +16,8 @@ struct WorldGenParams
     float    resourceDensity = 1.0f;  // multiplier; 1.0 = default
     bool     balancedStart   = true;  // equidistant player towns
     float    waterRatio      = 0.15f; // target fraction of map that is water
+    bool     richNeutralZones = true;  // extra objects in neutral zones
+    bool     zoneBasedTerrain = true;  // use zone terrain vs old noise biomes
 };
 
 // ── Generation results ─────────────────────────────────────────────────────────
@@ -50,6 +53,33 @@ private:
                            const std::vector<HexCoord>& positions,
                            uint32_t& nextId);
     static void placeWorldObjects(WorldGenResult&, HexMap&, const WorldGenParams&, uint32_t&);
+
+    // ── Zone-based generation ─────────────────────────────────────────────────
+    // Returns zoneId per tile coord (-1=water, 0..N-1 player zones, N..N+M-1 neutral)
+    static std::unordered_map<HexCoord, int, HexCoordHash> assignZones(
+        const HexMap& map,
+        const std::vector<HexCoord>& playerSpawns,
+        std::vector<HexCoord>& neutralCentersOut,
+        uint32_t& rng);
+
+    static void passZoneTerrain(
+        HexMap& map,
+        const std::unordered_map<HexCoord, int, HexCoordHash>& tileZones,
+        const std::vector<Terrain>& zoneTerrain,
+        uint32_t& rng);
+
+    static void placePlayerZoneMines(
+        WorldGenResult& result, HexMap& map,
+        const std::vector<HexCoord>& spawns,
+        const std::unordered_map<HexCoord, int, HexCoordHash>& tileZones,
+        const WorldGenParams& p, uint32_t& nextId, uint32_t& rng);
+
+    static void placeZoneObjects(
+        WorldGenResult& result, HexMap& map,
+        const std::vector<HexCoord>& allCenters,
+        const std::vector<int>& zonePlayer,   // -1=neutral, 0..N=player idx
+        const std::unordered_map<HexCoord, int, HexCoordHash>& tileZones,
+        const WorldGenParams& p, uint32_t& nextId, uint32_t& rng);
 
     static Terrain heightToTerrain(float h, float waterCutoff);
     static bool    isLand(Terrain t);

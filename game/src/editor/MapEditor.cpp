@@ -6,6 +6,46 @@
 #include <algorithm>
 #include <cstdio>
 
+// WorldObjectType names in enum order
+static const char* kWorldObjNames[] = {
+    "SpellScroll",
+    "ArtifactChest",
+    "XPShrine",
+    "ResourceCache",
+    "Observatory",
+    "StatShrine",
+    "BanditCamp",
+    "UnitDwelling",
+    "QuestGiver",
+    "QuestTarget",
+    "ForestShrine",
+    "HighlandRuin",
+    "HolyFountain",
+    "Oasis",
+    "Campfire",
+    "LavaCrystal",
+    "SwampAltar",
+    "TreasureChest",
+    "Crypt",
+    "Utopia",
+    "Landmark",
+    "CursedGround",
+    "NeutralOutpost",
+    "WitchHut",
+    "Stables",
+    "TreeOfKnowledge",
+};
+static constexpr int kWorldObjNameCount = 26;
+
+static const char* kFactionNames[] = {
+    "HolyOrder","CrimsonWardens","Thornkin","EternalEmpire",
+    "Bloodsworn","Voidkin","IronAssembly","Amalgamate","Convergence"
+};
+
+static const char* kResourceNames[] = {
+    "Gold","Iron","FaithStones","BloodEssence","VerdantSap","Mercury"
+};
+
 bool MapEditor::init(int sw, int sh)
 {
     m_screenW = sw;
@@ -25,19 +65,21 @@ void MapEditor::shutdown() {}
 void MapEditor::renderImGui(HexMap& map,
                              std::vector<Town>& towns,
                              std::vector<ResourceNode>& resources,
-                             std::vector<HexCoord>& heroStarts)
+                             std::vector<HexCoord>& heroStarts,
+                             std::vector<WorldObject>& worldObjects)
 {
     // ── Main menu bar ──────────────────────────────────────────────────────────
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("File")) {
             if (ImGui::MenuItem("Save Map", "Ctrl+S"))
-                saveMap(m_filePath, map, towns, resources, heroStarts);
+                saveMap(m_filePath, map, towns, resources, heroStarts, worldObjects);
             if (ImGui::MenuItem("Load Map", "Ctrl+O"))
-                loadMap(m_filePath, map, towns, resources, heroStarts);
+                loadMap(m_filePath, map, towns, resources, heroStarts, worldObjects);
             ImGui::Separator();
             if (ImGui::MenuItem("New (clear map")) {
                 map.forEach([](HexTile& t){ t.terrain = Terrain::Plains; });
                 towns.clear(); resources.clear(); heroStarts.clear();
+                worldObjects.clear();
             }
             ImGui::EndMenu();
         }
@@ -51,7 +93,8 @@ void MapEditor::renderImGui(HexMap& map,
     drawResourcePanel(resources);
     drawTriggerPanel();
     drawMapMetaPanel();
-    drawGenPanel(map, towns, resources, heroStarts);
+    drawGenPanel(map, towns, resources, heroStarts, worldObjects);
+    drawObjectPanel(worldObjects);
 }
 
 // ── Hex click handler ─────────────────────────────────────────────────────────
@@ -59,14 +102,20 @@ void MapEditor::onHexClicked(HexCoord h,
                               HexMap& map,
                               std::vector<Town>& towns,
                               std::vector<ResourceNode>& resources,
-                              std::vector<HexCoord>& heroStarts)
+                              std::vector<HexCoord>& heroStarts,
+                              std::vector<WorldObject>& worldObjects)
 {
     m_selectedHex = h;
 
     switch (m_tool) {
         case EditorTool::Terrain: {
-            HexTile* tile = map.getTile(h);
-            if (tile) tile->terrain = m_paintTerrain;
+            // Paint with brush radius
+            int brushR = m_brushRadius - 1;
+            auto cells = HexGrid::range(h, brushR);
+            for (auto& c : cells) {
+                HexTile* tile = map.getTile(c);
+                if (tile) tile->terrain = m_paintTerrain;
+            }
             break;
         }
         case EditorTool::Town:
@@ -79,8 +128,11 @@ void MapEditor::onHexClicked(HexCoord h,
             if (std::find(heroStarts.begin(), heroStarts.end(), h) == heroStarts.end())
                 heroStarts.push_back(h);
             break;
+        case EditorTool::WorldObject:
+            placeWorldObject(h, map, worldObjects);
+            break;
         case EditorTool::Erase:
-            eraseAt(h, map, towns, resources);
+            eraseAt(h, map, towns, resources, worldObjects);
             break;
         default: break;
     }
@@ -89,20 +141,21 @@ void MapEditor::onHexClicked(HexCoord h,
 // ── Toolbar ───────────────────────────────────────────────────────────────────
 void MapEditor::drawToolbar()
 {
-    ImGui::SetNextWindowPos({(float)m_screenW * 0.5f - 200.f, 24.f}, ImGuiCond_Always);
-    ImGui::SetNextWindowSize({400.f, 44.f}, ImGuiCond_Always);
+    ImGui::SetNextWindowPos({(float)m_screenW * 0.5f - 230.f, 24.f}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({460.f, 44.f}, ImGuiCond_Always);
     ImGui::Begin("##toolbar", nullptr,
         ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoSavedSettings);
 
     struct ToolBtn { const char* label; EditorTool tool; };
     static const ToolBtn kButtons[] = {
-        {"Terrain [T]", EditorTool::Terrain},
-        {"Town [W]",    EditorTool::Town},
-        {"Resource [R]",EditorTool::Resource},
-        {"Start [S]",   EditorTool::HeroStart},
-        {"Trigger [G]", EditorTool::Trigger},
-        {"Erase [E]",   EditorTool::Erase},
+        {"Terrain [T]",  EditorTool::Terrain},
+        {"Town [W]",     EditorTool::Town},
+        {"Resource [R]", EditorTool::Resource},
+        {"Start [S]",    EditorTool::HeroStart},
+        {"Trigger [G]",  EditorTool::Trigger},
+        {"Object [O]",   EditorTool::WorldObject},
+        {"Erase [E]",    EditorTool::Erase},
     };
     for (auto& b : kButtons) {
         bool active = m_tool == b.tool;
@@ -120,7 +173,7 @@ void MapEditor::drawTerrainPalette()
     if (m_tool != EditorTool::Terrain) return;
 
     ImGui::SetNextWindowPos({4.f, 30.f}, ImGuiCond_Always);
-    ImGui::SetNextWindowSize({140.f, 340.f}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({140.f, 370.f}, ImGuiCond_Always);
     ImGui::Begin("Terrain", nullptr,
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoSavedSettings);
@@ -151,6 +204,10 @@ void MapEditor::drawTerrainPalette()
         if (ImGui::Button(te.name, {128.f, 18.f})) m_paintTerrain = te.t;
         ImGui::PopStyleColor();
     }
+
+    ImGui::Separator();
+    ImGui::SliderInt("Brush", &m_brushRadius, 1, 3);
+
     ImGui::End();
 }
 
@@ -287,7 +344,8 @@ void MapEditor::drawMapMetaPanel()
 void MapEditor::drawGenPanel(HexMap& map,
                               std::vector<Town>& towns,
                               std::vector<ResourceNode>& resources,
-                              std::vector<HexCoord>& heroStarts)
+                              std::vector<HexCoord>& heroStarts,
+                              std::vector<WorldObject>& worldObjects)
 {
     ImGui::SetNextWindowPos({(float)m_screenW - 200.f, 418.f}, ImGuiCond_Always);
     ImGui::SetNextWindowSize({196.f, 220.f}, ImGuiCond_Always);
@@ -316,6 +374,7 @@ void MapEditor::drawGenPanel(HexMap& map,
         towns        = std::move(result.towns);
         resources    = std::move(result.resources);
         heroStarts   = std::move(result.startPositions);
+        worldObjects = std::move(result.worldObjects);
 
         // Pin town IDs onto tiles
         for (auto& t : towns)
@@ -323,6 +382,67 @@ void MapEditor::drawGenPanel(HexMap& map,
         for (auto& r : resources)
             if (HexTile* tile = map.getTile(r.pos)) tile->resourceId = r.id;
     }
+    ImGui::End();
+}
+
+// ── World object panel ────────────────────────────────────────────────────────
+void MapEditor::drawObjectPanel(std::vector<WorldObject>& worldObjects)
+{
+    if (m_tool != EditorTool::WorldObject) return;
+
+    ImGui::SetNextWindowPos({4.f, 30.f}, ImGuiCond_Always);
+    ImGui::SetNextWindowSize({196.f, 320.f}, ImGuiCond_Always);
+    ImGui::Begin("Objects", nullptr,
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoSavedSettings);
+
+    // Type combo
+    int typeIdx = static_cast<int>(m_objType);
+    if (ImGui::Combo("Type", &typeIdx, kWorldObjNames, kWorldObjNameCount))
+        m_objType = static_cast<WorldObjectType>(typeIdx);
+
+    // Value
+    ImGui::InputInt("Value", &m_objValue);
+
+    // Faction combo (visible for types that use faction)
+    bool showFaction = (m_objType == WorldObjectType::UnitDwelling ||
+                        m_objType == WorldObjectType::Crypt ||
+                        m_objType == WorldObjectType::Utopia ||
+                        m_objType == WorldObjectType::NeutralOutpost);
+    if (showFaction) {
+        int fIdx = static_cast<int>(m_objFaction);
+        if (ImGui::Combo("Faction", &fIdx, kFactionNames, 9))
+            m_objFaction = static_cast<uint8_t>(fIdx);
+    }
+
+    // Resource combo (visible for ResourceCache)
+    if (m_objType == WorldObjectType::ResourceCache) {
+        int rIdx = static_cast<int>(m_objResourceType);
+        if (ImGui::Combo("Resource", &rIdx, kResourceNames, 6))
+            m_objResourceType = static_cast<ResourceType>(rIdx);
+    }
+
+    ImGui::Separator();
+    ImGui::Text("Placed: %d", (int)worldObjects.size());
+    ImGui::BeginChild("ObjList", {184.f, 120.f}, true);
+    int toErase = -1;
+    for (int i = 0; i < (int)worldObjects.size(); ++i) {
+        auto& wo = worldObjects[i];
+        const char* name = (static_cast<int>(wo.type) < kWorldObjNameCount)
+                            ? kWorldObjNames[static_cast<int>(wo.type)]
+                            : "?";
+        ImGui::Text("%s (%d,%d)", name, wo.pos.q, wo.pos.r);
+        ImGui::SameLine();
+        ImGui::PushID(i);
+        if (ImGui::SmallButton("X")) toErase = i;
+        ImGui::PopID();
+    }
+    ImGui::EndChild();
+    if (toErase >= 0)
+        worldObjects.erase(worldObjects.begin() + toErase);
+
+    ImGui::Separator();
+    ImGui::TextWrapped("Click land hex to place.");
     ImGui::End();
 }
 
@@ -359,9 +479,31 @@ void MapEditor::placeResource(HexCoord h, HexMap& map,
     tile->resourceId = r.id;
 }
 
+void MapEditor::placeWorldObject(HexCoord h, HexMap& map,
+                                  std::vector<WorldObject>& worldObjects)
+{
+    HexTile* tile = map.getTile(h);
+    if (!tile || tile->terrain == Terrain::Water) return;
+
+    // Guard: no existing world object at this position
+    for (const auto& wo : worldObjects)
+        if (wo.pos == h) return;
+
+    WorldObject obj;
+    obj.id           = m_nextWorldObjId++;
+    obj.type         = m_objType;
+    obj.pos          = h;
+    obj.value        = m_objValue;
+    obj.faction      = m_objFaction;
+    obj.resourceType = m_objResourceType;
+    obj.questState   = 0;
+    worldObjects.push_back(obj);
+}
+
 void MapEditor::eraseAt(HexCoord h, HexMap& map,
                          std::vector<Town>& towns,
-                         std::vector<ResourceNode>& resources)
+                         std::vector<ResourceNode>& resources,
+                         std::vector<WorldObject>& worldObjects)
 {
     HexTile* tile = map.getTile(h);
     if (!tile) return;
@@ -379,6 +521,10 @@ void MapEditor::eraseAt(HexCoord h, HexMap& map,
                         resources.end());
         tile->resourceId = 0;
     }
+    // Also erase any world object at this hex
+    worldObjects.erase(std::remove_if(worldObjects.begin(), worldObjects.end(),
+                       [h](const WorldObject& wo){ return wo.pos == h; }),
+                       worldObjects.end());
 }
 
 // ── Save / Load ───────────────────────────────────────────────────────────────
@@ -386,7 +532,8 @@ bool MapEditor::saveMap(const std::string& path,
                          const HexMap& map,
                          const std::vector<Town>& towns,
                          const std::vector<ResourceNode>& resources,
-                         const std::vector<HexCoord>& heroStarts) const
+                         const std::vector<HexCoord>& heroStarts,
+                         const std::vector<WorldObject>& worldObjects) const
 {
     MapFile mf;
     mf.meta.name        = m_nameBuffer;
@@ -398,6 +545,7 @@ bool MapEditor::saveMap(const std::string& path,
     mf.resources        = resources;
     mf.heroStarts       = heroStarts;
     mf.triggers         = m_triggers;
+    mf.worldObjects     = worldObjects;
 
     for (auto c : map.coords()) {
         const HexTile* tile = map.getTile(c);
@@ -417,13 +565,15 @@ bool MapEditor::loadMap(const std::string& path,
                          HexMap& map,
                          std::vector<Town>& towns,
                          std::vector<ResourceNode>& resources,
-                         std::vector<HexCoord>& heroStarts)
+                         std::vector<HexCoord>& heroStarts,
+                         std::vector<WorldObject>& worldObjects)
 {
     MapFile mf;
     if (!MapFormat::load(path, mf)) return false;
     MapFormat::applyToMap(map, mf, towns, resources);
-    heroStarts = mf.heroStarts;
-    m_triggers = mf.triggers;
+    heroStarts   = mf.heroStarts;
+    worldObjects = mf.worldObjects;
+    m_triggers   = mf.triggers;
     strncpy(m_nameBuffer,   mf.meta.name.c_str(),        sizeof(m_nameBuffer)-1);
     strncpy(m_authorBuffer, mf.meta.author.c_str(),      sizeof(m_authorBuffer)-1);
     strncpy(m_descBuffer,   mf.meta.description.c_str(), sizeof(m_descBuffer)-1);
