@@ -26,10 +26,7 @@ FetchContent_Declare(
     GIT_TAG        v1.90.8
     GIT_SHALLOW    TRUE
 )
-FetchContent_GetProperties(imgui)
-if(NOT imgui_POPULATED)
-    FetchContent_Populate(imgui)
-endif()
+FetchContent_MakeAvailable(imgui)
 
 # ── Find system packages ───────────────────────────────────────────────────────
 find_package(SDL2   REQUIRED)
@@ -84,7 +81,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 target_link_libraries(${PROJECT_NAME} PRIVATE
     ${SDL2_LIBRARIES}
     ${OPENGL_LIBRARIES}
-    SQLite::SQLite3
+    $<IF:$<TARGET_EXISTS:SQLite3::SQLite3>,SQLite3::SQLite3,SQLite::SQLite3>
     nlohmann_json::nlohmann_json
     imgui_lib
     ${LUA_LIBRARIES}
