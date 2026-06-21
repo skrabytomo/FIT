@@ -1467,6 +1467,57 @@ void Game::exitCombat(bool playerWon)
             m_pendingUtopiaId = 0;
         }
 
+        // Dragon Utopia reward
+        if (m_pendingDragonUtopiaId != 0) {
+            for (auto& o : m_worldObjects) {
+                if (o.id != m_pendingDragonUtopiaId) continue;
+                o.collected = true;
+                m_playerResources.add(ResourceType::Gold, 20000);
+                int artId = 1 + static_cast<int>((o.value * 31 + m_turns.week() * 7) % 8);
+                if (!m_heroes.empty()) m_heroes[m_activeHeroIdx].artifactInventory.push_back(artId);
+                m_showDragonUtopiaPopup = true;
+                break;
+            }
+            m_pendingDragonUtopiaId = 0;
+        }
+
+        // Creature Bank reward
+        if (m_pendingBankId != 0) {
+            for (auto& o : m_worldObjects) {
+                if (o.id != m_pendingBankId) continue;
+                struct BankReward { int gold; int resAmt; ResourceType res; };
+                static const BankReward kBankRewards[] = {
+                    {800,10,ResourceType::BloodEssence},
+                    {900, 8,ResourceType::FaithStones},
+                    {800,10,ResourceType::Mercury},
+                    {800,10,ResourceType::VerdantSap},
+                    {700, 8,ResourceType::Mercury},
+                    {800,12,ResourceType::Iron},
+                };
+                int bt = std::clamp(o.value, 0, 5);
+                m_playerResources.add(ResourceType::Gold, kBankRewards[bt].gold);
+                m_playerResources.add(kBankRewards[bt].res, kBankRewards[bt].resAmt);
+                char buf[64];
+                std::snprintf(buf, sizeof(buf), "+%dg +%d res (Bank)", kBankRewards[bt].gold, kBankRewards[bt].resAmt);
+                pushPickupEffect(o.pos, buf, IM_COL32(180, 220, 100, 255));
+                gLog("Creature Bank cleared: +%d gold\n", kBankRewards[bt].gold);
+                break;
+            }
+            m_pendingBankId = 0;
+        }
+
+        // Pandora Box reward (deferred — show popup)
+        if (m_pendingPandoraId != 0) {
+            for (auto& o : m_worldObjects) {
+                if (o.id != m_pendingPandoraId) continue;
+                m_pandoraRewardType = static_cast<int>((o.value * 13 + m_turns.week() * 7) % 5);
+                o.questState = m_pandoraRewardType;
+                m_showPandoraPopup = true;
+                break;
+            }
+            m_pendingPandoraId = 0;
+        }
+
         // Remove defeated enemy hero from the world
         if (m_lastCombatEnemyId != 0) {
             // Loot the defeated hero — gold scales with enemy army strength

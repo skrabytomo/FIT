@@ -36,6 +36,9 @@ enum class WorldObjectType : uint8_t
     ChokeGuard,     // fixed-power guardian blocking a map passage; cleared when beaten
     Shipyard,       // hero buys a boat here; value=boats already sold (cost = 2000+value*1000 gold + 10 Iron)
     FishingHouse,   // built from a boat on land; gives +150 gold/day; faction field = ownerId (1=player)
+    DragonUtopia,  // 4 stacks of T6 units (base+PathA+PathB mix); value=faction(0-8); huge gold+artifact
+    CreatureBank,  // guarded by specific T4-T5 units; value=bankType(0-5); faction resource reward
+    PandoraBox,    // random army inside; value=seed; one of 5 random rewards after victory
 };
 
 struct WorldObject

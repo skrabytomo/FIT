@@ -38,8 +38,11 @@ static const char* kWorldObjNames[] = {
     "ChokeGuard",
     "Shipyard",
     "FishingHouse",
+    "DragonUtopia",
+    "CreatureBank",
+    "PandoraBox",
 };
-static constexpr int kWorldObjNameCount = 30;
+static constexpr int kWorldObjNameCount = 33;
 
 static const char* kFactionNames[] = {
     "HolyOrder","CrimsonWardens","Thornkin","EternalEmpire",

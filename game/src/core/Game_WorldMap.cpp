@@ -1285,6 +1285,8 @@ void Game::renderWorldMapImGui()
     if (m_showTreasureChestPopup) renderTreasureChestPopup();
     if (m_showCryptPopup)         renderCryptPopup();
     if (m_showUtopiaPopup)        renderUtopiaPopup();
+    if (m_showDragonUtopiaPopup)  renderDragonUtopiaPopup();
+    if (m_showPandoraPopup)       renderPandoraPopup();
     if (m_showMineInfoPopup)      renderMineInfoPopup();
     if (m_showTreeKnowledgePopup) renderTreeOfKnowledgePopup();
     if (m_showShipyardPopup)      renderShipyardPopup();
@@ -1914,6 +1916,201 @@ void Game::checkTileEvents()
             }
             break;
 
+        case WorldObjectType::DragonUtopia:
+            if (!obj.collected) {
+                auto makeCu = [](const UnitDef& ud, int cnt, uint32_t uid) -> CombatUnit {
+                    CombatUnit cu;
+                    cu.id=uid; cu.defId=ud.id; cu.name=ud.name; cu.count=cnt;
+                    cu.maxHp=cu.hp=ud.hp; cu.attack=ud.attack; cu.defense=ud.defense;
+                    cu.damageMin=ud.damage_min; cu.damageMax=ud.damage_max;
+                    cu.speed=ud.speed; cu.range=ud.range; cu.shots=cu.shotsLeft=ud.shots;
+                    cu.flying=ud.flying; cu.vampiric=ud.vampiric; cu.regenerates=ud.regenerates;
+                    cu.tags=ud.tags; cu.isPlayer=false;
+                    return cu;
+                };
+                auto findUD = [&](FactionId f, int tier, UpgradePath path) -> const UnitDef* {
+                    for (const auto& u : m_registry.units())
+                        if (u.faction==f && u.tier==tier && u.path==path) return &u;
+                    return nullptr;
+                };
+                float wm = std::min(2.0f, 1.0f + m_turns.week() * 0.08f);
+                FactionId df  = static_cast<FactionId>(obj.faction % 9);
+                FactionId df2 = static_cast<FactionId>((obj.faction + 1) % 9);
+                std::vector<CombatUnit> duUnits;
+                uint32_t uid = 200;
+                // T6 base x6, T6 PathA x5, T6 PathB x4 of obj.faction
+                if (const UnitDef* ud = findUD(df, 6, UpgradePath::None))
+                    duUnits.push_back(makeCu(*ud, static_cast<int>(6 * wm), uid++));
+                if (const UnitDef* ud = findUD(df, 6, UpgradePath::PathA))
+                    duUnits.push_back(makeCu(*ud, static_cast<int>(5 * wm), uid++));
+                if (const UnitDef* ud = findUD(df, 6, UpgradePath::PathB))
+                    duUnits.push_back(makeCu(*ud, static_cast<int>(4 * wm), uid++));
+                // T6 base x3 of adjacent faction
+                if (const UnitDef* ud = findUD(df2, 6, UpgradePath::None))
+                    duUnits.push_back(makeCu(*ud, static_cast<int>(3 * wm), uid++));
+                // Fallback if no T6 units found
+                if (duUnits.empty()) {
+                    CombatUnit fb; fb.id=uid++; fb.name="Elder Dragon"; fb.count=static_cast<int>(5*wm);
+                    fb.maxHp=fb.hp=80; fb.attack=22; fb.defense=18; fb.speed=7; fb.flying=true;
+                    fb.isPlayer=false; duUnits.push_back(fb);
+                }
+                Hero duHero;
+                duHero.id=0; duHero.name="Dragon Keeper"; duHero.faction=df;
+                uint32_t objId = obj.id;
+                m_encounterTitle        = "Dragon Utopia";
+                m_pendingEncounterHero  = duHero;
+                m_pendingEncounterUnits = duUnits;
+                m_encounterOnAccept = [this, objId]() {
+                    m_pendingDragonUtopiaId = objId;
+                    m_lastCombatEnemyId    = 0;
+                    m_pendingTownCaptureId = 0;
+                    m_lastBanditCampId     = 0;
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                        enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                    }
+                };
+                m_encounterOnDecline = [this]() {
+                    if (!m_heroes.empty()) { auto& h = m_heroes[m_activeHeroIdx]; h.path.clear(); h.pathStep = 0; }
+                };
+                m_showEncounterPrompt = true;
+                return;
+            }
+            break;
+
+        case WorldObjectType::CreatureBank:
+            if (!obj.collected) {
+                struct BankDef { int fac; int tier; int stacks; int cnt; ResourceType res; int gold; int resAmt; const char* label; };
+                static const BankDef kBanks[] = {
+                    {2,4, 3,7, ResourceType::BloodEssence, 800, 10, "Vampire Coven"},
+                    {2,5, 2,4, ResourceType::FaithStones,  900,  8, "Lich Sanctum"},
+                    {4,4, 3,6, ResourceType::Mercury,      800, 10, "Steel Foundry"},
+                    {3,4, 3,7, ResourceType::VerdantSap,   800, 10, "Ancient Grove"},
+                    {6,4, 2,6, ResourceType::Mercury,      700,  8, "Void Nexus"},
+                    {7,4, 3,5, ResourceType::Iron,         800, 12, "Automaton Factory"},
+                };
+                auto makeCuB = [](const UnitDef& ud, int cnt, uint32_t uid) -> CombatUnit {
+                    CombatUnit cu;
+                    cu.id=uid; cu.defId=ud.id; cu.name=ud.name; cu.count=cnt;
+                    cu.maxHp=cu.hp=ud.hp; cu.attack=ud.attack; cu.defense=ud.defense;
+                    cu.damageMin=ud.damage_min; cu.damageMax=ud.damage_max;
+                    cu.speed=ud.speed; cu.range=ud.range; cu.shots=cu.shotsLeft=ud.shots;
+                    cu.flying=ud.flying; cu.vampiric=ud.vampiric; cu.regenerates=ud.regenerates;
+                    cu.tags=ud.tags; cu.isPlayer=false;
+                    return cu;
+                };
+                int bankType = std::clamp(obj.value, 0, 5);
+                const BankDef& bd = kBanks[bankType];
+                float wm = (m_turns.week() <= 1) ? 1.0f : std::min(2.0f, 1.0f + m_turns.week() * 0.1f);
+                FactionId bf = static_cast<FactionId>(bd.fac);
+                std::vector<CombatUnit> bankUnits;
+                uint32_t uid = 220;
+                // Find units for this bank
+                const UnitDef* bud = nullptr;
+                for (const auto& u : m_registry.units())
+                    if (u.faction==bf && u.tier==bd.tier && u.path==UpgradePath::None) { bud=&u; break; }
+                int cnt = static_cast<int>(bd.cnt * wm);
+                if (bud) {
+                    for (int si = 0; si < bd.stacks; ++si)
+                        bankUnits.push_back(makeCuB(*bud, cnt, uid++));
+                } else {
+                    // Fallback inline unit
+                    CombatUnit fb; fb.id=uid++; fb.name=bd.label; fb.count=cnt;
+                    fb.maxHp=fb.hp=30; fb.attack=10; fb.defense=8; fb.speed=5; fb.isPlayer=false;
+                    for (int si=0; si<bd.stacks; ++si) { fb.id=uid++; bankUnits.push_back(fb); }
+                }
+                Hero bankHero;
+                bankHero.id=0; bankHero.faction=bf;
+                std::string guardName = std::string(bd.label) + " Guardian";
+                bankHero.name = guardName;
+                uint32_t objId = obj.id;
+                m_encounterTitle        = std::string(bd.label);
+                m_pendingEncounterHero  = bankHero;
+                m_pendingEncounterUnits = bankUnits;
+                m_encounterOnAccept = [this, objId]() {
+                    m_pendingBankId        = objId;
+                    m_lastCombatEnemyId    = 0;
+                    m_pendingTownCaptureId = 0;
+                    m_lastBanditCampId     = 0;
+                    for (auto& o : m_worldObjects) {
+                        if (o.id != objId) continue;
+                        o.collected = true;
+                        break;
+                    }
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                        enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                    }
+                };
+                m_encounterOnDecline = [this]() {
+                    if (!m_heroes.empty()) { auto& h = m_heroes[m_activeHeroIdx]; h.path.clear(); h.pathStep = 0; }
+                };
+                m_showEncounterPrompt = true;
+                return;
+            }
+            break;
+
+        case WorldObjectType::PandoraBox:
+            if (!obj.collected) {
+                FactionId pf = static_cast<FactionId>((obj.value * 7) % 9);
+                float ws = std::min(2.0f, 1.0f + m_turns.week() * 0.08f);
+                std::vector<CombatUnit> pandUnits;
+                uint32_t uid = 240;
+                // Build 3 stacks: T2 (count=12*ws), T3 (count=8*ws), T4 (count=4*ws)
+                for (int tier = 2; tier <= 4; ++tier) {
+                    const UnitDef* pud = nullptr;
+                    for (const auto& u : m_registry.units())
+                        if (u.faction==pf && u.tier==tier && u.path==UpgradePath::None) { pud=&u; break; }
+                    int cnt = static_cast<int>((tier==2 ? 12 : tier==3 ? 8 : 4) * ws);
+                    CombatUnit cu;
+                    cu.id = uid++;
+                    cu.isPlayer = false;
+                    if (pud) {
+                        cu.defId=pud->id; cu.name=pud->name;
+                        cu.maxHp=cu.hp=pud->hp; cu.attack=pud->attack; cu.defense=pud->defense;
+                        cu.damageMin=pud->damage_min; cu.damageMax=pud->damage_max;
+                        cu.speed=pud->speed; cu.range=pud->range; cu.shots=cu.shotsLeft=pud->shots;
+                        cu.flying=pud->flying; cu.vampiric=pud->vampiric; cu.regenerates=pud->regenerates;
+                        cu.tags=pud->tags;
+                    } else {
+                        cu.name="Chaos Spawn"; cu.maxHp=cu.hp=20+tier*5;
+                        cu.attack=5+tier*2; cu.defense=3+tier*2; cu.speed=4+tier;
+                    }
+                    cu.count = cnt;
+                    pandUnits.push_back(cu);
+                }
+                Hero pandHero;
+                pandHero.id=0; pandHero.name="Chaos Guardian"; pandHero.faction=pf;
+                uint32_t objId = obj.id;
+                m_encounterTitle        = "Pandora's Box";
+                m_pendingEncounterHero  = pandHero;
+                m_pendingEncounterUnits = pandUnits;
+                m_encounterOnAccept = [this, objId]() {
+                    m_pendingPandoraId     = objId;
+                    m_lastCombatEnemyId    = 0;
+                    m_pendingTownCaptureId = 0;
+                    m_lastBanditCampId     = 0;
+                    for (auto& o : m_worldObjects) {
+                        if (o.id != objId) continue;
+                        o.collected = true;
+                        break;
+                    }
+                    if (!m_heroes.empty()) {
+                        Hero& h = m_heroes[m_activeHeroIdx];
+                        auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                        enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                    }
+                };
+                m_encounterOnDecline = [this]() {
+                    if (!m_heroes.empty()) { auto& h = m_heroes[m_activeHeroIdx]; h.path.clear(); h.pathStep = 0; }
+                };
+                m_showEncounterPrompt = true;
+                return;
+            }
+            break;
+
         case WorldObjectType::Landmark:
             if (!obj.collected) {
                 obj.collected = true;
@@ -2483,6 +2680,9 @@ void Game::renderWorldOverlay()
         case WorldObjectType::ChokeGuard:    ico = 15;               break; // default icon
         case WorldObjectType::Shipyard:      ico = 15;               break;
         case WorldObjectType::FishingHouse:  ico = 15;               break;
+        case WorldObjectType::DragonUtopia: ico = ICO_UTOPIA;        break;
+        case WorldObjectType::CreatureBank: ico = ICO_CRYPT;         break;
+        case WorldObjectType::PandoraBox:   ico = ICO_ARTIFACT;      break;
         default:                             ico = 15;               break;
         }
         // Idle glow pulse
@@ -4257,6 +4457,164 @@ void Game::renderUtopiaPopup()
         obj->collected = true; m_showUtopiaPopup = false;
     }
     ImGui::PopStyleColor();
+    ImGui::End();
+}
+
+// ── Dragon Utopia reward popup ───────────────────────────────────────────────
+void Game::renderDragonUtopiaPopup()
+{
+    if (!m_showDragonUtopiaPopup) return;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({380, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##dragonutopia", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({1.0f, 0.85f, 0.1f, 1.0f}, "Dragon Utopia Conquered!");
+    ImGui::Separator();
+    ImGui::TextWrapped("Your forces have slain the ancient dragons. +20,000 Gold and a rare artifact have been added to your inventory.");
+    ImGui::Spacing();
+    float bw = ImGui::GetWindowWidth() - 32.0f;
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.4f, 0.05f, 1.0f));
+    if (ImGui::Button("Claim", ImVec2(bw, 34))) {
+        m_showDragonUtopiaPopup = false;
+    }
+    ImGui::PopStyleColor();
+    ImGui::End();
+}
+
+// ── Pandora's Box reward popup ────────────────────────────────────────────────
+void Game::renderPandoraPopup()
+{
+    if (!m_showPandoraPopup) return;
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({400, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.95f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##pandora", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({0.8f, 0.4f, 1.0f, 1.0f}, "Pandora's Box");
+    ImGui::Separator();
+    ImGui::TextWrapped("The box opens, revealing its secret:");
+    ImGui::Spacing();
+    float bw = ImGui::GetWindowWidth() - 32.0f;
+
+    switch (m_pandoraRewardType) {
+    case 0: {
+        ImGui::TextColored({1.0f, 0.9f, 0.2f, 1.0f}, "+4000 Gold and resources!");
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.4f, 0.35f, 0.05f, 1.0f));
+        if (ImGui::Button("Collect Reward", ImVec2(bw, 34))) {
+            m_playerResources.add(ResourceType::Gold, 4000);
+            m_playerResources.add(ResourceType::Gold, 6); // simplified: gold as proxy
+            if (!m_heroes.empty())
+                pushPickupEffect(m_heroes[m_activeHeroIdx].pos, "+4000 Gold (Pandora)", IM_COL32(255,215,50,255));
+            m_showPandoraPopup = false;
+        }
+        ImGui::PopStyleColor();
+        break;
+    }
+    case 1: {
+        ImGui::TextColored({0.4f, 0.8f, 1.0f, 1.0f}, "Hero learned 2 new spells!");
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.35f, 0.55f, 1.0f));
+        if (ImGui::Button("Collect Reward", ImVec2(bw, 34))) {
+            if (!m_heroes.empty()) {
+                Hero& h = m_heroes[m_activeHeroIdx];
+                int added = 0;
+                for (int i = 0; i < SPELL_COUNT && added < 2; ++i) {
+                    int sid = ALL_SPELLS[i].id;
+                    bool known = false;
+                    for (int k : h.knownSpells) if (k == sid) { known = true; break; }
+                    if (!known) { h.knownSpells.push_back(sid); ++added; }
+                }
+                pushPickupEffect(h.pos, "2 Spells (Pandora)", IM_COL32(100, 200, 255, 255));
+            }
+            m_showPandoraPopup = false;
+        }
+        ImGui::PopStyleColor();
+        break;
+    }
+    case 2: {
+        ImGui::TextColored({0.4f, 1.0f, 0.4f, 1.0f}, "Creature stack joined your army!");
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.4f, 0.15f, 1.0f));
+        if (ImGui::Button("Collect Reward", ImVec2(bw, 34))) {
+            if (!m_heroes.empty()) {
+                Hero& h = m_heroes[m_activeHeroIdx];
+                int t3DefId = 0;
+                for (const auto& ud : m_registry.units()) {
+                    if (ud.tier == 3 && ud.faction == h.faction && ud.path == UpgradePath::None) {
+                        t3DefId = ud.id; break;
+                    }
+                }
+                if (t3DefId == 0)
+                    for (const auto& ud : m_registry.units())
+                        if (ud.tier == 3) { t3DefId = ud.id; break; }
+                if (t3DefId > 0) {
+                    bool merged = false;
+                    for (auto& s : h.army) if (s.defId == t3DefId) { s.count += 8; merged = true; break; }
+                    if (!merged && h.army.size() < 7) h.army.push_back({t3DefId, 8});
+                    pushPickupEffect(h.pos, "+8 T3 Units (Pandora)", IM_COL32(100, 220, 100, 255));
+                }
+            }
+            m_showPandoraPopup = false;
+        }
+        ImGui::PopStyleColor();
+        break;
+    }
+    case 3: {
+        ImGui::TextColored({0.6f, 1.0f, 0.8f, 1.0f}, "All units have been upgraded!");
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.1f, 0.45f, 0.35f, 1.0f));
+        if (ImGui::Button("Collect Reward", ImVec2(bw, 34))) {
+            if (!m_heroes.empty()) {
+                Hero& h = m_heroes[m_activeHeroIdx];
+                for (auto& s : h.army) {
+                    // Find current unit def
+                    const UnitDef* cur = nullptr;
+                    for (const auto& ud : m_registry.units())
+                        if (ud.id == s.defId) { cur = &ud; break; }
+                    if (!cur || cur->path != UpgradePath::None) continue;
+                    // Find PathA version
+                    for (const auto& ud : m_registry.units()) {
+                        if (ud.faction == cur->faction && ud.tier == cur->tier && ud.path == UpgradePath::PathA) {
+                            s.defId = ud.id; break;
+                        }
+                    }
+                }
+                pushPickupEffect(h.pos, "Units Upgraded (Pandora)", IM_COL32(180, 255, 200, 255));
+            }
+            m_showPandoraPopup = false;
+        }
+        ImGui::PopStyleColor();
+        break;
+    }
+    case 4:
+    default: {
+        ImGui::TextColored({1.0f, 0.8f, 0.3f, 1.0f}, "Rare artifact acquired!");
+        ImGui::Spacing();
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.5f, 0.35f, 0.05f, 1.0f));
+        if (ImGui::Button("Collect Reward", ImVec2(bw, 34))) {
+            if (!m_heroes.empty()) {
+                Hero& h = m_heroes[m_activeHeroIdx];
+                int artId = m_turns.week() % 8 + 1;
+                if (!m_artifactRegistry.getDef(artId)) artId = 1;
+                h.artifactInventory.push_back(artId);
+                pushPickupEffect(h.pos, "Artifact (Pandora)", IM_COL32(255, 200, 50, 255));
+            }
+            m_showPandoraPopup = false;
+        }
+        ImGui::PopStyleColor();
+        break;
+    }
+    }
     ImGui::End();
 }
 

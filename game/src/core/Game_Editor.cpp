@@ -249,6 +249,33 @@ void Game::renderEditor()
                 break;
             }
 
+            case WorldObjectType::DragonUtopia: {
+                // Gold dragon head silhouette: large gold circle + crossed lines
+                dl->AddCircleFilled({sx, sy}, 10.f, IM_COL32(200,160,0,200));
+                dl->AddCircle({sx, sy}, 10.f, IM_COL32(255,215,0,200), 12, 2.f);
+                dl->AddLine({sx-7,sy-7}, {sx+7,sy+7}, IM_COL32(200,160,0,255), 2.f);
+                dl->AddLine({sx-7,sy+7}, {sx+7,sy-7}, IM_COL32(200,160,0,255), 2.f);
+                shortName = "DU";
+                break;
+            }
+            case WorldObjectType::CreatureBank: {
+                // Bank: green chest icon
+                dl->AddRectFilled({sx-7,sy-5}, {sx+7,sy+5}, IM_COL32(50,180,80,200));
+                dl->AddRect({sx-7,sy-5}, {sx+7,sy+5}, IM_COL32(180,255,180,200), 0.f, 0, 1.5f);
+                dl->AddLine({sx-7,sy}, {sx+7,sy}, IM_COL32(255,255,255,200), 1.f);
+                shortName = "CB";
+                break;
+            }
+            case WorldObjectType::PandoraBox: {
+                // Purple box
+                dl->AddRectFilled({sx-7,sy-7}, {sx+7,sy+7}, IM_COL32(140,60,200,180));
+                dl->AddRect({sx-7,sy-7}, {sx+7,sy+7}, IM_COL32(220,150,255,200), 0.f, 0, 1.5f);
+                dl->AddLine({sx-5,sy-5}, {sx+5,sy+5}, IM_COL32(255,200,255,220), 1.5f);
+                dl->AddLine({sx+5,sy-5}, {sx-5,sy+5}, IM_COL32(255,200,255,220), 1.5f);
+                shortName = "PB";
+                break;
+            }
+
             // Orange circles — dwellings/outposts
             case WorldObjectType::UnitDwelling:
             case WorldObjectType::NeutralOutpost: {

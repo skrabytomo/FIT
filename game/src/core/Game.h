@@ -383,6 +383,14 @@ private:
     uint32_t m_pendingUtopiaId  = 0;
     void renderCryptPopup();
     void renderUtopiaPopup();
+    uint32_t m_pendingDragonUtopiaId = 0;
+    uint32_t m_pendingBankId         = 0;
+    uint32_t m_pendingPandoraId      = 0;
+    bool     m_showDragonUtopiaPopup = false;
+    bool     m_showPandoraPopup      = false;
+    int      m_pandoraRewardType     = 0;   // 0-4 set at combat end
+    void renderDragonUtopiaPopup();
+    void renderPandoraPopup();
 
     // ── Mine inspection popup (right-click on mine) ───────────────────────────
     bool     m_showMineInfoPopup = false;
