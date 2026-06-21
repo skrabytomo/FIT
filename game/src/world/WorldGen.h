@@ -10,9 +10,10 @@
 // ── Map shape ─────────────────────────────────────────────────────────────────
 enum class MapShape : uint8_t
 {
-    Hexagon,    // circular island — default
-    JebusCross, // water corridors divide map into 4 quadrants (ideal 4p)
-    Ring,       // donut — center is water, players on perimeter (ideal 3p)
+    Hexagon,     // circular island — default
+    JebusCross,  // narrow water corridors + chokepoint guards; connected islands (ideal 4p)
+    JebusCross3, // Jebus Cross + rich sacred neutral centre zone guarded by 4 monsters
+    Ring,        // donut — center is water, players on perimeter (ideal 3p)
 };
 
 // ── Named templates ───────────────────────────────────────────────────────────
@@ -27,12 +28,13 @@ struct MapTemplate
 };
 
 static const MapTemplate kMapTemplates[] = {
-    { "Balanced Hexagon", "2-player circular island",         MapShape::Hexagon,    MapSize::Medium, 2, 0.15f },
-    { "Jebus Cross",      "4-player quadrant map",            MapShape::JebusCross, MapSize::Large,  4, 0.20f },
-    { "Large Jebus",      "8-player large quadrant map",      MapShape::JebusCross, MapSize::XLarge, 8, 0.20f },
-    { "Ring Island",      "3-player perimeter ring",          MapShape::Ring,       MapSize::Medium, 3, 0.25f },
+    { "Balanced Hexagon", "2-player circular island",              MapShape::Hexagon,     MapSize::Medium, 2, 0.15f },
+    { "Jebus Cross 2.0",  "4-player, connected bridges + guards",  MapShape::JebusCross,  MapSize::Large,  4, 0.20f },
+    { "Jebus Cross 3.0",  "4-player + sacred neutral centre",      MapShape::JebusCross3, MapSize::Large,  4, 0.20f },
+    { "Large Jebus",      "8-player large quadrant map",           MapShape::JebusCross,  MapSize::XLarge, 8, 0.20f },
+    { "Ring Island",      "3-player perimeter ring",               MapShape::Ring,        MapSize::Medium, 3, 0.25f },
 };
-static constexpr int kMapTemplateCount = 4;
+static constexpr int kMapTemplateCount = 5;
 
 // ── Generation parameters ──────────────────────────────────────────────────────
 struct WorldGenParams
@@ -66,7 +68,8 @@ public:
 
 private:
     static void passNoiseTerrain(HexMap& map, const WorldGenParams& p);
-    static void passShapeConstraints(HexMap& map, MapShape shape);
+    static std::vector<HexCoord> passShapeConstraints(HexMap& map, MapShape shape);
+    // Returns bridge centre positions (empty for Hexagon/Ring)
     static void passBiomeClusters(HexMap& map, const WorldGenParams& p,
                                   const std::vector<HexCoord>& centers);
     static void passSmoothCoastlines(HexMap& map, int iterations = 2);

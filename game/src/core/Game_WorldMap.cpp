@@ -372,6 +372,38 @@ void Game::updateWorldMap(float dt)
                h.isGarrisoned ? "dug in at" : "left");
     }
 
+    // F — Build Fishing House (hero recently disembarked from a boat on land)
+    if (m_input.keyDown(SDLK_f) && !m_heroes.empty()) {
+        Hero& h = m_heroes[m_activeHeroIdx];
+        const HexTile* ft = m_map.getTile(h.pos);
+        bool onLand = ft && ft->terrain != Terrain::Water;
+        bool hasBoatHistory = h.boatCount > 0;  // built at least one boat this game
+        if (onLand && hasBoatHistory) {
+            int buildCost = 500;
+            if (m_playerResources.get(ResourceType::Gold) >= buildCost) {
+                // Check no existing FishingHouse on this tile
+                bool already = false;
+                for (const auto& wo : m_worldObjects)
+                    if (wo.pos == h.pos && wo.type == WorldObjectType::FishingHouse)
+                    { already = true; break; }
+                if (!already) {
+                    m_playerResources.add(ResourceType::Gold, -buildCost);
+                    WorldObject fh;
+                    fh.id          = m_nextObjId++;
+                    fh.type        = WorldObjectType::FishingHouse;
+                    fh.pos         = h.pos;
+                    fh.faction     = 1;     // owned by player
+                    fh.value       = 150;   // daily gold
+                    m_worldObjects.push_back(fh);
+                    pushPickupEffect(h.pos, "Fishing House built! (+150g/day)", IM_COL32(80, 220, 120, 255));
+                    m_audio.playSound("pickup");
+                }
+            } else {
+                pushPickupEffect(h.pos, "Need 500 Gold!", IM_COL32(255, 80, 80, 255));
+            }
+        }
+    }
+
     // Tab — cycle to next player hero
     if (m_input.keyDown(SDLK_TAB) && !m_heroes.empty()) {
         m_activeHeroIdx = (m_activeHeroIdx + 1) % static_cast<int>(m_heroes.size());
@@ -401,6 +433,14 @@ void Game::doEndTurn()
 {
     // Reset per-day build limit for all towns
     for (auto& t : m_towns) t.builtToday = 0;
+
+    // FishingHouse daily income (+150 gold per player-owned house)
+    for (const auto& wo : m_worldObjects) {
+        if (wo.type != WorldObjectType::FishingHouse) continue;
+        if (wo.collected) continue;
+        if (wo.faction != 1) continue;   // faction field holds ownerId; 1 = player
+        m_playerResources.add(ResourceType::Gold, 150);
+    }
 
     // Restore hero movement pools and daily mana regen for enemy heroes
     for (auto& h : m_heroes)      h.movePool = h.maxMove;
@@ -1234,6 +1274,7 @@ void Game::renderWorldMapImGui()
     if (m_showUtopiaPopup)        renderUtopiaPopup();
     if (m_showMineInfoPopup)      renderMineInfoPopup();
     if (m_showTreeKnowledgePopup) renderTreeOfKnowledgePopup();
+    if (m_showShipyardPopup)      renderShipyardPopup();
     if (m_showEncounterPrompt)    renderEncounterPrompt();
     if (m_showTownLostPopup)      renderTownLostPopup();
     if (m_showWeekSummary)        renderWeekSummary();
@@ -1359,6 +1400,10 @@ void Game::updateHeroMovement(float dt)
         hero.movePool -= cost;
         hero.pathStep++;
         if (HexTile* newT = m_map.getTile(hero.pos)) newT->heroId = hero.id;
+
+        // Disembark when stepping from water onto land
+        if (hero.onBoat && tile && tile->terrain != Terrain::Water)
+            hero.onBoat = false;
 
         FogOfWar::updateVision(m_map, hero);
 
@@ -2020,6 +2065,67 @@ void Game::checkTileEvents()
             break;
         case WorldObjectType::Barrier:
             break;  // impassable — hero cannot enter this tile anyway
+
+        case WorldObjectType::ChokeGuard:
+        {
+            if (!obj.collected) {
+                Hero guardHero;
+                guardHero.id      = 0;
+                guardHero.name    = "Pass Guardian";
+                guardHero.faction = FactionId::None;
+                std::vector<CombatUnit> guardUnits;
+                // obj.value==1 → stronger variant (centre-entry guards in Jebus 3.0)
+                int stacks    = 5;
+                int perStack  = (obj.value == 1) ? 30 : 20;
+                int atk       = (obj.value == 1) ? 22 : 18;
+                int def       = (obj.value == 1) ? 17 : 14;
+                int hp        = (obj.value == 1) ? 280 : 200;
+                for (int s = 0; s < stacks; ++s) {
+                    CombatUnit u;
+                    u.id = 60 + s;  u.name = "Ancient Guardian";
+                    u.count = perStack; u.maxHp = u.hp = hp;
+                    u.attack = atk;  u.defense = def;  u.speed = 5;
+                    u.range = 0;     u.shotsLeft = 0;  u.isPlayer = false;
+                    guardUnits.push_back(u);
+                }
+                uint32_t objId = obj.id;
+                m_encounterTitle       = "Pass Guardian";
+                m_pendingEncounterHero = guardHero;
+                m_pendingEncounterUnits = guardUnits;
+                m_encounterOnAccept = [this, objId]() {
+                    for (auto& o : m_worldObjects) {
+                        if (o.id != objId) continue;
+                        o.collected          = true;
+                        m_lastBanditCampId   = objId;
+                        m_lastCombatEnemyId  = 0;
+                        m_pendingTownCaptureId = 0;
+                        if (!m_heroes.empty()) {
+                            Hero& h = m_heroes[m_activeHeroIdx];
+                            auto pUnits = makeHeroUnits(h, m_registry.units(), true);
+                            enterCombat(h, pUnits, m_pendingEncounterHero, m_pendingEncounterUnits);
+                        }
+                        break;
+                    }
+                };
+                m_showEncounterPrompt = true;
+                return;
+            }
+            break;
+        }
+
+        case WorldObjectType::Shipyard:
+        {
+            if (!obj.collected) {
+                // Show build-boat popup (handled in ImGui popup section)
+                m_pendingObjId      = obj.id;
+                m_showShipyardPopup = true;
+            }
+            break;
+        }
+
+        case WorldObjectType::FishingHouse:
+            // passive income — no interaction when stepped on
+            break;
         }
     }
 
@@ -2321,9 +2427,13 @@ void Game::renderWorldOverlay()
     for (int oi = 0; oi < static_cast<int>(m_worldObjects.size()); ++oi) {
         const auto& obj = m_worldObjects[oi];
         if (obj.type == WorldObjectType::Barrier) continue;  // drawn as blocked terrain
-        // NeutralOutpost and WitchHut stay visible after collection
+        // FishingHouse is always visible once built
+        bool isFishHouse = (obj.type == WorldObjectType::FishingHouse);
+        bool isShipyard  = (obj.type == WorldObjectType::Shipyard);
+        // NeutralOutpost, WitchHut, Shipyard, FishingHouse stay visible after collection
         if (obj.collected && obj.type != WorldObjectType::NeutralOutpost
-            && obj.type != WorldObjectType::WitchHut) continue;
+            && obj.type != WorldObjectType::WitchHut
+            && !isFishHouse && !isShipyard) continue;
         if (obj.type == WorldObjectType::NeutralOutpost && obj.collected && obj.available <= 0) continue;
         const HexTile* otile = m_map.getTile(obj.pos);
         if (!m_fogDisabled && (!otile || !otile->explored)) continue;
@@ -2357,6 +2467,9 @@ void Game::renderWorldOverlay()
         case WorldObjectType::WitchHut:       ico = 41;              break; // row5 col1
         case WorldObjectType::Stables:        ico = 42;              break; // row5 col2
         case WorldObjectType::TreeOfKnowledge:ico = 43;              break; // row5 col3
+        case WorldObjectType::ChokeGuard:    ico = 15;               break; // default icon
+        case WorldObjectType::Shipyard:      ico = 15;               break;
+        case WorldObjectType::FishingHouse:  ico = 15;               break;
         default:                             ico = 15;               break;
         }
         // Idle glow pulse
@@ -4798,5 +4911,75 @@ void Game::renderFoundCityPopup()
         if (spl) hero.mana = std::min(hero.maxMana, hero.mana + spl->manaCost);
         m_showFoundCityPopup = false;
     }
+    ImGui::End();
+}
+
+// ── Shipyard popup (build a boat) ─────────────────────────────────────────────
+void Game::renderShipyardPopup()
+{
+    if (!m_showShipyardPopup) return;
+    if (m_heroes.empty()) { m_showShipyardPopup = false; return; }
+    Hero& hero = m_heroes[m_activeHeroIdx];
+
+    int goldCost = 2000 + hero.boatCount * 1000;
+    int ironCost = 10;
+
+    ImGuiIO& io = ImGui::GetIO();
+    ImGui::SetNextWindowPos({io.DisplaySize.x * 0.5f, io.DisplaySize.y * 0.5f},
+                            ImGuiCond_Always, {0.5f, 0.5f});
+    ImGui::SetNextWindowSize({340, 0}, ImGuiCond_Always);
+    ImGui::SetNextWindowBgAlpha(0.94f);
+    ImGuiWindowFlags wf = ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove
+                        | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar;
+    if (!ImGui::Begin("##shipyard", nullptr, wf)) { ImGui::End(); return; }
+
+    ImGui::TextColored({0.3f, 0.6f, 1.0f, 1.0f}, "Shipyard");
+    ImGui::Separator();
+    ImGui::TextWrapped("Build a boat and set sail across the waters.");
+    ImGui::Spacing();
+    ImGui::Text("Cost: %d Gold + %d Iron", goldCost, ironCost);
+    if (hero.boatCount > 0)
+        ImGui::TextDisabled("(Boats built: %d — each costs 1000g more)", hero.boatCount);
+    ImGui::Spacing();
+
+    int gold = m_playerResources.get(ResourceType::Gold);
+    int iron = m_playerResources.get(ResourceType::Iron);
+    ImGui::Text("Your resources: %d Gold, %d Iron", gold, iron);
+    ImGui::Spacing();
+
+    bool canBuild = (gold >= goldCost && iron >= ironCost);
+
+    if (!canBuild) ImGui::BeginDisabled();
+    if (ImGui::Button("Build Boat", {120, 28})) {
+        m_playerResources.add(ResourceType::Gold, -goldCost);
+        m_playerResources.add(ResourceType::Iron, -ironCost);
+        hero.onBoat    = true;
+        hero.boatCount += 1;
+        m_showShipyardPopup = false;
+        pushPickupEffect(hero.pos, "Set Sail!", IM_COL32(80, 160, 255, 255));
+        m_audio.playSound("pickup");
+        // Recalculate reachable tiles with boat movement
+        auto costFn = [this, &hero](HexCoord c) -> int {
+            const HexTile* t = m_map.getTile(c);
+            if (!t || !hero.canEnter(t->terrain) || t->blocked) return 999;
+            int base = hero.moveCost(t->terrain);
+            if (m_roadHexes.count(c)) base = std::max(1, base / 2);
+            return base;
+        };
+        m_reachable = Pathfinder::reachable(m_map, hero.pos, costFn, hero.movePool);
+    }
+    if (!canBuild) ImGui::EndDisabled();
+
+    ImGui::SameLine();
+    if (ImGui::Button("Cancel", {70, 28}))
+        m_showShipyardPopup = false;
+
+    ImGui::Spacing();
+    if (hero.onBoat) {
+        ImGui::Separator();
+        ImGui::TextColored({0.4f, 0.9f, 0.5f, 1.0f}, "You are already on a boat.");
+        ImGui::TextWrapped("Disembark onto land first before building another.");
+    }
+
     ImGui::End();
 }

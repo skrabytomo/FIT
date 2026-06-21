@@ -393,6 +393,13 @@ private:
     uint32_t m_pendingTreeId          = 0;
     void renderTreeOfKnowledgePopup();
 
+    // ── Shipyard popup (build a boat) ─────────────────────────────────────────
+    bool     m_showShipyardPopup = false;
+    void     renderShipyardPopup();
+
+    // ── Fishing House (passive income; no popup needed) ───────────────────────
+    // Income applied in doEndTurn() each day
+
     // ── Pre-combat encounter prompt (decline / fight choice) ─────────────────
     bool                    m_showEncounterPrompt   = false;
     std::string             m_encounterTitle;

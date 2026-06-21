@@ -39,8 +39,8 @@ WorldGenResult WorldGen::generate(HexMap& map, const WorldGenParams& p)
     // 1. Fill map with noise-driven terrain
     passNoiseTerrain(map, p);
 
-    // 1b. Apply shape constraints (water corridors for JebusCross, inner hole for Ring)
-    passShapeConstraints(map, p.shape);
+    // 1b. Apply shape constraints; returns bridge centres for JebusCross variants
+    auto bridgeCentres = passShapeConstraints(map, p.shape);
 
     // 2. Pick player spawn zones
     auto spawnPos = pickSpawnPositions(map, p.playerCount, p.seed);
@@ -82,6 +82,19 @@ WorldGenResult WorldGen::generate(HexMap& map, const WorldGenParams& p)
     passSmoothCoastlines(map, 2);
     passRemoveIsolatedWater(map);
 
+    // 3b. Re-carve bridges after smoothing (smoothing may flood narrow land passages)
+    if (!bridgeCentres.empty()) {
+        for (const HexCoord& bc : bridgeCentres) {
+            auto nearby = HexGrid::range(bc, 2);
+            for (const HexCoord& nb : nearby) {
+                if (HexTile* t = map.getTile(nb)) {
+                    if (t->terrain == Terrain::Water)
+                        t->terrain = Terrain::Highland;  // visually distinct pass terrain
+                }
+            }
+        }
+    }
+
     // 4. Place guaranteed player-zone mines (before global resource pass)
     uint32_t nextId = 1;
     WorldGenResult result;
@@ -103,6 +116,78 @@ WorldGenResult WorldGen::generate(HexMap& map, const WorldGenParams& p)
         placeZoneObjects(result, map, allCenters, zonePlayer, tileZones, p, nextId, rng);
     } else {
         placeWorldObjects(result, map, p, nextId);
+    }
+
+    // 8. Chokepoint guards at bridge centres (JebusCross variants)
+    if (!bridgeCentres.empty()) {
+        uint32_t cgId = 8000;
+        for (const HexCoord& bc : bridgeCentres) {
+            WorldObject g;
+            g.id   = cgId++;
+            g.type = WorldObjectType::ChokeGuard;
+            g.pos  = bc;
+            g.value = 0;
+            result.worldObjects.push_back(g);
+        }
+
+        // JebusCross3: 4 entry guards at the edges of the neutral centre zone
+        if (p.shape == MapShape::JebusCross3) {
+            int entryDist = map.radius() / 5 + 1;
+            std::vector<HexCoord> entryPts = {
+                { 0,          -entryDist },
+                { 0,          +entryDist },
+                { -entryDist,  0         },
+                { +entryDist,  0         },
+            };
+            for (const HexCoord& ep : entryPts) {
+                // Snap to nearest land tile if ep is in water
+                HexCoord best = ep;
+                if (const HexTile* t = map.getTile(ep); !t || t->terrain == Terrain::Water) {
+                    auto ring = HexGrid::range(ep, 3);
+                    for (const HexCoord& c : ring) {
+                        if (const HexTile* ct = map.getTile(c);
+                            ct && isLand(ct->terrain)) { best = c; break; }
+                    }
+                }
+                WorldObject eg;
+                eg.id   = cgId++;
+                eg.type = WorldObjectType::ChokeGuard;
+                eg.pos  = best;
+                eg.value = 1;  // stronger variant for centre entries
+                result.worldObjects.push_back(eg);
+            }
+        }
+    }
+
+    // 9. Shipyard placement for Jebus variants (one per player zone, coastal land)
+    if (p.shape == MapShape::JebusCross || p.shape == MapShape::JebusCross3) {
+        uint32_t syId = 9000;
+        for (const HexCoord& spawn : spawnPos) {
+            // Find a coastal land tile within 8-15 tiles of spawn adjacent to water
+            auto candidates = HexGrid::range(spawn, 15);
+            for (const HexCoord& c : candidates) {
+                if (HexGrid::distance(c, spawn) < 8) continue;
+                const HexTile* ct = map.getTile(c);
+                if (!ct || !isLand(ct->terrain)) continue;
+                bool coastal = false;
+                for (const HexCoord& nb : HexGrid::range(c, 1)) {
+                    const HexTile* nt = map.getTile(nb);
+                    if (nt && nt->terrain == Terrain::Water) { coastal = true; break; }
+                }
+                if (!coastal) continue;
+                bool taken = false;
+                for (const auto& wo : result.worldObjects)
+                    if (wo.pos == c) { taken = true; break; }
+                if (taken) continue;
+                WorldObject sy;
+                sy.id   = syId++;
+                sy.type = WorldObjectType::Shipyard;
+                sy.pos  = c;
+                sy.value = 0;  // no boats sold yet (per-player state in hero, not here)
+                result.worldObjects.push_back(sy);
+                break;
+            }
+        }
     }
 
     printf("WorldGen: %zu towns, %zu resources, %zu world objects\n",
@@ -163,35 +248,80 @@ bool WorldGen::isLand(Terrain t)
 }
 
 // ── Shape constraints: force water corridors or inner hole ────────────────────
-void WorldGen::passShapeConstraints(HexMap& map, MapShape shape)
+std::vector<HexCoord> WorldGen::passShapeConstraints(HexMap& map, MapShape shape)
 {
-    if (shape == MapShape::Hexagon) return; // no constraints needed
+    std::vector<HexCoord> bridges; // returned for chokepoint guard placement
+
+    if (shape == MapShape::Hexagon) return bridges;
 
     int R = map.radius();
 
-    for (auto& c : map.coords()) {
-        int q = c.q, r = c.r, s = -q - r;
+    if (shape == MapShape::JebusCross || shape == MapShape::JebusCross3) {
+        // Narrower corridors than original (R/10 instead of R/8)
+        int W       = std::max(2, R / 10);
+        int bridgeR = R / 3;  // distance from centre to each bridge
+        // Bridge half-widths: 3 tiles across (|axis| <= 1), 5 tiles along (|other| <= 2)
+        const int BW = 1;
+        const int BL = 2;
 
-        if (shape == MapShape::JebusCross) {
-            // Corridor half-width scales with map radius
-            int W = std::max(2, R / 8);
-            // Force water where two of the three cube axes are within W of 0
-            // This creates 3 corridors (6-pointed) but for 4-quadrant Jebus
-            // we use just q-axis and r-axis corridors
-            if (std::abs(q) <= W || std::abs(r) <= W) {
-                if (HexTile* t = map.getTile(c))
-                    t->terrain = Terrain::Water;
+        // Collect bridge centre positions
+        bridges = {
+            { 0,       -bridgeR },  // north bridge (upper q-arm)
+            { 0,       +bridgeR },  // south bridge (lower q-arm)
+            { -bridgeR, 0       },  // west bridge  (left  r-arm)
+            { +bridgeR, 0       },  // east bridge  (right r-arm)
+        };
+
+        for (auto& c : map.coords()) {
+            int q = c.q, r = c.r;
+            bool inQarm = std::abs(q) <= W;
+            bool inRarm = std::abs(r) <= W;
+            if (!inQarm && !inRarm) continue;
+
+            // Bridge exception: land passage within each arm at ±bridgeR
+            if (inQarm) {
+                bool onBridge = std::abs(q) <= BW &&
+                                (std::abs(r + bridgeR) <= BL ||
+                                 std::abs(r - bridgeR) <= BL);
+                if (onBridge) continue;  // keep as land
             }
-        } else if (shape == MapShape::Ring) {
-            // Force inner circle to be water to create a donut
-            int innerR = R * 2 / 5;
-            int dist   = std::max({std::abs(q), std::abs(r), std::abs(s)});
+            if (inRarm) {
+                bool onBridge = std::abs(r) <= BW &&
+                                (std::abs(q + bridgeR) <= BL ||
+                                 std::abs(q - bridgeR) <= BL);
+                if (onBridge) continue;  // keep as land
+            }
+
+            if (HexTile* t = map.getTile(c))
+                t->terrain = Terrain::Water;
+        }
+
+        // JebusCross3: sacred neutral centre zone (inner R/5 radius)
+        if (shape == MapShape::JebusCross3) {
+            int centreR = R / 5;
+            for (auto& c : map.coords()) {
+                int q = c.q, r = c.r, s = -q - r;
+                int dist = std::max({std::abs(q), std::abs(r), std::abs(s)});
+                if (dist <= centreR) {
+                    if (HexTile* t = map.getTile(c))
+                        t->terrain = Terrain::Sacred;
+                }
+            }
+        }
+
+    } else if (shape == MapShape::Ring) {
+        int innerR = R * 2 / 5;
+        for (auto& c : map.coords()) {
+            int q = c.q, r = c.r, s = -q - r;
+            int dist = std::max({std::abs(q), std::abs(r), std::abs(s)});
             if (dist <= innerR) {
                 if (HexTile* t = map.getTile(c))
                     t->terrain = Terrain::Water;
             }
         }
     }
+
+    return bridges;
 }
 
 // ── Pass 2a: Biome clusters (legacy path) ─────────────────────────────────────

@@ -33,6 +33,9 @@ enum class WorldObjectType : uint8_t
     Stables,        // permanently increases hero maxMove by 3; one-time per playthrough
     TreeOfKnowledge,// pay 2000 gold to gain +1 level, or free XP; one-time per playthrough
     Barrier,        // impassable tile blocker for scenarios; sets tile->blocked; can be removed via trigger (collected=true)
+    ChokeGuard,     // fixed-power guardian blocking a map passage; cleared when beaten
+    Shipyard,       // hero buys a boat here; value=boats already sold (cost = 2000+value*1000 gold + 10 Iron)
+    FishingHouse,   // built from a boat on land; gives +150 gold/day; faction field = ownerId (1=player)
 };
 
 struct WorldObject

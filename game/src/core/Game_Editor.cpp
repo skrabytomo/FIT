@@ -276,6 +276,36 @@ void Game::renderEditor()
                 dl->AddLine({sx + 6, sy - 6}, {sx - 6, sy + 6}, IM_COL32(200, 190, 170, 220), 2.0f);
                 break;
             }
+            case WorldObjectType::ChokeGuard: {
+                // Dark-red shield shape with "CG" label
+                ImVec2 pts[5] = {
+                    {sx,       sy - 11.f},
+                    {sx + 9.f, sy -  5.f},
+                    {sx + 9.f, sy +  4.f},
+                    {sx,       sy + 11.f},
+                    {sx - 9.f, sy +  4.f},
+                };
+                dl->AddConvexPolyFilled(pts, 5, IM_COL32(120, 25, 25, 220));
+                dl->AddPolyline(pts, 5, IM_COL32(220, 80, 80, 220), ImDrawFlags_Closed, 1.5f);
+                shortName = "CG";
+                break;
+            }
+            case WorldObjectType::Shipyard: {
+                // Blue anchor icon (simplified)
+                dl->AddCircleFilled({sx, sy}, 9.f, IM_COL32(30, 80, 180, 220));
+                dl->AddCircle({sx, sy}, 9.f, IM_COL32(130, 190, 255, 220), 12, 1.5f);
+                shortName = "SY";
+                break;
+            }
+            case WorldObjectType::FishingHouse: {
+                // Green house icon
+                dl->AddRectFilled({sx - 7, sy - 3}, {sx + 7, sy + 8},
+                                  IM_COL32(30, 130, 60, 220));
+                ImVec2 roof[3] = {{sx - 9.f, sy - 3.f}, {sx, sy - 11.f}, {sx + 9.f, sy - 3.f}};
+                dl->AddConvexPolyFilled(roof, 3, IM_COL32(20, 100, 40, 220));
+                shortName = "FH";
+                break;
+            }
             default: {
                 dl->AddCircleFilled({sx, sy}, 7.f, IM_COL32(180, 180, 180, 200));
                 shortName = "?";

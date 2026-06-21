@@ -1414,20 +1414,24 @@ void Game::exitCombat(bool playerWon)
             m_pendingTownCaptureId = 0;
         }
 
-        // Bandit camp reward
+        // Bandit camp / chokepoint guard reward
         if (m_lastBanditCampId != 0) {
             for (auto& obj : m_worldObjects) {
-                if (obj.id == m_lastBanditCampId) {
-                    int diff = obj.value;
-                    int reward = 200 * diff;
+                if (obj.id != m_lastBanditCampId) continue;
+                int reward = 0;
+                if (obj.type == WorldObjectType::BanditCamp)
+                    reward = 200 * obj.value;
+                else if (obj.type == WorldObjectType::ChokeGuard)
+                    reward = 3000;
+                if (reward > 0) {
                     m_playerResources.add(ResourceType::Gold, reward);
-                    obj.collected = true;
-                    char campBuf[32];
+                    char campBuf[48];
                     std::snprintf(campBuf, sizeof(campBuf), "+%d Gold!", reward);
                     pushPickupEffect(obj.pos, campBuf, IM_COL32(255, 215, 50, 255));
-                    printf("Bandit camp cleared! Reward: %d gold\n", reward);
-                    break;
+                    printf("Guard cleared! Reward: %d gold\n", reward);
                 }
+                obj.collected = true;
+                break;
             }
             m_lastBanditCampId = 0;
         }

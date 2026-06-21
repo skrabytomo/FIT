@@ -84,6 +84,10 @@ struct Hero
     // Garrison: hero digs in at current tile, blocks enemy passage, +2 def in combat
     bool isGarrisoned = false;
 
+    // Naval movement
+    bool onBoat    = false;  // hero is aboard a boat — can traverse Water tiles
+    int  boatCount = 0;      // boats built so far (cost escalates per boat)
+
     // Specialty progression: tracked stats for specialty effects
     int battlesWon = 0;         // total combat victories (Veteran specialty)
     int specialtyAtk = 0;       // accumulated specialty attack bonus

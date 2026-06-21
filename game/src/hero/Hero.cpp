@@ -3,6 +3,8 @@
 
 int Hero::moveCost(Terrain t) const
 {
+    if (onBoat && t == Terrain::Water) return 2;  // fast sailing
+
     int base = BASE_MOVE_COST[static_cast<int>(t)];
 
     // Home terrain bonus — costs 1 less (min 1)
@@ -53,7 +55,7 @@ int Hero::moveCost(Terrain t) const
 
 bool Hero::canEnter(Terrain t) const
 {
-    if (t == Terrain::Water)    return false;
     if (t == Terrain::Mountain) return false;
+    if (t == Terrain::Water)    return onBoat;  // need a boat to sail
     return true;
 }

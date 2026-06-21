@@ -35,8 +35,11 @@ static const char* kWorldObjNames[] = {
     "Stables",
     "TreeOfKnowledge",
     "Barrier",
+    "ChokeGuard",
+    "Shipyard",
+    "FishingHouse",
 };
-static constexpr int kWorldObjNameCount = 27;
+static constexpr int kWorldObjNameCount = 30;
 
 static const char* kFactionNames[] = {
     "HolyOrder","CrimsonWardens","Thornkin","EternalEmpire",
@@ -359,23 +362,24 @@ void MapEditor::drawGenPanel(HexMap& map,
 
     // Template picker
     static const char* kTemplateNames[] = {
-        "Custom", "Balanced Hexagon", "Jebus Cross", "Large Jebus", "Ring Island"
+        "Custom", "Balanced Hexagon", "Jebus Cross 2.0",
+        "Jebus Cross 3.0", "Large Jebus", "Ring Island"
     };
-    if (ImGui::Combo("Template", &m_genTemplateIdx, kTemplateNames, 5)) {
+    if (ImGui::Combo("Template", &m_genTemplateIdx, kTemplateNames, 6)) {
         if (m_genTemplateIdx > 0) {
             const MapTemplate& tmpl = kMapTemplates[m_genTemplateIdx - 1];
-            m_genShapeIdx  = static_cast<int>(tmpl.shape);
-            m_genSizeIdx   = static_cast<int>(tmpl.size);
-            m_genPlayers   = tmpl.playerCount;
+            m_genShapeIdx   = static_cast<int>(tmpl.shape);
+            m_genSizeIdx    = static_cast<int>(tmpl.size);
+            m_genPlayers    = tmpl.playerCount;
             m_genWaterRatio = tmpl.waterRatio;
         }
     }
 
     // Shape (disabled when a template is selected)
-    static const char* kShapes[] = {"Hexagon", "Jebus Cross", "Ring"};
+    static const char* kShapes[] = {"Hexagon", "Jebus Cross", "Jebus Cross 3", "Ring"};
     bool isCustom = (m_genTemplateIdx == 0);
     if (!isCustom) ImGui::BeginDisabled();
-    ImGui::Combo("Shape", &m_genShapeIdx, kShapes, 3);
+    ImGui::Combo("Shape", &m_genShapeIdx, kShapes, 4);
     if (!isCustom) ImGui::EndDisabled();
 
     static const char* kSizes[] = {"Small","Medium","Large","XLarge"};
