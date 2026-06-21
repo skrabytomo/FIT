@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "SpriteBatch.h"
 #include "gl_includes.h"
 #include <stdio.h>
@@ -100,7 +101,7 @@ bool SpriteBatch::init()
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    printf("SpriteBatch initialized (max %d sprites)\n", MAX_SPRITES);
+    gLog("SpriteBatch initialized (max %d sprites)\n", MAX_SPRITES);
     return true;
 }
 

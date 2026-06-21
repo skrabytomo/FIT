@@ -115,6 +115,7 @@ set(SIM_SOURCES
     src/sim/sim_main.cpp
     src/sim/Simulator.cpp
     src/sim/ArmyBuilder.cpp
+    src/core/DevLog.cpp
     src/combat/CombatEngine.cpp
     src/combat/CombatGrid.cpp
     src/combat/CombatUnit.cpp

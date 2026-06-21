@@ -1244,7 +1244,7 @@ void Game::enterCombat(Hero& playerHero,
     }
 
     m_combat.setLogCallback([](const std::string& msg) {
-        printf("[Combat] %s\n", msg.c_str());
+        gLog("[Combat] %s\n", msg.c_str());
     });
 
     // NegotiatedWeakness: Grave Diplomat reveals enemy specialty at battle start
@@ -1284,12 +1284,12 @@ void Game::enterCombat(Hero& playerHero,
     char trackKey[20];
     std::snprintf(trackKey, sizeof(trackKey), "combat_music_%d", s_combatTrack);
     m_audio.playMusic(trackKey);
-    printf("Entered combat\n");
+    gLog("Entered combat\n");
 }
 
 void Game::exitCombat(bool playerWon)
 {
-    printf("Combat ended — %s\n", playerWon ? "Victory" : "Defeat/Retreat");
+    gLog("Combat ended — %s\n", playerWon ? "Victory" : "Defeat/Retreat");
     ScriptContext ctx; ctx.heroId = m_heroes.empty() ? 0 : (int)m_heroes[m_activeHeroIdx].id;
 
     // Sync surviving units back to their hero armies
@@ -1303,7 +1303,7 @@ void Game::exitCombat(bool playerWon)
                 if (s.defId == cu.defId) { s.count += cu.count; merged = true; break; }
             if (!merged) hero.army.push_back({cu.defId, cu.count});
         }
-        printf("Hero survivors: %zu stacks\n", hero.army.size());
+        gLog("Hero survivors: %zu stacks\n", hero.army.size());
 
         // Sync hero HP and mana from the combat engine's internal copy
         // (modified during battle by BloodPenance, Feast, SoulHarvest in-combat, Synthesis, etc.)
@@ -1342,7 +1342,7 @@ void Game::exitCombat(bool playerWon)
                         int healed = lost * healPct / 100;
                         stack.count += healed;
                         if (healed > 0)
-                            printf("First Aid: restored %d %s\n", healed, "units");
+                            gLog("First Aid: restored %d %s\n", healed, "units");
                     }
                 }
             }
@@ -1365,7 +1365,7 @@ void Game::exitCombat(bool playerWon)
                         std::snprintf(necroBuf, sizeof(necroBuf),
                             "+%d Skeletons (Necromancy)", necroRaise);
                         pushPickupEffect(hero.pos, necroBuf, IM_COL32(180, 220, 255, 255));
-                        printf("Necromancy: raised %d skeletons\n", necroRaise);
+                        gLog("Necromancy: raised %d skeletons\n", necroRaise);
                     }
                 }
             }
@@ -1405,7 +1405,7 @@ void Game::exitCombat(bool playerWon)
                 m_capturedTownName = captured->name;
                 m_showCapturePopup = true;
                 m_hideout.completeMilestone(Milestone::FIRST_TOWN_CAPTURED);
-                printf("Captured town after garrison fight: %s\n", m_capturedTownName.c_str());
+                gLog("Captured town after garrison fight: %s\n", m_capturedTownName.c_str());
                 ScriptContext townCtx;
                 townCtx.townId = captured->id;
                 m_triggers.fire(TriggerType::TownCaptured, townCtx);
@@ -1428,7 +1428,7 @@ void Game::exitCombat(bool playerWon)
                     char campBuf[48];
                     std::snprintf(campBuf, sizeof(campBuf), "+%d Gold!", reward);
                     pushPickupEffect(obj.pos, campBuf, IM_COL32(255, 215, 50, 255));
-                    printf("Guard cleared! Reward: %d gold\n", reward);
+                    gLog("Guard cleared! Reward: %d gold\n", reward);
                 }
                 obj.collected = true;
                 break;
@@ -1474,7 +1474,7 @@ void Game::exitCombat(bool playerWon)
                         break;
                     }
                 }
-                printf("Enemy hero looted: %d gold\n", lootGold);
+                gLog("Enemy hero looted: %d gold\n", lootGold);
             }
             // Release all mines owned by the defeated hero
             for (auto& r : m_resources)
@@ -1514,11 +1514,11 @@ void Game::exitCombat(bool playerWon)
                 std::snprintf(xpBuf, sizeof(xpBuf), "+%d XP", xp);
                 pushPickupEffect(hero.pos, xpBuf, IM_COL32(160, 255, 160, 255));
             }
-            printf("Hero earns %d XP\n", xp);
+            gLog("Hero earns %d XP\n", xp);
             int oldLevel = hero.level;
             if (hero.addXp(xp)) {
                 int levelsGained = hero.level - oldLevel;
-                printf("Hero leveled up to %d! (%d levels gained)\n", hero.level, levelsGained);
+                gLog("Hero leveled up to %d! (%d levels gained)\n", hero.level, levelsGained);
                 if (hero.level >= 5)  m_hideout.completeMilestone(Milestone::HERO_LEVEL_5);
                 if (hero.level >= 10) m_hideout.completeMilestone(Milestone::HERO_LEVEL_10);
                 ScriptContext lvlCtx; lvlCtx.heroId = hero.id;
@@ -1649,7 +1649,7 @@ void Game::exitCombat(bool playerWon)
                 hero.heroHp  = std::max(1, hero.heroMaxHp / 2);
                 pushPickupEffect(hero.pos, "Phylactery: escaped death at half stats!",
                                  IM_COL32(180, 140, 255, 255));
-                printf("Phylactery: hero survived defeat at half stats\n");
+                gLog("Phylactery: hero survived defeat at half stats\n");
                 phylacteryEscape = true;
             }
         }

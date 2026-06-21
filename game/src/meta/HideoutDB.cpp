@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "HideoutDB.h"
 #include <sqlite3.h>
 #include <cstdio>
@@ -171,7 +172,7 @@ bool HideoutDB::unlockNextTier(const std::string& branch, int xpCost)
     if (isConvergenceUnlocked() && !isMilestoneComplete(Milestone::CONVERGENCE_UNLOCK))
         completeMilestone(Milestone::CONVERGENCE_UNLOCK);
 
-    printf("HideoutDB: unlocked %s tier %d\n", branch.c_str(), newTier);
+    gLog("HideoutDB: unlocked %s tier %d\n", branch.c_str(), newTier);
     return true;
 }
 
@@ -201,7 +202,7 @@ void HideoutDB::completeMilestone(const std::string& name)
     sqlite3_bind_text(stmt, 1, name.c_str(), -1, SQLITE_TRANSIENT);
     sqlite3_step(stmt);
     sqlite3_finalize(stmt);
-    printf("HideoutDB: milestone '%s' completed\n", name.c_str());
+    gLog("HideoutDB: milestone '%s' completed\n", name.c_str());
 }
 
 // ── Convergence unlock ────────────────────────────────────────────────────────

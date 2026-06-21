@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "LuaEngine.h"
 #include <lua.hpp>
 #include <cstdio>
@@ -16,7 +17,7 @@ bool LuaEngine::init()
     luaL_openlibs(m_L);
     openGameTable();
     bindCoreAPI();
-    printf("LuaEngine: Lua %s ready\n", LUA_VERSION);
+    gLog("LuaEngine: Lua %s ready\n", LUA_VERSION);
     return true;
 }
 
@@ -106,7 +107,7 @@ void LuaEngine::bindCoreAPI()
     // game.print(msg) — prints to stdout (supplements Lua's print)
     registerGameFunc("print", [](lua_State* L) -> int {
         const char* msg = luaL_checkstring(L, 1);
-        printf("[Lua] %s\n", msg);
+        gLog("[Lua] %s\n", msg);
         return 0;
     });
 

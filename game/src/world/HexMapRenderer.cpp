@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "HexMapRenderer.h"
 #include <cmath>
 #include <stdio.h>
@@ -234,7 +235,7 @@ bool HexMapRenderer::init(float hexSize, const std::string& basePath)
         }
         if (m_variantCount[i] > 0) loaded++;
     }
-    printf("HexMapRenderer: %d/%d terrain types loaded (hex size %.0fpx)\n",
+    gLog("HexMapRenderer: %d/%d terrain types loaded (hex size %.0fpx)\n",
            loaded, NUM_TERRAIN, hexSize);
     return true;
 }

@@ -644,7 +644,7 @@ void Game::renderTavern()
             if (ImGui::Button(btn, ImVec2(-1, 0))) {
                 m_playerResources.add(ResourceType::Gold, -REHIRE_COST);
                 spawnHero(dh);
-                printf("Rehired defeated hero: %s\n", dh.name.c_str());
+                gLog("Rehired defeated hero: %s\n", dh.name.c_str());
                 m_defeatedHeroPool.erase(m_defeatedHeroPool.begin() + i);
             }
             if (!canRehire) ImGui::EndDisabled();
@@ -695,7 +695,7 @@ void Game::renderTavern()
             m_playerResources.add(ResourceType::Gold, -HIRE_COST);
             cand.id  = 200u + static_cast<uint32_t>(m_heroes.size());
             spawnHero(cand);
-            printf("Hired hero: %s (%s)\n", cand.name.c_str(), cls ? cls->name : "?");
+            gLog("Hired hero: %s (%s)\n", cand.name.c_str(), cls ? cls->name : "?");
         }
         if (!canAfford) ImGui::EndDisabled();
         ImGui::PopID();
@@ -789,8 +789,28 @@ void Game::renderPauseMenu()
 
         ImGui::Spacing();
         ImGui::Separator();
-        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Debug");
+        ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Developer Options");
         ImGui::Checkbox("Disable Fog of War", &m_fogDisabled);
+        ImGui::Spacing();
+
+        // ── Game Log ──────────────────────────────────────────────────────────
+        bool logOpen = ImGui::CollapsingHeader("Game Log");
+        if (logOpen) {
+            ImGui::SameLine();
+            if (ImGui::SmallButton("Clear")) DevLog::clear();
+            ImGui::BeginChild("##devlog", ImVec2(0, 220), true,
+                              ImGuiWindowFlags_HorizontalScrollbar);
+            const auto& logLines = DevLog::lines();
+            for (const auto& line : logLines)
+                ImGui::TextUnformatted(line.c_str());
+            // Auto-scroll to bottom when new lines arrive
+            if (DevLog::hasNewLines()) {
+                ImGui::SetScrollHereY(1.0f);
+                DevLog::markSeen();
+            }
+            ImGui::EndChild();
+        }
+
         ImGui::Spacing();
         ImGui::Separator();
         if (ImGui::Button("Quit to Desktop", ImVec2(-1, 28))) {
@@ -924,7 +944,7 @@ void Game::enterTown(Town* town)
     } else {
         m_audio.playMusic("town_music");
     }
-    printf("Entered town: %s\n", town->name.c_str());
+    gLog("Entered town: %s\n", town->name.c_str());
 }
 
 void Game::exitTown()

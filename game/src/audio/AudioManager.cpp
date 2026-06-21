@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "AudioManager.h"
 #include <cstring>
 #include <cstdio>
@@ -27,7 +28,7 @@ bool AudioManager::init()
 
     SDL_PauseAudioDevice(m_sfxDev, 0);
     SDL_PauseAudioDevice(m_musDev, 0);
-    printf("AudioManager: initialized (sfx=%u, mus=%u)\n", m_sfxDev, m_musDev);
+    gLog("AudioManager: initialized (sfx=%u, mus=%u)\n", m_sfxDev, m_musDev);
     return true;
 }
 
@@ -74,7 +75,7 @@ bool AudioManager::loadWav(const char* name, const char* path)
     // Convert to sfx device spec (for SFX sounds; music uses separate device)
     if (m_sfxDev) convertToDevice(w, m_sfxSpec);
     m_wavs[name] = w;
-    printf("AudioManager: loaded '%s' from %s (%u bytes)\n", name, path, w.len);
+    gLog("AudioManager: loaded '%s' from %s (%u bytes)\n", name, path, w.len);
     return true;
 }
 

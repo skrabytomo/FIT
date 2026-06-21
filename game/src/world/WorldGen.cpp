@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "WorldGen.h"
 #include "Noise.h"
 #include "HexGrid.h"
@@ -32,7 +33,7 @@ static constexpr int kNeutralTerrainCount = 6;
 // ── Main entry point ──────────────────────────────────────────────────────────
 WorldGenResult WorldGen::generate(HexMap& map, const WorldGenParams& p)
 {
-    printf("WorldGen: seed=%u size=%d players=%d zone=%s\n",
+    gLog("WorldGen: seed=%u size=%d players=%d zone=%s\n",
            p.seed, static_cast<int>(p.size), p.playerCount,
            p.zoneBasedTerrain ? "yes" : "no");
 
@@ -190,7 +191,7 @@ WorldGenResult WorldGen::generate(HexMap& map, const WorldGenParams& p)
         }
     }
 
-    printf("WorldGen: %zu towns, %zu resources, %zu world objects\n",
+    gLog("WorldGen: %zu towns, %zu resources, %zu world objects\n",
            result.towns.size(), result.resources.size(), result.worldObjects.size());
     return result;
 }

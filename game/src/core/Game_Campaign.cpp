@@ -205,13 +205,13 @@ void Game::enterCampaign()
 
     m_campaign.setEventCallback([this](CampaignEvent e) {
         if (e == CampaignEvent::MissionCompleted)
-            printf("[Campaign] Mission complete!\n");
+            gLog("[Campaign] Mission complete!\n");
         else if (e == CampaignEvent::MissionFailed)
-            printf("[Campaign] Mission failed.\n");
+            gLog("[Campaign] Mission failed.\n");
         else if (e == CampaignEvent::CampaignEnded) {
             bool convergenceOk = m_campaign.convergenceEligible();
             FactionId unlocked = m_campaign.unlockedFaction(convergenceOk);
-            printf("[Campaign] Ended — faction unlocked: %d\n",
+            gLog("[Campaign] Ended — faction unlocked: %d\n",
                    static_cast<int>(unlocked));
             if (m_campaign.playerWon()) {
                 m_hideout.completeMilestone(Milestone::CAMPAIGN_WON);
@@ -221,12 +221,12 @@ void Game::enterCampaign()
             }
         }
     });
-    printf("Entered Campaign\n");
+    gLog("Entered Campaign\n");
 }
 
 void Game::exitCampaign()
 {
     m_state    = GameState::MainMenu;
     m_menuMode = 0;
-    printf("Exited Campaign\n");
+    gLog("Exited Campaign\n");
 }

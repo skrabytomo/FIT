@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "Texture.h"
 #include "gl_includes.h"
 #include <stdio.h>
@@ -39,7 +40,7 @@ bool Texture::load(const std::string& path, bool pixelArt, bool flipV, bool repe
     stbi_image_free(data);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    printf("Texture loaded: %s (%dx%d)\n", path.c_str(), m_width, m_height);
+    gLog("Texture loaded: %s (%dx%d)\n", path.c_str(), m_width, m_height);
     return true;
 }
 

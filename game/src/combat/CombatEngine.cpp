@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "CombatEngine.h"
 #include "../hero/SkillRegistry.h"
 #include "../magic/SpellRegistry.h"
@@ -43,7 +44,7 @@ void CombatEngine::addLog(const std::string& msg)
     if (m_silent) return;
     m_log.push_back({msg});
     if (m_logCb) m_logCb(msg);
-    printf("[Combat] %s\n", msg.c_str());
+    gLog("[Combat] %s\n", msg.c_str());
 }
 
 // ── Start battle ───────────────────────────────────────────────────────────────

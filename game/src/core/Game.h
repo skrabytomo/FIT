@@ -7,6 +7,7 @@
 #include <functional>
 #include <imgui.h>
 
+#include "DevLog.h"
 #include "GameState.h"
 #include "InputState.h"
 #include "TurnManager.h"

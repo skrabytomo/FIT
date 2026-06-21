@@ -368,7 +368,7 @@ void Game::updateWorldMap(float dt)
     if (m_input.keyDown(SDLK_g) && !m_heroes.empty()) {
         Hero& h = m_heroes[m_activeHeroIdx];
         h.isGarrisoned = !h.isGarrisoned;
-        printf("Hero %s %s garrison\n", h.name.c_str(),
+        gLog("Hero %s %s garrison\n", h.name.c_str(),
                h.isGarrisoned ? "dug in at" : "left");
     }
 
@@ -590,7 +590,7 @@ void Game::doEndTurn()
                                 eHero.attack  += (gained + 1) / 2;
                                 eHero.defense += gained / 2;
                             }
-                            printf("Enemy %s gained %d XP from shrine\n",
+                            gLog("Enemy %s gained %d XP from shrine\n",
                                    eHero.name.c_str(), obj.value);
                         } else if (obj.type == WorldObjectType::SpellScroll) {
                             bool already = false;
@@ -610,7 +610,7 @@ void Game::doEndTurn()
                                 eHero.attack  += (gained + 1) / 2;
                                 eHero.defense += gained / 2;
                             }
-                            printf("Enemy %s gained %d XP from forest shrine\n",
+                            gLog("Enemy %s gained %d XP from forest shrine\n",
                                    eHero.name.c_str(), obj.value);
                         } else if (obj.type == WorldObjectType::SwampAltar) {
                             bool already = false;
@@ -620,7 +620,7 @@ void Game::doEndTurn()
                         } else if (obj.type == WorldObjectType::TreasureChest) {
                             // AI always takes gold from multi-choice chests
                             // (no popup, instant collect)
-                            printf("Enemy %s looted chest: +%d gold\n",
+                            gLog("Enemy %s looted chest: +%d gold\n",
                                    eHero.name.c_str(), obj.value);
                         }
                     }
@@ -658,7 +658,7 @@ void Game::doEndTurn()
                                 eHero.movePool = 0; // done retreating for this turn
                             } else if (t.ownerId == 0) {
                                 t.ownerId = eHero.id;
-                                printf("Enemy %s captured %s\n", eHero.name.c_str(), t.name.c_str());
+                                gLog("Enemy %s captured %s\n", eHero.name.c_str(), t.name.c_str());
                             } else if (t.ownerId == 1) {
                                 // Off-screen siege: compare attacker vs garrison strength
                                 Hero garHero;
@@ -672,10 +672,10 @@ void Game::doEndTurn()
                                     t.garrison.clear();
                                     m_lostTownName       = t.name;
                                     m_showTownLostPopup  = true;
-                                    printf("Enemy %s sieged and captured your town %s!\n",
+                                    gLog("Enemy %s sieged and captured your town %s!\n",
                                            eHero.name.c_str(), t.name.c_str());
                                 } else {
-                                    printf("Enemy %s failed to siege %s\n",
+                                    gLog("Enemy %s failed to siege %s\n",
                                            eHero.name.c_str(), t.name.c_str());
                                 }
                                 eHero.movePool = 0; // siege exhausts movement
@@ -767,7 +767,7 @@ void Game::doEndTurn()
             for (const auto& r : m_resources)
                 if (r.ownedBy == 1) m_playerResources.add(r.type, r.amount);
 
-            printf("New week %d — income applied\n", m_turns.week());
+            gLog("New week %d — income applied\n", m_turns.week());
 
             // Enemy hero weekly reinforcements — scale with week number so they stay relevant
             {
@@ -787,7 +787,7 @@ void Game::doEndTurn()
                         if (eHero.army[i].count < eHero.army[smallestIdx].count)
                             smallestIdx = i;
                     eHero.army[smallestIdx].count = std::min(50, eHero.army[smallestIdx].count + total);
-                    printf("Enemy %s reinforced +%d units (week %d, %d towns)\n",
+                    gLog("Enemy %s reinforced +%d units (week %d, %d towns)\n",
                            eHero.name.c_str(), total, week, ownedTowns);
                 }
             }
@@ -824,7 +824,7 @@ void Game::doEndTurn()
                             if (def.path != UpgradePath::None) continue;
                             Resources tmp = richRes;
                             if (town.build(def.id, allBuildings, tmp)) {
-                                printf("AI %s built %s\n", town.name.c_str(), def.name.c_str());
+                                gLog("AI %s built %s\n", town.name.c_str(), def.name.c_str());
                                 built = true; break;
                             }
                         }
@@ -837,7 +837,7 @@ void Game::doEndTurn()
                                 def.category != BuildingCategory::Support) continue;
                             Resources tmp = richRes;
                             if (town.build(def.id, allBuildings, tmp)) {
-                                printf("AI %s built %s\n", town.name.c_str(), def.name.c_str());
+                                gLog("AI %s built %s\n", town.name.c_str(), def.name.c_str());
                                 built = true; break;
                             }
                         }
@@ -1315,7 +1315,7 @@ void Game::renderWorldMap()
 void Game::enterWorldMap()
 {
     m_state = GameState::WorldMap;
-    printf("Entered world map\n");
+    gLog("Entered world map\n");
 }
 
 // ── Tile click ────────────────────────────────────────────────────────────────
@@ -1515,7 +1515,7 @@ void Game::checkTileEvents()
                     std::snprintf(sBuf, sizeof(sBuf), "Learned: %s!", sp ? sp->name : "Spell");
                     pushPickupEffect(obj.pos, sBuf, IM_COL32(180, 120, 255, 255));
                     m_audio.playSound("spell");
-                    printf("Hero learned spell %d from scroll\n", obj.value);
+                    gLog("Hero learned spell %d from scroll\n", obj.value);
                 }
             }
             break;
@@ -1525,7 +1525,7 @@ void Game::checkTileEvents()
                 hero.artifactInventory.push_back(obj.value);
                 pushPickupEffect(obj.pos, "Artifact found!", IM_COL32(255, 200, 80, 255));
                 m_audio.playSound("pickup");
-                printf("Hero picked up artifact %d\n", obj.value);
+                gLog("Hero picked up artifact %d\n", obj.value);
             }
             break;
         case WorldObjectType::XPShrine:
@@ -1551,7 +1551,7 @@ void Game::checkTileEvents()
                         { ScriptContext lvCtx; lvCtx.heroId = hero.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
                     }
                 }
-                printf("Hero gained %d XP from shrine\n", obj.value);
+                gLog("Hero gained %d XP from shrine\n", obj.value);
             }
             break;
         case WorldObjectType::ResourceCache:
@@ -1562,7 +1562,7 @@ void Game::checkTileEvents()
                     obj.value, resourceName(obj.resourceType));
                 pushPickupEffect(obj.pos, resBuf, IM_COL32(255, 215, 80, 255));
                 m_audio.playSound("pickup");
-                printf("Hero found resource cache: %d %s\n", obj.value, resourceName(obj.resourceType));
+                gLog("Hero found resource cache: %d %s\n", obj.value, resourceName(obj.resourceType));
             }
             break;
         case WorldObjectType::Observatory:
@@ -1578,7 +1578,7 @@ void Game::checkTileEvents()
                 }
                 pushPickupEffect(obj.pos, "Map revealed!", IM_COL32(220, 200, 120, 255));
                 m_audio.playSound("pickup");
-                printf("Observatory: revealed %d tiles in radius %d\n",
+                gLog("Observatory: revealed %d tiles in radius %d\n",
                        static_cast<int>(cells.size()), obj.value);
             }
             break;
@@ -1686,7 +1686,7 @@ void Game::checkTileEvents()
                             m_showLevelUpModal = true;
                             { ScriptContext lvCtx; lvCtx.heroId = qHero.id; m_triggers.fire(TriggerType::HeroLevel, lvCtx); }
                         }
-                        printf("Quest complete! Rewarded %d gold + %d XP\n", goldReward, xpReward);
+                        gLog("Quest complete! Rewarded %d gold + %d XP\n", goldReward, xpReward);
                         break;
                     }
                 }
@@ -1699,7 +1699,7 @@ void Game::checkTileEvents()
                 for (auto& other : m_worldObjects) {
                     if (other.id == obj.linkedId) {
                         if (other.questState == 1)
-                            printf("Quest target reached! Return to quest giver.\n");
+                            gLog("Quest target reached! Return to quest giver.\n");
                         break;
                     }
                 }
@@ -2173,7 +2173,7 @@ void Game::checkTileEvents()
             std::snprintf(mineBuf, sizeof(mineBuf), "+%d %s/week", r.amount, resourceName(r.type));
             pushPickupEffect(hero.pos, mineBuf, IM_COL32(255, 220, 80, 255));
             m_audio.playSound("buy");
-            printf("Claimed mine: +%d %s/week\n", r.amount, resourceName(r.type));
+            gLog("Claimed mine: +%d %s/week\n", r.amount, resourceName(r.type));
             break;
         }
     }
@@ -2201,7 +2201,7 @@ void Game::checkTileEvents()
                 // No garrison — capture immediately
                 t.ownerId = 1;
                 t.garrison.clear();
-                printf("Captured town: %s\n", t.name.c_str());
+                gLog("Captured town: %s\n", t.name.c_str());
                 m_capturedTownName = t.name;
                 m_showCapturePopup = true;
                 m_hideout.completeMilestone(Milestone::FIRST_TOWN_CAPTURED);
@@ -3932,7 +3932,7 @@ void Game::renderStatShrinePopup()
             case 5: hero.heroMaxHp += 10; hero.heroHp = std::min(hero.heroHp + 10, hero.heroMaxHp); break;
             }
             obj->questState--;
-            printf("StatShrine: %s %s, uses left: %d\n", amt, statName, obj->questState);
+            gLog("StatShrine: %s %s, uses left: %d\n", amt, statName, obj->questState);
         }
         m_showStatShrinePopup = false;
     }

@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "CampaignManager.h"
 #include <cstdio>
 #include <algorithm>
@@ -211,7 +212,7 @@ void CampaignManager::startMission(int id)
 {
     m_currentIdx    = id;
     m_pendingDecIdx = -1;
-    printf("[Campaign] Mission %d: %s\n",
+    gLog("[Campaign] Mission %d: %s\n",
            m_missions[id].id, m_missions[id].name.c_str());
     fireEvent(CampaignEvent::MissionStarted);
 }
@@ -330,7 +331,7 @@ void CampaignManager::resolveDecision(int choiceIdx, LuaEngine& lua)
     const auto& choice = dec.choices[choiceIdx];
     m_alignment.apply(choice.alignment.orderDelta, choice.alignment.lightDelta);
 
-    printf("[Campaign] Decision '%s' → '%s'  alignment now (%+d,%+d)\n",
+    gLog("[Campaign] Decision '%s' → '%s'  alignment now (%+d,%+d)\n",
         dec.prompt.c_str(), choice.label.c_str(),
         m_alignment.orderScore(), m_alignment.lightScore());
 
@@ -376,7 +377,7 @@ void CampaignManager::tryCompleteObjective(CampaignObjective& obj, bool success)
 {
     obj.completed = success;
     if (success) {
-        printf("[Campaign] Objective complete: %s\n", obj.description.c_str());
+        gLog("[Campaign] Objective complete: %s\n", obj.description.c_str());
         fireEvent(CampaignEvent::ObjectiveCompleted);
     }
 }
@@ -412,7 +413,7 @@ void CampaignManager::completeMission(bool won)
         m_over = true;
         m_won  = won;
         fireEvent(CampaignEvent::CampaignEnded);
-        printf("[Campaign] Campaign %s! Final alignment: %s\n",
+        gLog("[Campaign] Campaign %s! Final alignment: %s\n",
                won ? "COMPLETE" : "FAILED", m_alignment.getTitle());
     } else {
         startMission(next);

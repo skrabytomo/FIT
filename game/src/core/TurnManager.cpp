@@ -1,4 +1,5 @@
 #include "TurnManager.h"
+#include "DevLog.h"
 #include <stdio.h>
 
 bool TurnManager::endTurn(std::vector<Town>& towns,
@@ -26,7 +27,7 @@ bool TurnManager::endTurn(std::vector<Town>& towns,
         onNewWeek(towns, playerResources, registry);
     }
 
-    printf("Day %d Week %d | Gold: %d\n",
+    gLog("Day %d Week %d | Gold: %d\n",
         m_day, m_week,
         playerResources.get(ResourceType::Gold));
 
@@ -37,7 +38,7 @@ void TurnManager::onNewWeek(std::vector<Town>& towns,
                              Resources& playerResources,
                              const BuildingRegistry& registry)
 {
-    printf("=== WEEK %d BEGINS ===\n", m_week);
+    gLog("=== WEEK %d BEGINS ===\n", m_week);
 
     for (auto& town : towns) {
         // Add weekly resource income — only player-owned towns

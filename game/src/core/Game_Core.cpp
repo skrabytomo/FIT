@@ -244,7 +244,7 @@ bool Game::init(const std::string& title, int width, int height)
     loadSettings();   // apply persisted volume / fullscreen settings
 
     m_running = true;
-    printf("Game initialized: %dx%d\n", width, height);
+    gLog("Game initialized: %dx%d\n", width, height);
     return true;
 }
 
@@ -368,7 +368,7 @@ void Game::saveGame(const std::string& path)
     data.campaign = m_campaign.toSaveState();
 
     if (SaveLoad::saveGame(path, data))
-        printf("Game saved to %s\n", path.c_str());
+        gLog("Game saved to %s\n", path.c_str());
     else
         fprintf(stderr, "Save failed: %s\n", path.c_str());
 }
@@ -416,7 +416,7 @@ bool Game::loadGame(const std::string& path)
         m_state = GameState::Campaign;
     }
 
-    printf("Game loaded from %s (day %d week %d)\n", path.c_str(), day, week);
+    gLog("Game loaded from %s (day %d week %d)\n", path.c_str(), day, week);
     return true;
 }
 
@@ -877,7 +877,7 @@ void Game::startNewGame()
                 node.amount = (fres == ResourceType::Gold) ? 250 : 3 + static_cast<int>(lcg() % 3);
                 t->resourceId = node.id;
                 m_resources.push_back(node);
-                printf("Placed faction mine (%s) at (%d,%d) dist=%d\n",
+                gLog("Placed faction mine (%s) at (%d,%d) dist=%d\n",
                        resourceName(fres), c.q, c.r, d);
                 break;
             }
@@ -1097,7 +1097,7 @@ bool Game::initImGui()
         return false;
     }
     m_imguiReady = true;
-    printf("ImGui %s ready\n", ImGui::GetVersion());
+    gLog("ImGui %s ready\n", ImGui::GetVersion());
     return true;
 }
 
@@ -1228,5 +1228,5 @@ void Game::shutdown()
     if (m_glCtx) SDL_GL_DeleteContext(m_glCtx);
     if (m_window) SDL_DestroyWindow(m_window);
     SDL_Quit();
-    printf("Shutdown\n");
+    gLog("Shutdown\n");
 }

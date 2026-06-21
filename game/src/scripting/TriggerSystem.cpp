@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "TriggerSystem.h"
 #include <nlohmann/json.hpp>
 #include <algorithm>
@@ -109,7 +110,7 @@ void TriggerSystem::loadFromJSON(const std::string& jsonStr)
 
             if (!t.funcName.empty()) addTrigger(t);
         }
-        printf("TriggerSystem: loaded %zu triggers\n", m_triggers.size());
+        gLog("TriggerSystem: loaded %zu triggers\n", m_triggers.size());
     }
     catch (const std::exception& e) {
         fprintf(stderr, "TriggerSystem loadFromJSON: %s\n", e.what());

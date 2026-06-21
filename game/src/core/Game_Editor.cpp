@@ -333,11 +333,11 @@ void Game::renderEditor()
 void Game::enterEditor()
 {
     m_state = GameState::Editor;
-    printf("Entered map editor (F2 to exit)\n");
+    gLog("Entered map editor (F2 to exit)\n");
 }
 
 void Game::exitEditor()
 {
     m_state = GameState::WorldMap;
-    printf("Exited map editor\n");
+    gLog("Exited map editor\n");
 }

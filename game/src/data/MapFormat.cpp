@@ -1,3 +1,4 @@
+#include "../core/DevLog.h"
 #include "MapFormat.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
@@ -110,7 +111,7 @@ bool MapFormat::save(const std::string& path, const MapFile& mf)
         std::ofstream f(path);
         if (!f.is_open()) return false;
         f << j.dump(2);
-        printf("MapFormat: saved '%s' to %s\n", mf.meta.name.c_str(), path.c_str());
+        gLog("MapFormat: saved '%s' to %s\n", mf.meta.name.c_str(), path.c_str());
         return true;
     }
     catch (const std::exception& e) {
@@ -198,7 +199,7 @@ bool MapFormat::load(const std::string& path, MapFile& out)
             out.worldObjects.push_back(wo);
         }
 
-        printf("MapFormat: loaded '%s' (%zu tiles, %zu towns, %zu triggers, %zu world objects)\n",
+        gLog("MapFormat: loaded '%s' (%zu tiles, %zu towns, %zu triggers, %zu world objects)\n",
                out.meta.name.c_str(), out.tiles.size(),
                out.towns.size(), out.triggers.size(), out.worldObjects.size());
         return true;
