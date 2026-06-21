@@ -109,18 +109,26 @@ void Game::updateCombat(float dt)
         }
     }
 
-    if (m_fromBattleSim && m_simAutoPlay) {
-        // Watch mode: fire one unit action per tick at a human-visible pace
-        m_simAutoPlayTimer -= dt;
-        if (m_simAutoPlayTimer <= 0.f) {
-            m_simAutoPlayTimer = 0.4f;
-            auto ph = m_combat.phase();
-            if (ph == CombatPhase::PlayerTurn || ph == CombatPhase::EnemyTurn)
-                m_combat.processOneAIAction();
+    // Pace AI actions so the player can see each enemy move before the next fires.
+    // Both sim watch-mode and normal combat use the same one-action-per-tick path;
+    // sim uses 0.4 s, normal combat uses 0.35 s.
+    if (m_combat.phase() == CombatPhase::EnemyTurn) {
+        float delay = (m_fromBattleSim && m_simAutoPlay) ? 0.4f : 0.35f;
+        m_aiActionTimer -= dt;
+        if (m_aiActionTimer <= 0.f) {
+            m_aiActionTimer = delay;
+            m_combat.processOneAIAction();
         }
     } else {
-        if (m_combat.phase() == CombatPhase::EnemyTurn)
-            m_combat.processAITurn();
+        m_aiActionTimer = 0.f; // reset so first enemy action fires promptly next turn
+        // Sim auto-play: also drive player-side actions at same pace
+        if (m_fromBattleSim && m_simAutoPlay && m_combat.phase() == CombatPhase::PlayerTurn) {
+            m_simAutoPlayTimer -= dt;
+            if (m_simAutoPlayTimer <= 0.f) {
+                m_simAutoPlayTimer = 0.4f;
+                m_combat.processOneAIAction();
+            }
+        }
     }
 
     // Advance floating damage effect timers

@@ -631,16 +631,14 @@ void CombatEngine::advanceTurn()
     checkVictory();
     if (m_phase == CombatPhase::Victory || m_phase == CombatPhase::Defeat) return;
 
-    // Set phase based on whose turn it is
+    // Set phase based on whose turn it is — callers drive AI via processOneAIAction()
     auto* next = activeUnit();
     if (next) {
-        // Regeneration: restore full HP of top unit at start of turn
         if (next->regenerates && next->alive) {
             next->hp = next->maxHp;
             addLog(next->name + " regenerates!");
         }
         m_phase = next->isPlayer ? CombatPhase::PlayerTurn : CombatPhase::EnemyTurn;
-        if (!next->isPlayer) processAITurn();
     }
 }
 

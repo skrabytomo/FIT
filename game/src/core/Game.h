@@ -481,6 +481,7 @@ private:
     bool  m_fromBattleSim     = false;
     bool  m_simAutoPlay       = false;
     float m_simAutoPlayTimer  = 0.f;   // seconds until next AI action in watch mode
+    float m_aiActionTimer     = 0.f;   // paces enemy turns in normal combat
     int   m_simWeek           = 5;
     int   m_simFaction1       = 0;
     int   m_simFaction2       = 1;
