@@ -767,6 +767,19 @@ void Game::doEndTurn()
             for (const auto& r : m_resources)
                 if (r.ownedBy == 1) m_playerResources.add(r.type, r.amount);
 
+            // Garrison upkeep — 350 gold/week per garrisoned player hero
+            {
+                int garrisonCount = 0;
+                for (const auto& h : m_heroes)
+                    if (h.isGarrisoned) ++garrisonCount;
+                if (garrisonCount > 0) {
+                    int upkeep = garrisonCount * 350;
+                    m_playerResources.add(ResourceType::Gold, -upkeep);
+                    gLog("Garrison upkeep: -%dg (%d hero%s dug in)\n",
+                         upkeep, garrisonCount, garrisonCount == 1 ? "" : "es");
+                }
+            }
+
             gLog("New week %d — income applied\n", m_turns.week());
 
             // Enemy hero weekly reinforcements — scale with week number so they stay relevant

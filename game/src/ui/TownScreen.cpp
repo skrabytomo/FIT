@@ -70,89 +70,8 @@ void TownScreen::open(Town* town, Resources* playerRes, const BuildingRegistry* 
 
 void TownScreen::rebuildBuildingButtons()
 {
+    // Building buttons are now rendered inline via ImGui in drawBuildingTree().
     m_buildBtns.clear();
-    if (!m_town || !m_registry || !m_playerRes) return;
-
-    float x = m_buildPanel.bounds.x + 8;
-    float y = m_buildPanel.bounds.y + 28;
-    float bw = (m_buildPanel.bounds.w - 16) * 0.5f - 2;
-    float bh = 40.0f;
-    float colW = bw + 4;
-    int col = 0;
-
-    for (auto& def : m_registry->buildings()) {
-        if (def.faction != FactionId::None && def.faction != m_town->faction) continue;
-
-        BuildBtn bb;
-        bb.buildingId = def.id;
-        bb.built      = m_town->hasBuilding(def.id);
-        bb.prereqMet  = m_town->canBuild(def.id, m_registry->buildings(),
-                                         m_currentWeek, m_blueprintDiscount);
-        bb.affordable = m_playerRes->canAfford(def.cost);
-
-        // Show week requirement for locked buildings, and cost for unbought ones
-        auto costStr = [&](const Resources& cost) -> std::string {
-            std::string s;
-            if (cost.get(ResourceType::Gold) > 0)
-                s += std::to_string(cost.get(ResourceType::Gold)) + "g";
-            for (int ri = 1; ri < RESOURCE_COUNT; ++ri) {
-                auto rt = static_cast<ResourceType>(ri);
-                int v = cost.get(rt);
-                if (v > 0) { if (!s.empty()) s += " "; s += std::to_string(v) + resourceName(rt)[0]; }
-            }
-            return s.empty() ? "free" : s;
-        };
-
-        bool limitReached = m_town->builtToday >= 1;
-
-        std::string label = def.name;
-        if (bb.built) {
-            label = "[BUILT] " + def.name;
-        } else if (limitReached && !bb.built && bb.prereqMet) {
-            label = "[1/day] " + def.name + "  [" + costStr(def.cost) + "]";
-        } else if (!bb.prereqMet && m_currentWeek > 0 && def.minWeek > 0) {
-            int effectiveMin = std::max(1, def.minWeek - m_blueprintDiscount);
-            if (m_currentWeek < effectiveMin)
-                label = "[Wk " + std::to_string(effectiveMin) + "] " + def.name + "  " + costStr(def.cost);
-        } else if (!bb.built) {
-            label = def.name + "  [" + costStr(def.cost) + "]";
-        }
-
-        Rect btnR{x + col * colW, y, bw, bh};
-        bb.btn = Button(label, btnR);
-        bb.btn.enabled = bb.prereqMet && !bb.built && !limitReached;
-
-        if (bb.built) {
-            bb.btn.colorBorder = UIColor::hex(UITheme::NATURE_GREEN, 0.5f);
-            bb.btn.colorText   = UIColor::hex(UITheme::TEXT_DISABLED);
-        } else if (limitReached && !bb.built && bb.prereqMet) {
-            bb.btn.colorBorder = UIColor::hex(UITheme::GOLD, 0.35f);
-            bb.btn.colorText   = UIColor::hex(UITheme::TEXT_DISABLED);
-        } else if (!bb.prereqMet) {
-            bb.btn.colorBorder = UIColor::hex(UITheme::TEXT_DISABLED);
-            bb.btn.colorText   = UIColor::hex(UITheme::TEXT_DISABLED);
-        } else if (!bb.affordable) {
-            bb.btn.colorBorder = UIColor::hex(UITheme::DANGER_RED, 0.6f);
-            bb.btn.colorText   = UIColor::hex(UITheme::DANGER_RED);
-        } else {
-            bb.btn.colorBorder = UIColor::hex(UITheme::GOLD, 0.7f);
-            bb.btn.colorText   = UIColor::hex(UITheme::GOLD);
-        }
-
-        int capturedId = def.id;
-        bb.btn.onClick = [this, capturedId]{
-            if (m_town && m_playerRes && m_registry) {
-                m_town->build(capturedId, m_registry->buildings(), *m_playerRes);
-                rebuildBuildingButtons();
-                rebuildRecruitButtons();
-            }
-        };
-
-        m_buildBtns.push_back(bb);
-        col = 1 - col;
-        if (col == 0) y += bh + 3;
-        if (y + bh > m_buildPanel.bounds.bottom() - 4) break;
-    }
 }
 
 void TownScreen::rebuildRecruitButtons()
@@ -314,7 +233,117 @@ void TownScreen::draw(UIRenderer& rdr)
 void TownScreen::drawBuildingTree(UIRenderer& rdr)
 {
     m_buildPanel.draw(rdr);
-    for (auto& bb : m_buildBtns) bb.btn.draw(rdr);
+    if (!m_town || !m_registry || !m_playerRes) return;
+
+    ImGui::SetNextWindowPos({m_buildPanel.bounds.x, m_buildPanel.bounds.y});
+    ImGui::SetNextWindowSize({m_buildPanel.bounds.w, m_buildPanel.bounds.h});
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0,0,0,0));
+    ImGui::PushStyleColor(ImGuiCol_Border,   ImVec4(0,0,0,0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(6, 28));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,   ImVec2(4, 3));
+
+    ImGui::Begin("##build_tree", nullptr,
+        ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus);
+
+    const float bw = (ImGui::GetContentRegionAvail().x - 4.0f) * 0.5f - 2.0f;
+    const float bh = 36.0f;
+
+    auto costStr = [](const Resources& cost) -> std::string {
+        std::string s;
+        if (cost.get(ResourceType::Gold) > 0)
+            s += std::to_string(cost.get(ResourceType::Gold)) + "g";
+        for (int ri = 1; ri < RESOURCE_COUNT; ++ri) {
+            auto rt = static_cast<ResourceType>(ri);
+            int v = cost.get(rt);
+            if (v > 0) {
+                if (!s.empty()) s += " ";
+                s += std::to_string(v) + resourceName(rt)[0];
+            }
+        }
+        return s.empty() ? "free" : s;
+    };
+
+    int  col        = 0;
+    bool needRebuild = false;
+
+    for (const auto& def : m_registry->buildings()) {
+        if (def.faction != FactionId::None && def.faction != m_town->faction) continue;
+
+        bool built      = m_town->hasBuilding(def.id);
+        bool limitReach = m_town->builtToday >= 1;
+        bool prereqMet  = m_town->canBuild(def.id, m_registry->buildings(),
+                                            m_currentWeek, m_blueprintDiscount);
+        bool affordable = m_playerRes->canAfford(def.cost);
+
+        std::string label;
+        if (built) {
+            label = "[BUILT] " + def.name;
+        } else if (limitReach && prereqMet) {
+            label = "[1/day] " + def.name + "  [" + costStr(def.cost) + "]";
+        } else if (!prereqMet && m_currentWeek > 0 && def.minWeek > 0) {
+            int effectiveMin = std::max(1, def.minWeek - m_blueprintDiscount);
+            if (m_currentWeek < effectiveMin)
+                label = "[Wk" + std::to_string(effectiveMin) + "] " + def.name + " " + costStr(def.cost);
+            else
+                label = def.name + "  [" + costStr(def.cost) + "]";
+        } else {
+            label = def.name + (built ? "" : "  [" + costStr(def.cost) + "]");
+        }
+
+        if (built) {
+            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.08f,0.20f,0.08f,0.6f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.10f,0.25f,0.10f,0.7f));
+            ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.45f,0.62f,0.45f,1.0f));
+        } else if (!prereqMet || limitReach) {
+            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.14f,0.14f,0.14f,0.7f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.18f,0.18f,0.18f,0.7f));
+            ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.38f,0.38f,0.38f,1.0f));
+        } else if (!affordable) {
+            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.28f,0.08f,0.08f,0.7f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.35f,0.10f,0.10f,0.7f));
+            ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.85f,0.30f,0.30f,1.0f));
+        } else {
+            ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.22f,0.18f,0.06f,0.8f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.30f,0.24f,0.08f,0.9f));
+            ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.90f,0.80f,0.30f,1.0f));
+        }
+
+        if (col == 1) ImGui::SameLine(0, 4);
+
+        bool clicked = false;
+        if (built || limitReach || !prereqMet) ImGui::BeginDisabled();
+        std::string btnId = label + "##b" + std::to_string(def.id);
+        if (ImGui::Button(btnId.c_str(), {bw, bh})) clicked = true;
+        if (built || limitReach || !prereqMet) ImGui::EndDisabled();
+
+        ImGui::PopStyleColor(3);
+
+        if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+            ImGui::BeginTooltip();
+            ImGui::Text("%s", def.name.c_str());
+            if (!def.description.empty())
+                ImGui::TextDisabled("%s", def.description.c_str());
+            if (!built) {
+                ImGui::Separator();
+                ImGui::Text("Cost: %s", costStr(def.cost).c_str());
+            }
+            ImGui::EndTooltip();
+        }
+
+        col = 1 - col;
+
+        if (clicked) {
+            m_town->build(def.id, m_registry->buildings(), *m_playerRes);
+            needRebuild = true;
+        }
+    }
+
+    ImGui::End();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(2);
+
+    if (needRebuild) rebuildRecruitButtons();
 }
 
 void TownScreen::drawRecruitPanel(UIRenderer& rdr)

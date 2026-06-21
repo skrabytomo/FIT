@@ -27,6 +27,13 @@ bool Town::canBuild(int buildingId, const std::vector<BuildingDef>& defs,
         // Check prerequisites
         for (int prereq : def.prerequisites)
             if (!hasBuilding(prereq)) return false;
+        // Block opposite path upgrade for same tier (PathA and PathB are mutually exclusive)
+        if (def.path != UpgradePath::None && def.tier > 0) {
+            for (const auto& d : dwellings) {
+                if (d.tier == def.tier && d.path != UpgradePath::None && d.path != def.path)
+                    return false;
+            }
+        }
         return true;
     }
     return false;
