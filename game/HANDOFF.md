@@ -4,85 +4,89 @@
 ---
 
 ## What this is
-HoMM3-style turn-based strategy game. C++ / SDL2 / OpenGL 3.3. Solo project. See GAME_PROJECT.md for full design document.
+HoMM3-style turn-based strategy game. C++20 / SDL2 / OpenGL 3.3 Core / ImGui 1.90.8.
+9 factions, hex-grid world map, turn-based combat, town building, campaign system.
+See GAME_PROJECT.md for full design document.
 
-## What is built (Phases 0-5)
+## What is built (all phases complete)
 
-| Phase | Files | Status |
+| System | Files | Status |
 |---|---|---|
-| 0 — Engine | CMakeLists.txt, src/main.cpp, src/core/Game.h/cpp, src/renderer/* | ✅ Complete |
-| 1 — World Map | src/world/HexGrid, HexMap, HexMapRenderer, FogOfWar, src/ai/Pathfinder, src/core/InputState | ✅ Complete |
-| 2 — Town System | src/town/*, src/data/Resources.h, src/core/TurnManager | ✅ Complete |
-| 3 — Combat | src/combat/* | ✅ Complete |
-| 4 — Hero System | src/hero/* | ✅ Complete |
-| 5 — UI | src/ui/* | ✅ Complete |
-
-## What is NOT built yet (Phases 6-10)
-
-| Phase | What |
-|---|---|
-| 6 | Save/Load — JSON map serialization, game state save/load, SQLite hideout |
-| 7 | Procedural world generator, ImGui map editor, Lua scripting |
-| 8 | Campaign state machine, alignment scoring, faction unlock branching |
-| 9 | Hideout meta-layer, SQLite persistence, 9th faction unlock |
-| 10 | SDL_mixer audio, font renderer, particle effects, balance pass |
-
-## Known issues / TODOs
-
-| Issue | Location | Notes |
-|---|---|---|
-| Text rendering is placeholder | src/ui/UIRenderer.cpp drawText() | Draws colored blocks per char — needs real font (stb_truetype or FreeType) |
-| Hero draw is stub | src/core/Game.cpp drawHero() | Position tracked, visual placeholder — needs sprite |
-| HexMapRenderer raw GL id hack | src/world/HexMapRenderer.h | m_rawWhiteId — acceptable for now, replace when tileset exists |
-| BuildingRegistry only has Holy Order | src/town/BuildingRegistry.cpp | Other 8 factions need buildings added — follow same pattern |
-| UnitDef circular include | src/town/UnitDef.h | Includes BuildingDef.h at bottom for UpgradePath — clean up |
-| Combat not wired to world map | src/core/Game.cpp | CombatEngine exists but Game doesn't trigger it on hero collision yet |
-| UI not wired to Game | src/core/Game.h | WorldMapHUD, TownScreen, CombatHUD instantiated but not in Game yet |
-| No game state machine | src/core/ | Need a GameState enum (WorldMap, Combat, Town, Campaign) to switch screens |
+| Engine / core loop | src/main.cpp, src/core/Game.h/cpp, src/renderer/* | ✅ |
+| Game state machine | src/core/GameState.h, Game_WorldMap/Combat/Town/Campaign/Editor/MainMenu.cpp | ✅ |
+| World map | src/world/HexGrid, HexMap, HexMapRenderer, FogOfWar, WorldGen | ✅ |
+| Pathfinding | src/ai/Pathfinder.cpp | ✅ |
+| Town system | src/town/BuildingRegistry, Town, BuildingDef, UnitDef | ✅ |
+| Combat | src/combat/CombatEngine, CombatGrid, CombatUnit, DamageCalc | ✅ |
+| Hero system | src/hero/Hero, HeroClass, LevelUpSystem, Artifacts, Skills, SkillRegistry | ✅ |
+| UI | src/ui/WorldMapHUD, CombatHUD, TownScreen, CampaignHUD, HideoutScreen, UIRenderer | ✅ |
+| Save / Load | src/data/SaveLoad.cpp, MapFormat.cpp | ✅ |
+| Map editor | src/editor/MapEditor.cpp, SimulatorWindow.cpp | ✅ |
+| Procedural world gen | src/world/WorldGen.cpp | ✅ |
+| Lua scripting | src/scripting/LuaEngine.cpp, TriggerSystem.cpp, scripts/*.lua | ✅ |
+| Campaign system | src/campaign/CampaignManager.cpp, AlignmentSystem.h, CampaignDef.h | ✅ |
+| Hideout meta-layer | src/meta/HideoutDB.cpp (SQLite) | ✅ |
+| Audio | src/audio/AudioManager.cpp (SDL_mixer) | ✅ |
+| Combat simulator | src/sim/Simulator.cpp, ArmyBuilder.cpp (standalone sim_test binary) | ✅ |
+| Turn manager | src/core/TurnManager.cpp — 7-day week, income, end turn | ✅ |
 
 ## Architecture overview
 
 ```
-Game (core loop)
+Game (core loop — Game.cpp)
+├── GameState enum → dispatches to Game_WorldMap / Game_Combat / Game_Town / Game_Campaign / Game_Editor / Game_MainMenu
 ├── InputState          — keyboard + mouse each frame
 ├── Camera2D            — orthographic, pan/zoom
 ├── SpriteBatch         — batched sprite rendering
-├── HexMap              — tile data, terrain, fog of war
+├── HexMap              — tile data, terrain, resource nodes, towns, heroes
 ├── HexMapRenderer      — renders hex grid via OpenGL
-├── Hero                — world map entity, movement, pathfinding
+├── Hero                — world map entity, movement, pathfinding, inventory
 ├── Pathfinder          — A* + reachable flood fill
-├── FogOfWar            — vision reveal/hide
-├── TurnManager         — 7-day week, end turn, income
-├── BuildingRegistry    — static building + unit definitions
-├── Town                — instance, build, recruit
-├── CombatEngine        — hex combat, turn order, AI, damage
-├── UIRenderer          — immediate mode colored quads
-├── WorldMapHUD         — resource bar, hero list, end turn
-├── CombatHUD           — turn order, unit info, action buttons
-└── TownScreen          — building tree, recruit panel
+├── FogOfWar            — explored (permanent) + visible (current turn)
+├── TurnManager         — 7-day week, end turn, mine income
+├── BuildingRegistry    — static building + unit defs for all 9 factions
+├── Town                — instance state, build queue, recruit
+├── CombatEngine        — hex combat, speed turn order, Wait, retaliation, AI
+├── UIRenderer          — immediate mode quads + text
+├── WorldMapHUD         — resource bar, hero list, minimap, end turn
+├── CombatHUD           — turn order strip, unit info, action buttons
+├── TownScreen          — building tree, recruit panel
+├── CampaignHUD         — campaign objectives, alignment display
+├── HideoutScreen       — meta-progression, faction unlock
+├── MapEditor           — terrain paint, place towns/resources/triggers, ProGen panel
+├── LuaEngine           — script host, trigger callbacks
+├── TriggerSystem       — map event triggers → Lua callbacks
+├── CampaignManager     — chapter progression, alignment scoring, branching
+├── HideoutDB           — SQLite persistence for meta state
+└── AudioManager        — SDL_mixer, per-state music tracks
 ```
 
-## Next task for Claude Code
-**Phase 6 — Save/Load**
-1. JSON serialization for HexMap (nlohmann/json)
-2. Game state save/load (hero pos, resources, towns, fog of war)
-3. SQLite for hideout persistent state
-4. Also wire up the GameState machine so WorldMap/Combat/Town screens actually switch
+## Resource economy
+- Gold mines: `node.amount = 250`
+- Non-gold mines: `node.amount = 2-5`
+- Income added each new week in `Game_WorldMap.cpp` after `m_turns.endTurn()`
+- Faction primary resources: HO/CW=FaithStones, TK/VK=VerdantSap, EE/CV=Mercury, BS/AM=BloodEssence, IA=Iron
+- Warehouse chain: T1(BID=3) → T2(BID=7) → T3(BID=8); each tier adds 2 Iron/wk
+- Mage Guild chain: T1(BID=5) → T2(BID=6) → T3(BID=9, 30% off) → T4(BID=10, 50% off + mana)
 
-## Build instructions
+## Key architecture rules
+- `glClear` must use `GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT`
+- `UIRenderer::endFrame()` must NOT call `m_textQueue.clear()` — `flushText()` does it
+- World-map overlay labels/icons must be clipped against `HUD_TOP=68`, `HUD_BOTTOM=sh-52`, `HUD_RIGHT=sw-185`
+- `CombatEngine::wait()` and board clicks must guard `WantCaptureMouse`
+- ImGui popups: only one `BeginPopupModal` per frame — chain with `else if`
+- Camera clamp: `limX = max(0, mapExtX - screenW/(2*zoom))` — viewport-compensated
+- Default ImGui font has no Unicode — use ASCII only in all strings
+
+## Editor (F2)
+- Terrain painting, Town/Resource/HeroStart/Trigger/Erase tools
+- ProGen panel: seed, players, map size, resource density → Generate
+- Save/Load: File menu or Ctrl+S/O → maps/*.map
+- Resource editor hardcodes Gold/amount=3 on place (type/amount not yet editable in UI)
+
+## Build
 ```bash
-mkdir build && cd build
-cmake ..
-make -j4
-./unnamed_strategy
+cmake --build build -j4
+./build/bin/unnamed_strategy
 ```
-Requires: SDL2, OpenGL. stb_image.h already in third_party/.
-
-## Key design decisions already made
-- Flat-top hex grid, axial coordinates
-- HoMM3-style movement (pool spent per terrain cost)
-- FOW = explored (permanent) + visible (current turn only)
-- 7-day week, weekly recruitment growth
-- Combat: speed-based turn order, Wait queue, retaliation, morale bonus action
-- Damage formula: HoMM3-style attack vs defense modifier
-- 9 factions, all classes defined — see GAME_PROJECT.md
+Requires: SDL2, OpenGL 3.3, SDL_mixer. Dependencies (ImGui, nlohmann/json) fetched via CMake FetchContent.
