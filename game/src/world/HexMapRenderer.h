@@ -31,6 +31,8 @@ private:
 
     GLuint   m_vao  = 0;
     GLuint   m_vbo  = 0;
+    GLuint   m_bgVao = 0;
+    GLuint   m_bgVbo = 0;
 
     static constexpr int NUM_TERRAIN    = 16;
     static constexpr int MAX_VARIANTS   = 24;

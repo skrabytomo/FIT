@@ -190,8 +190,10 @@ static const char* s_terrainBase[16] = {
 
 HexMapRenderer::~HexMapRenderer()
 {
-    if (m_vbo) glDeleteBuffers(1, &m_vbo);
-    if (m_vao) glDeleteVertexArrays(1, &m_vao);
+    if (m_vbo)    glDeleteBuffers(1, &m_vbo);
+    if (m_vao)    glDeleteVertexArrays(1, &m_vao);
+    if (m_bgVbo)  glDeleteBuffers(1, &m_bgVbo);
+    if (m_bgVao)  glDeleteVertexArrays(1, &m_bgVao);
 }
 
 bool HexMapRenderer::init(float hexSize, const std::string& basePath)
@@ -264,6 +266,17 @@ void HexMapRenderer::buildHexMesh()
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
 
     glBindVertexArray(0);
+
+    // Background quad — huge world-space coverage for the seamless water pass
+    float quad[8] = { -1.f,-1.f,  1.f,-1.f,  1.f,1.f,  -1.f,1.f };
+    glGenVertexArrays(1, &m_bgVao);
+    glBindVertexArray(m_bgVao);
+    glGenBuffers(1, &m_bgVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, m_bgVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quad), quad, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 0, nullptr);
+    glBindVertexArray(0);
 }
 
 void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
@@ -277,12 +290,28 @@ void HexMapRenderer::render(const HexMap& map, const Camera2D& camera,
     m_shader.bind();
     m_shader.setMat4("uProj", proj);
     m_shader.setFloat("uTime", m_time);
+
+    // Draw seamless animated water background covering the entire visible area
+    {
+        int wti = static_cast<int>(Terrain::Water);
+        bool hasTex = m_variantCount[wti] > 0 && m_terrainTex[wti][0].ok();
+        m_shader.setInt("uTerrain", wti);
+        m_shader.setInt("uUseTexture", hasTex ? 1 : 0);
+        if (hasTex) m_terrainTex[wti][0].bind(0);
+        m_shader.setVec4("uColor", 1.0f, 1.0f, 1.0f, 1.0f);
+        m_shader.setVec2("uCenter", 0.0f, 0.0f);
+        m_shader.setFloat("uScale", 200000.0f);
+        glBindVertexArray(m_bgVao);
+        glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    }
+
     glBindVertexArray(m_vao);
 
     for (auto& coord : map.coords()) {
         const HexTile* tile = map.getTile(coord);
         if (!tile) continue;
         bool isWater = (tile->terrain == Terrain::Water);
+        if (isWater) continue; // background pass handles all water seamlessly
         if (!fogDisabled && !tile->explored && !isWater) {
             // Render a dark fog hex so the clear color never shows through
             float cx2, cy2;
