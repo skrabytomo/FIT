@@ -1,0 +1,8 @@
+game/build/
+build/
+*.o
+*.a
+*.so
+.claude/
+__pycache__/
+*.py[cod]
